@@ -83,11 +83,22 @@
                         <button type="button" class="model-toggle-btn active" data-show="attach">Attachment surface</button>
                         <button type="button" class="model-toggle-btn active" data-show="body">Solid animal</button>
                         <button type="button" class="model-toggle-btn active" data-show="box">Bounding box</button>
-                        <button type="button" class="model-toggle-btn active" data-show="plane">Plane</button>
-                        <button type="button" class="model-toggle-btn active" data-show="point">Chosen point</button>
-                        <button type="button" class="model-toggle-btn active" data-show="normal">Normal vector</button>
-                        <button type="button" class="model-toggle-btn active" data-show="triad">Axis triad</button>
-                        <button type="button" class="model-toggle-btn" data-show="candidates">27 candidate points</button>
+                        <details class="ppl-dropdown">
+                            <summary class="model-toggle-btn active">Plane from normal <span class="ppl-dropdown-caret" aria-hidden="true">&#9662;</span></summary>
+                            <div class="ppl-dropdown-menu" role="group" aria-label="Plane from normal visibility">
+                                <label><input type="checkbox" data-show="point" aria-label="Point" checked> Point</label>
+                                <label><input type="checkbox" data-show="normal" aria-label="Normal" checked> Normal</label>
+                                <label><input type="checkbox" data-show="plane" aria-label="Plane" checked> Plane</label>
+                            </div>
+                        </details>
+                        <details class="ppl-dropdown">
+                            <summary class="model-toggle-btn active">Axis triad <span class="ppl-dropdown-caret" aria-hidden="true">&#9662;</span></summary>
+                            <div class="ppl-dropdown-menu" role="group" aria-label="Axis triad visibility">
+                                <label><input type="checkbox" data-show="triadX" aria-label="X axis" checked> X</label>
+                                <label><input type="checkbox" data-show="triadY" aria-label="Y axis" checked> Y</label>
+                                <label><input type="checkbox" data-show="triadZ" aria-label="Z axis" checked> Z</label>
+                            </div>
+                        </details>
                     </div>
 
                     <div class="sdf-app">
@@ -197,11 +208,11 @@
         plane: new THREE.Group(),
         point: new THREE.Group(),
         normal: new THREE.Group(),
-        triad: new THREE.Group(),
-        candidates: new THREE.Group(),
+        triadX: new THREE.Group(),
+        triadY: new THREE.Group(),
+        triadZ: new THREE.Group(),
     };
     Object.values(groups).forEach(g => scene.add(g));
-    groups.candidates.visible = false;
 
     let selSphere, planeMesh, planeEdge, arrow;
 
@@ -271,8 +282,9 @@
         ctx.fillText(text, 64, 34);
         const tex = new THREE.CanvasTexture(c);
         tex.colorSpace = THREE.SRGBColorSpace;
-        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
         s.scale.set(diag * 0.06, diag * 0.03, 1);
+        s.renderOrder = 7;
         return s;
     }
 
@@ -286,18 +298,9 @@
         boxLines.position.copy(center);
         groups.box.add(boxLines);
 
-        // 27 candidate points (off by default)
-        const smallGeo = new THREE.SphereGeometry(diag * 0.007, 14, 10);
-        const smallMat = new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.45 });
-        for (let iz = 0; iz < 3; iz++) for (let iy = 0; iy < 3; iy++) for (let ix = 0; ix < 3; ix++) {
-            const s = new THREE.Mesh(smallGeo, smallMat);
-            s.position.set(coordOf(0, ix), coordOf(1, iy), coordOf(2, iz));
-            groups.candidates.add(s);
-        }
-
         // chosen point
-        selSphere = new THREE.Mesh(new THREE.SphereGeometry(diag * 0.016, 24, 16), new THREE.MeshStandardMaterial({ color: GOLD, roughness: 0.5, emissive: 0x3a2a00 }));
-        selSphere.renderOrder = 3;
+        selSphere = new THREE.Mesh(new THREE.SphereGeometry(diag * 0.016, 24, 16), new THREE.MeshBasicMaterial({ color: GOLD, depthTest: false, depthWrite: false }));
+        selSphere.renderOrder = 7;
         groups.point.add(selSphere);
 
         // plane
@@ -311,21 +314,30 @@
 
         // normal arrow
         arrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), diag * 0.32, GOLD, diag * 0.08, diag * 0.045);
-        arrow.line.material.depthTest = false;
-        arrow.cone.material.depthTest = false;
-        arrow.renderOrder = 4;
+        [arrow.line, arrow.cone].forEach(part => {
+            part.material.depthTest = false;
+            part.material.depthWrite = false;
+            part.renderOrder = 6;
+        });
         groups.normal.add(arrow);
 
         // axis triad at the min corner
         const origin = box.min.clone().addScalar(-diag * 0.06);
         const len = Math.max(size.x, size.y, size.z) * 0.28;
         const colors = ['#d94040', '#2e9e5b', '#2f6fd6'];
+        const triadGroups = [groups.triadX, groups.triadY, groups.triadZ];
         [[1, 0, 0], [0, 1, 0], [0, 0, 1]].forEach((d, i) => {
             const dir = new THREE.Vector3(...d);
-            groups.triad.add(new THREE.ArrowHelper(dir, origin, len, colors[i], len * 0.18, len * 0.09));
+            const axisArrow = new THREE.ArrowHelper(dir, origin, len, colors[i], len * 0.18, len * 0.09);
+            [axisArrow.line, axisArrow.cone].forEach(part => {
+                part.material.depthTest = false;
+                part.material.depthWrite = false;
+                part.renderOrder = 6;
+            });
+            triadGroups[i].add(axisArrow);
             const lbl = makeLabel(AXES[i], colors[i]);
             lbl.position.copy(origin).addScaledVector(dir, len * 1.18);
-            groups.triad.add(lbl);
+            triadGroups[i].add(lbl);
         });
     }
 
@@ -397,11 +409,24 @@
         });
         inp.addEventListener('blur', () => { inp.value = state.n[a]; });
     }
-    document.querySelectorAll('#ppl-toggles .model-toggle-btn').forEach(btn => {
+    document.querySelectorAll('#ppl-toggles > .model-toggle-btn[data-show]').forEach(btn => {
         btn.addEventListener('click', () => {
             const g = groups[btn.dataset.show];
             g.visible = !g.visible;
             btn.classList.toggle('active', g.visible);
+        });
+    });
+    document.querySelectorAll('#ppl-toggles .ppl-dropdown input[data-show]').forEach(input => {
+        input.addEventListener('change', () => {
+            groups[input.dataset.show].visible = input.checked;
+            const dropdown = input.closest('.ppl-dropdown');
+            dropdown.querySelector('summary').classList.toggle('active',
+                Array.from(dropdown.querySelectorAll('input[data-show]')).some(option => option.checked));
+        });
+    });
+    document.addEventListener('click', event => {
+        document.querySelectorAll('#ppl-toggles .ppl-dropdown[open]').forEach(dropdown => {
+            if (!dropdown.contains(event.target)) dropdown.removeAttribute('open');
         });
     });
     </script>
