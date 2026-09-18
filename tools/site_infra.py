@@ -10,7 +10,7 @@ import re
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-BASE_URL = "https://areebairizvi.github.io/give-a-paw/"
+BASE_URL = "https://giveapaw.github.io/"
 
 # ---- canonical sidebar -------------------------------------------------
 NAV_GROUPS = [
