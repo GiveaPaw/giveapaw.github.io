@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface Plane Locator - Give a Paw</title>
+    <!-- meta:start -->
+    <meta name="description" content="Place a construction plane on Billie and Ollie's socket interfaces by choosing Min, Centroid or Max on each bounding-box axis and setting the plane normal.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Give a Paw">
+    <meta property="og:title" content="Interface Plane Locator">
+    <meta property="og:description" content="Place a construction plane on Billie and Ollie's socket interfaces by choosing Min, Centroid or Max on each bounding-box axis and setting the plane normal.">
+    <meta property="og:image" content="https://giveapaw.github.io/social-card.jpg">
+    <meta property="og:url" content="https://giveapaw.github.io/interface-plane-locator.html">
+    <meta name="twitter:card" content="summary_large_image">
+    <!-- meta:end -->
+    <link rel="stylesheet" href="style.css?v=28">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body class="wide">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="index.html" class="sidebar-logo-link">
+                <img src="logo.jpg" alt="Give a Paw Logo" class="sidebar-logo">
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <p class="sidebar-nav-title">Our Patients</p>
+            <ul>
+                <li><a href="max-case-study.html">Max</a></li>
+                <li><a href="billie-case-study.html">Billie</a></li>
+                <li><a href="yana-case-study.html">Yana</a></li>
+                <li><a href="ollie-case-study.html">Ollie</a></li>
+                <li><a href="kiki-case-study.html">Kiki</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Earlier Projects</p>
+            <ul>
+                <li><a href="full-limb.html">Full Limb</a></li>
+                <li><a href="wheel-chair.html">Wheel Chair</a></li>
+            </ul>
+            <p class="sidebar-nav-title">How We Build</p>
+            <ul>
+                <li><a href="3d-scanning.html">3D Scanning</a></li>
+                <li><a href="preparing-ntop-input.html">Preparing nTop Input</a></li>
+                <li><a href="ntop-socket-creation.html">nTop Socket Creation</a></li>
+                <li><a href="implicit-viewer.html">Implicit Field Viewer</a></li>
+                <li><a href="pelvic-plane-locator.html">Pelvic Plane Locator</a></li>
+                <li class="active"><a href="interface-plane-locator.html">Interface Plane Locator</a></li>
+                <li><a href="materials.html">Materials</a></li>
+                <li><a href="3d-printing.html">3D Printing</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Learn &amp; Try</p>
+            <ul>
+                <li><a href="anatomy-quiz.html">Canine Anatomy Quiz</a></li>
+                <li><a href="human-anatomy-quiz.html">Human Anatomy Quiz</a></li>
+                <li><a href="downloads.html">Downloads</a></li>
+            </ul>
+            <p class="sidebar-nav-title">About</p>
+            <ul>
+                <li><a href="meet-the-team.html">Meet the Team</a></li>
+                <li><a href="credits.html">Credits</a></li>
+            </ul>
+        </nav>
+    </aside>
+    <div class="page">
+        <div class="content">
+            <article>
+                <section id="interface-plane-locator">
+                    <h1>Interface Plane Locator<a class="headerlink" href="#interface-plane-locator" title="Permalink to this heading">&para;</a></h1>
+                    <p>Choose a socket interface, select a Min, Centroid or Max coordinate on each bounding-box axis, then set the plane normal.</p>
+                    <div class="overlay-toggles ppl-toggles" id="ppl-toggles" role="group" aria-label="Show in viewer">
+                        <button type="button" class="model-toggle-btn active" data-show="model">Socket interface</button>
+                        <button type="button" class="model-toggle-btn active" data-show="box">Bounding box</button>
+                        <button type="button" class="model-toggle-btn active" data-show="planeFromNormal">Plane from normal</button>
+                        <button type="button" class="model-toggle-btn active" data-show="triad">Axis triad</button>
+                    </div>
+
+                    <div class="sdf-app">
+                        <div class="sdf-stage ppl-stage" id="ppl-stage">
+                            <canvas id="ppl-canvas" aria-label="3D view of the socket interface, its bounding box, and the chosen plane"></canvas>
+                            <div class="ppl-status" id="ppl-status">Loading models&hellip;</div>
+                        </div>
+                        <div class="sdf-panel">
+                            <p class="sdf-group-title">Socket interface</p>
+                            <div class="quiz-tabs ppl-models" id="ppl-models" role="group" aria-label="Socket interface">
+                                <button type="button" class="quiz-tab active" data-model-key="billie">Billie</button>
+                                <button type="button" class="quiz-tab" data-model-key="ollie">Ollie</button>
+                            </div>
+                            <p class="sdf-group-title">Point on bounding box</p>
+                            <div class="ppl-axis" data-axis="0">
+                                <span class="ppl-axis-label">X</span>
+                                <input type="range" class="ppl-axis-slider" id="ppl-slider-0" min="0" max="2" step="1" value="0" aria-label="X choice: Min, Centroid or Max">
+                                <div class="ppl-ticks" role="group" aria-label="X choice">
+                                    <button type="button" data-pick="0">Min</button>
+                                    <button type="button" data-pick="1">Centroid</button>
+                                    <button type="button" data-pick="2">Max</button>
+                                </div>
+                            </div>
+                            <div class="ppl-axis" data-axis="1">
+                                <span class="ppl-axis-label">Y</span>
+                                <input type="range" class="ppl-axis-slider" id="ppl-slider-1" min="0" max="2" step="1" value="1" aria-label="Y choice: Min, Centroid or Max">
+                                <div class="ppl-ticks" role="group" aria-label="Y choice">
+                                    <button type="button" data-pick="0">Min</button>
+                                    <button type="button" data-pick="1">Centroid</button>
+                                    <button type="button" data-pick="2">Max</button>
+                                </div>
+                            </div>
+                            <div class="ppl-axis" data-axis="2">
+                                <span class="ppl-axis-label">Z</span>
+                                <input type="range" class="ppl-axis-slider" id="ppl-slider-2" min="0" max="2" step="1" value="1" aria-label="Z choice: Min, Centroid or Max">
+                                <div class="ppl-ticks" role="group" aria-label="Z choice">
+                                    <button type="button" data-pick="0">Min</button>
+                                    <button type="button" data-pick="1">Centroid</button>
+                                    <button type="button" data-pick="2">Max</button>
+                                </div>
+                            </div>
+
+                            <p class="sdf-group-title">Normal</p>
+                            <div class="ppl-vector" role="group" aria-label="Normal vector">
+                                <span class="ppl-vector-label">Normal:</span>
+                                <input type="number" step="any" id="ppl-n-0" value="1" aria-label="Normal X component">
+                                <input type="number" step="any" id="ppl-n-1" value="0" aria-label="Normal Y component">
+                                <input type="number" step="any" id="ppl-n-2" value="0" aria-label="Normal Z component">
+                            </div>
+
+                        </div>
+                    </div>
+                </section>
+            </article>
+            <footer>
+                <div class="footer-credits">
+                    <p>&copy; 2026 Give a Paw &middot; Bioprinting@Berkeley</p>
+                    <p>Animal prosthetics documentation and open design records.</p>
+                    <p class="footer-attrib">Canine reference meshes by kenchoo and Gert-Jan van den Boom, used under Creative Commons. <a href="credits.html">Full credits and licenses</a>.</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+    <button class="mobile-toggle" id="mobile-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    <script src="script.js?v=57"></script>
+    <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const NAVY = 0x002676, GOLD = 0xFDB515;
+    const AXES = ['X', 'Y', 'Z'];
+    const AXIS_KEYS = ['x', 'y', 'z'];
+
+    const stage = document.getElementById('ppl-stage');
+    const canvas = document.getElementById('ppl-canvas');
+    const statusEl = document.getElementById('ppl-status');
+    const MODELS = {
+        billie: { label: 'Billie', file: 'billie-mechanical-interface.glb' },
+        ollie: { label: 'Ollie', file: 'ollie-mechanical-interface.glb' },
+    };
+
+    // ---- state -----------------------------------------------------------
+    const state = { pick: [0, 1, 1], n: [1, 0, 0] };
+    let box = null, diag = 1;
+
+    // ---- renderer / scene ------------------------------------------------
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(36, 1, 1, 10000);
+    camera.up.set(0, 0, 1);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a8, 1.0));
+    const key = new THREE.DirectionalLight(0xffffff, 1.6);
+    key.position.set(-1, -1.3, 1.5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+    fill.position.set(1, 0.6, -0.6);
+    scene.add(fill);
+
+    // one group per toggleable element
+    const groups = {
+        model: new THREE.Group(),
+        box: new THREE.Group(),
+        planeFromNormal: new THREE.Group(),
+        triad: new THREE.Group(),
+    };
+    Object.values(groups).forEach(g => scene.add(g));
+
+    let selSphere, planeMesh, planeEdge, arrow;
+
+    function resize() {
+        const w = stage.clientWidth, h = stage.clientHeight;
+        if (!w || !h) return;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(stage);
+    resize();
+
+    renderer.setAnimationLoop(() => {
+        controls.update();
+        renderer.render(scene, camera);
+    });
+
+    // ---- loading ---------------------------------------------------------
+    const loader = new GLTFLoader();
+    const loads = new Map();
+    let loadToken = 0;
+
+    function firstMesh(gltf) {
+        let m = null;
+        gltf.scene.traverse(o => { if (!m && o.isMesh) m = o; });
+        return m;
+    }
+
+    const modelMat = new THREE.MeshStandardMaterial({
+        color: 0xb9bec6, roughness: 0.82, metalness: 0.0,
+        side: THREE.DoubleSide,
+    });
+
+    function loadGLB(file) {
+        if (!loads.has(file)) {
+            loads.set(file, new Promise((resolve, reject) =>
+                loader.load(file, resolve, undefined, reject)));
+        }
+        return loads.get(file);
+    }
+
+    function clearOverlays() {
+        ['box', 'planeFromNormal', 'triad'].forEach(name =>
+            groups[name].clear());
+        selSphere = planeMesh = planeEdge = arrow = null;
+    }
+
+    async function selectModel(key) {
+        const cfg = MODELS[key];
+        if (!cfg) return;
+        const token = ++loadToken;
+        statusEl.textContent = 'Loading ' + cfg.label + '\u2026';
+        try {
+            const gltf = await loadGLB(cfg.file);
+            if (token !== loadToken) return;
+            const source = firstMesh(gltf);
+            if (!source) throw new Error('the file contains no mesh');
+            gltf.scene.updateMatrixWorld(true);
+            const geometry = source.geometry.clone();
+            geometry.applyMatrix4(source.matrixWorld);
+            geometry.computeVertexNormals();
+            groups.model.clear();
+            clearOverlays();
+            const mesh = new THREE.Mesh(geometry, modelMat);
+            groups.model.add(mesh);
+            box = new THREE.Box3().setFromObject(mesh);
+            diag = box.getSize(new THREE.Vector3()).length();
+            buildOverlays();
+            frameView();
+            statusEl.textContent = '';
+            update();
+        } catch (err) {
+            statusEl.textContent = 'Could not load ' + cfg.label + ' (' +
+                (err && err.message ? err.message : err) + ').';
+        }
+    }
+
+    // ---- overlays --------------------------------------------------------
+    function makeLabel(text, color) {
+        const c = document.createElement('canvas');
+        c.width = 128; c.height = 64;
+        const ctx = c.getContext('2d');
+        ctx.font = 'bold 44px Inter, Arial, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.fillText(text, 64, 34);
+        const tex = new THREE.CanvasTexture(c);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+        s.scale.set(diag * 0.06, diag * 0.03, 1);
+        return s;
+    }
+
+    function buildOverlays() {
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        // bounding box edges
+        const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(size.x, size.y, size.z));
+        const boxLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: NAVY, transparent: true, opacity: 0.7 }));
+        boxLines.position.copy(center);
+        groups.box.add(boxLines);
+
+        // chosen point
+        selSphere = new THREE.Mesh(new THREE.SphereGeometry(diag * 0.016, 24, 16), new THREE.MeshStandardMaterial({ color: GOLD, roughness: 0.5, emissive: 0x3a2a00 }));
+        selSphere.renderOrder = 3;
+        groups.planeFromNormal.add(selSphere);
+
+        // plane
+        const side = Math.max(size.x, size.y, size.z) * 1.15;
+        planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(side, side), new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+        planeMesh.renderOrder = 2;
+        groups.planeFromNormal.add(planeMesh);
+        planeEdge = new THREE.LineSegments(new THREE.EdgesGeometry(planeMesh.geometry), new THREE.LineBasicMaterial({ color: NAVY }));
+        planeEdge.renderOrder = 2;
+        groups.planeFromNormal.add(planeEdge);
+
+        // normal arrow
+        arrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), diag * 0.32, GOLD, diag * 0.08, diag * 0.045);
+        arrow.line.material.depthTest = false;
+        arrow.cone.material.depthTest = false;
+        arrow.renderOrder = 4;
+        groups.planeFromNormal.add(arrow);
+
+        // axis triad at the min corner
+        const origin = box.min.clone().addScalar(-diag * 0.06);
+        const len = Math.max(size.x, size.y, size.z) * 0.28;
+        const colors = ['#d94040', '#2e9e5b', '#2f6fd6'];
+        [[1, 0, 0], [0, 1, 0], [0, 0, 1]].forEach((d, i) => {
+            const dir = new THREE.Vector3(...d);
+            groups.triad.add(new THREE.ArrowHelper(dir, origin, len, colors[i], len * 0.18, len * 0.09));
+            const lbl = makeLabel(AXES[i], colors[i]);
+            lbl.position.copy(origin).addScaledVector(dir, len * 1.18);
+            groups.triad.add(lbl);
+        });
+    }
+
+    function frameView() {
+        const center = box.getCenter(new THREE.Vector3());
+        const r = diag / 2;
+        controls.target.copy(center);
+        camera.position.copy(center).add(new THREE.Vector3(-1.6, -1.25, 0.8).normalize().multiplyScalar(r * 3.6));
+        camera.near = r / 50;
+        camera.far = r * 60;
+        camera.updateProjectionMatrix();
+        controls.update();
+    }
+
+    // ---- maths -----------------------------------------------------------
+    function coordOf(axis, pick) {
+        const k = AXIS_KEYS[axis];
+        if (pick === 0) return box.min[k];
+        if (pick === 2) return box.max[k];
+        return (box.min[k] + box.max[k]) / 2;
+    }
+
+    // ---- update ----------------------------------------------------------
+    function update() {
+        if (!box) return;
+        const p = new THREE.Vector3(coordOf(0, state.pick[0]), coordOf(1, state.pick[1]), coordOf(2, state.pick[2]));
+        const nRaw = new THREE.Vector3(...state.n);
+        const len = nRaw.length();
+        const valid = len > 1e-6;
+        const n = valid ? nRaw.clone().divideScalar(len) : new THREE.Vector3(1, 0, 0);
+
+        selSphere.position.copy(p);
+        planeMesh.visible = planeEdge.visible = arrow.visible = valid;
+        planeMesh.position.copy(p);
+        planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+        planeEdge.position.copy(p);
+        planeEdge.quaternion.copy(planeMesh.quaternion);
+        arrow.position.copy(p);
+        arrow.setDirection(n);
+
+        for (let a = 0; a < 3; a++) {
+            document.getElementById('ppl-slider-' + a).value = state.pick[a];
+            document.querySelectorAll('.ppl-axis[data-axis="' + a + '"] .ppl-ticks button')
+                .forEach(b => b.classList.toggle('active', +b.dataset.pick === state.pick[a]));
+            const inp = document.getElementById('ppl-n-' + a);
+            // do not overwrite a box the student is typing in
+            if (document.activeElement !== inp) inp.value = state.n[a];
+        }
+    }
+
+    // ---- controls --------------------------------------------------------
+    document.querySelectorAll('#ppl-models .quiz-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#ppl-models .quiz-tab').forEach(other =>
+                other.classList.toggle('active', other === btn));
+            selectModel(btn.dataset.modelKey);
+        });
+    });
+    document.querySelectorAll('.ppl-axis').forEach(row => {
+        const a = +row.dataset.axis;
+        document.getElementById('ppl-slider-' + a).addEventListener('input', e => {
+            state.pick[a] = +e.target.value;
+            update();
+        });
+        row.querySelectorAll('.ppl-ticks button').forEach(b => b.addEventListener('click', () => {
+            state.pick[a] = +b.dataset.pick;
+            update();
+        }));
+    });
+    for (let a = 0; a < 3; a++) {
+        const inp = document.getElementById('ppl-n-' + a);
+        inp.addEventListener('input', () => {
+            const v = parseFloat(inp.value);
+            state.n[a] = Number.isFinite(v) ? v : 0;
+            update();
+        });
+        inp.addEventListener('blur', () => { inp.value = state.n[a]; });
+    }
+    document.querySelectorAll('#ppl-toggles .model-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const g = groups[btn.dataset.show];
+            g.visible = !g.visible;
+            btn.classList.toggle('active', g.visible);
+        });
+    });
+    selectModel('billie');
+    </script>
+</body>
+</html>

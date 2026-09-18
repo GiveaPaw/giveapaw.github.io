@@ -30,6 +30,8 @@ NAV_GROUPS = [
         ("preparing-ntop-input.html", "Preparing nTop Input"),
         ("ntop-socket-creation.html", "nTop Socket Creation"),
         ("implicit-viewer.html", "Implicit Field Viewer"),
+        ("pelvic-plane-locator.html", "Pelvic Plane Locator"),
+        ("interface-plane-locator.html", "Interface Plane Locator"),
         ("materials.html", "Materials"),
         ("3d-printing.html", "3D Printing"),
     ]),
@@ -106,6 +108,12 @@ META = {
     "implicit-viewer.html": (
         "Implicit Field Viewer",
         "Render nTop socket designs as signed distance fields in your browser: live wall offset, section cuts, a distance-field view, and in-shader lattices. No pre-baked mesh sweeps."),
+    "pelvic-plane-locator.html": (
+        "Pelvic Plane Locator",
+        "Interactive 3D explainer for the nTop Pelvic Plane Locator block: pick Min, Centroid or Max on each axis of the attachment surface bounding box, set the normal, and watch the plane move on a real scan."),
+    "interface-plane-locator.html": (
+        "Interface Plane Locator",
+        "Place a construction plane on Billie and Ollie's socket interfaces by choosing Min, Centroid or Max on each bounding-box axis and setting the plane normal."),
     "materials.html": (
         "Materials",
         "Material selection for animal prosthetics: TPU, PETG, aluminum, and foam linings, and where each belongs in the device."),
