@@ -1,0 +1,26 @@
+{
+  "Capsule": {
+    "source": "Capsule.3mf",
+    "sourceUnits": "millimeter",
+    "sourceCentroid": [
+      0.0010845900337126612,
+      0.000207976724375284,
+      0.0013229198991338478
+    ],
+    "outwardAxis": "+Z",
+    "units": "meters",
+    "faces": 3074
+  },
+  "AttachBdry": {
+    "source": "AttachBdry.3mf",
+    "sourceUnits": "millimeter",
+    "sourceCentroid": [
+      -0.000093,
+      0.000038,
+      2.749996
+    ],
+    "outwardAxis": "+Z",
+    "units": "meters",
+    "faces": 35558
+  }
+}

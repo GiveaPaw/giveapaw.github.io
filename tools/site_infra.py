@@ -28,6 +28,7 @@ NAV_GROUPS = [
     ("How We Build", [
         ("3d-scanning.html", "3D Scanning"),
         ("preparing-ntop-input.html", "Preparing nTop Input"),
+        ("socket-walkthrough.html", "Socket Walkthrough"),
         ("ntop-socket-creation.html", "nTop Socket Creation"),
         ("implicit-viewer.html", "Implicit Field Viewer"),
         ("pelvic-plane-locator.html", "Pelvic Plane Locator"),
@@ -105,6 +106,9 @@ META = {
     "ntop-socket-creation.html": (
         "nTop Socket Creation",
         "Interactive nTop socket design: 40+ live parameters across lattice, interface, attachment, and paw blocks, each driving a real 3D model in your browser."),
+    "socket-walkthrough.html": (
+        "Socket Workflow Walkthrough",
+        "A guided, interactive walkthrough of the Give a Paw nTop socket workflow, from importing source meshes to locating the pelvic plane."),
     "implicit-viewer.html": (
         "Implicit Field Viewer",
         "Render nTop socket designs as signed distance fields in your browser: live wall offset, section cuts, a distance-field view, and in-shader lattices. No pre-baked mesh sweeps."),

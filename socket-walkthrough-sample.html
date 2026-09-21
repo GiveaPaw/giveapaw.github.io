@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket Workflow Model Sample - Give a Paw</title>
+    <!-- meta:start -->
+    <meta name="description" content="A guided, interactive walkthrough of the Give a Paw nTop socket workflow, from source meshes through pelvic and mechanical-interface placement.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Give a Paw">
+    <meta property="og:title" content="Socket Workflow Walkthrough">
+    <meta property="og:description" content="A guided, interactive walkthrough of the Give a Paw nTop socket workflow, from source meshes through pelvic and mechanical-interface placement.">
+    <meta property="og:image" content="https://giveapaw.github.io/social-card.jpg">
+    <meta property="og:url" content="https://giveapaw.github.io/socket-walkthrough.html">
+    <meta name="twitter:card" content="summary_large_image">
+    <!-- meta:end -->
+    <link rel="stylesheet" href="style.css?v=37">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=3">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body class="wide workflow-body">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="index.html" class="sidebar-logo-link">
+                <img src="logo.jpg" alt="Give a Paw Logo" class="sidebar-logo">
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <p class="sidebar-nav-title">Our Patients</p>
+            <ul>
+                <li><a href="max-case-study.html">Max</a></li>
+                <li><a href="billie-case-study.html">Billie</a></li>
+                <li><a href="yana-case-study.html">Yana</a></li>
+                <li><a href="ollie-case-study.html">Ollie</a></li>
+                <li><a href="kiki-case-study.html">Kiki</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Earlier Projects</p>
+            <ul>
+                <li><a href="full-limb.html">Full Limb</a></li>
+                <li><a href="wheel-chair.html">Wheel Chair</a></li>
+            </ul>
+            <p class="sidebar-nav-title">How We Build</p>
+            <ul>
+                <li><a href="3d-scanning.html">3D Scanning</a></li>
+                <li><a href="preparing-ntop-input.html">Preparing nTop Input</a></li>
+                <li class="active"><a href="socket-walkthrough.html">Socket Walkthrough</a></li>
+                <li><a href="ntop-socket-creation.html">nTop Socket Creation</a></li>
+                <li><a href="implicit-viewer.html">Implicit Field Viewer</a></li>
+                <li><a href="pelvic-plane-locator.html">Pelvic Plane Locator</a></li>
+                <li><a href="interface-plane-locator.html">Interface Plane Locator</a></li>
+                <li><a href="materials.html">Materials</a></li>
+                <li><a href="3d-printing.html">3D Printing</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Learn &amp; Try</p>
+            <ul>
+                <li><a href="anatomy-quiz.html">Canine Anatomy Quiz</a></li>
+                <li><a href="human-anatomy-quiz.html">Human Anatomy Quiz</a></li>
+                <li><a href="downloads.html">Downloads</a></li>
+            </ul>
+            <p class="sidebar-nav-title">About</p>
+            <ul>
+                <li><a href="meet-the-team.html">Meet the Team</a></li>
+                <li><a href="credits.html">Credits</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="workflow-page">
+        <div class="workflow-app" id="workflow-app">
+            <section class="workflow-rail" aria-label="Socket workflow steps">
+                <header class="workflow-header">
+                    <div>
+                        <a class="workflow-home" href="index.html">Give a Paw</a>
+                        <h1>Socket workflow <span class="sample-label">Local sample</span></h1>
+                    </div>
+                    <div class="workflow-progress" aria-label="Four walkthrough steps">
+                        <button type="button" class="workflow-progress-step active" data-go-step="1" aria-label="Go to step 1">1</button>
+                        <span aria-hidden="true"></span>
+                        <button type="button" class="workflow-progress-step" data-go-step="2a" aria-label="Go to step 2">2</button>
+                        <span aria-hidden="true"></span>
+                        <button type="button" class="workflow-progress-step" data-go-step="3a" aria-label="Go to step 3">3</button>
+                        <span aria-hidden="true"></span>
+                        <button type="button" class="workflow-progress-step" data-go-step="4" aria-label="Go to step 4">4</button>
+                    </div>
+                </header>
+
+                <div class="workflow-scroll" id="workflow-scroll">
+                    <section class="workflow-step active" id="workflow-step-1" data-step="1">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 1</span>
+                            <div>
+                                <h2>Import source meshes</h2>
+                            </div>
+                        </div>
+
+                        <div class="workflow-block workflow-import-block">
+                            <div class="workflow-block-title">
+                                <i data-lucide="list-tree" aria-hidden="true"></i>
+                                <strong>Imports</strong>
+                                <span>CB - Import Animal &amp; Interface</span>
+                                <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
+                            </div>
+
+                            <details class="workflow-node" data-model="solidAnimal" open>
+                                <summary>
+                                    <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
+                                    <i class="workflow-node-icon" data-lucide="globe-2" aria-hidden="true"></i>
+                                    <span class="workflow-node-name">Solid Animal Mesh</span>
+                                    <span class="workflow-node-type">Import Mesh</span>
+                                    <button class="workflow-visibility-toggle active" type="button" data-toggle-model="solidAnimal" aria-label="Hide solid animal mesh" title="Show or hide solid animal mesh"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                                </summary>
+                                <div class="workflow-node-body">
+                                    <div class="workflow-field workflow-path-field">
+                                        <i data-lucide="folder-open" aria-hidden="true"></i>
+                                        <span>Path</span>
+                                        <button class="model-picker-trigger" type="button" data-model-picker="solidAnimal" aria-expanded="false">
+                                            <span data-path-label="solidAnimal">chihuahua-original.obj</span>
+                                            <i data-lucide="chevron-down" aria-hidden="true"></i>
+                                        </button>
+                                        <div class="model-picker-panel" data-picker-panel="solidAnimal" hidden>
+                                            <div class="model-picker-heading">
+                                                <span>Animal</span>
+                                                <strong data-solid-model-name>Chihuahua original</strong>
+                                            </div>
+                                            <div class="model-breed-tabs" role="group" aria-label="Solid animal breed">
+                                                <button type="button" class="active" data-model-breed="chihuahua">Chihuahua</button>
+                                                <button type="button" data-model-breed="greyhound">Greyhound</button>
+                                                <button type="button" data-model-breed="german-shepherd">German Shepherd</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="workflow-field">
+                                        <i data-lucide="ruler" aria-hidden="true"></i>
+                                        <span>Units</span>
+                                        <select class="workflow-unit-select" data-import-unit="solidAnimal" aria-label="Solid animal mesh units">
+                                            <option value="m" selected>m</option><option value="cm">cm</option><option value="mm">mm</option><option value="in">in</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <details class="workflow-node" data-model="attachment">
+                                <summary>
+                                    <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
+                                    <i class="workflow-node-icon" data-lucide="globe-2" aria-hidden="true"></i>
+                                    <span class="workflow-node-name">Attachment Animal Mesh</span>
+                                    <span class="workflow-node-type">Import Mesh</span>
+                                    <button class="workflow-visibility-toggle active" type="button" data-toggle-model="attachment" aria-label="Hide attachment animal mesh" title="Show or hide attachment animal mesh"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                                </summary>
+                                <div class="workflow-node-body">
+                                    <div class="workflow-field workflow-path-field">
+                                        <i data-lucide="folder-open" aria-hidden="true"></i>
+                                        <span>Path</span>
+                                        <button class="model-picker-trigger" type="button" data-model-picker="attachment" aria-expanded="false">
+                                            <span data-path-label="attachment">chihuahua-farback-1.stl</span>
+                                            <i data-lucide="chevron-down" aria-hidden="true"></i>
+                                        </button>
+                                        <div class="model-picker-panel attachment-picker-panel" data-picker-panel="attachment" hidden>
+                                            <div class="model-picker-heading">
+                                                <span>Animal</span>
+                                                <strong data-attachment-model-name>Chihuahua · Far back · 1</strong>
+                                            </div>
+                                            <div class="model-breed-tabs" role="group" aria-label="Attachment animal breed">
+                                                <button type="button" class="active" data-model-breed="chihuahua">Chihuahua</button>
+                                                <button type="button" data-model-breed="greyhound">Greyhound</button>
+                                                <button type="button" data-model-breed="german-shepherd">German Shepherd</button>
+                                            </div>
+                                            <div class="model-picker-group">
+                                                <span>Placement</span>
+                                                <div class="model-category-tabs" role="group" aria-label="Attachment placement">
+                                                    <button type="button" class="active" data-attachment-category="farback">Far back</button>
+                                                    <button type="button" data-attachment-category="forward">Forward</button>
+                                                    <button type="button" data-attachment-category="leghole">Leg hole</button>
+                                                    <button type="button" data-attachment-category="toolow">Too low</button>
+                                                </div>
+                                            </div>
+                                            <div class="model-picker-group model-variation-row">
+                                                <span>Variation</span>
+                                                <div role="group" aria-label="Attachment variation">
+                                                    <button type="button" class="active" data-attachment-variation="1">1</button>
+                                                    <button type="button" data-attachment-variation="2">2</button>
+                                                    <button type="button" data-attachment-variation="3">3</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="workflow-field">
+                                        <i data-lucide="ruler" aria-hidden="true"></i>
+                                        <span>Units</span>
+                                        <select class="workflow-unit-select" data-import-unit="attachment" aria-label="Attachment animal mesh units">
+                                            <option value="m" selected>m</option><option value="cm">cm</option><option value="mm">mm</option><option value="in">in</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <details class="workflow-node" data-model="mechanical">
+                                <summary>
+                                    <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
+                                    <i class="workflow-node-icon" data-lucide="globe-2" aria-hidden="true"></i>
+                                    <span class="workflow-node-name">Mechanical Interface</span>
+                                    <span class="workflow-node-type">Import Mesh</span>
+                                    <button class="workflow-visibility-toggle active" type="button" data-toggle-model="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                                </summary>
+                                <div class="workflow-node-body">
+                                    <div class="workflow-field">
+                                        <i data-lucide="folder-open" aria-hidden="true"></i>
+                                        <span>Path</span>
+                                        <output title="billie-mechanical-interface.glb">billie-mechanical-interface.glb</output>
+                                    </div>
+                                    <div class="workflow-field">
+                                        <i data-lucide="ruler" aria-hidden="true"></i>
+                                        <span>Units</span>
+                                        <select class="workflow-unit-select" data-import-unit="mechanical" aria-label="Mechanical interface units">
+                                            <option value="m">m</option><option value="cm">cm</option><option value="mm" selected>mm</option><option value="in">in</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <details class="workflow-node" data-model="solidInterface">
+                                <summary>
+                                    <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
+                                    <i class="workflow-node-icon" data-lucide="globe-2" aria-hidden="true"></i>
+                                    <span class="workflow-node-name">Solid Interface</span>
+                                    <span class="workflow-node-type">Import Mesh</span>
+                                    <button class="workflow-visibility-toggle active" type="button" data-toggle-model="solidInterface" aria-label="Hide solid interface" title="Show or hide solid interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                                </summary>
+                                <div class="workflow-node-body">
+                                    <div class="workflow-field">
+                                        <i data-lucide="folder-open" aria-hidden="true"></i>
+                                        <span>Path</span>
+                                        <output title="billie-solid-interface.stl">billie-solid-interface.stl</output>
+                                    </div>
+                                    <div class="workflow-field">
+                                        <i data-lucide="ruler" aria-hidden="true"></i>
+                                        <span>Units</span>
+                                        <select class="workflow-unit-select" data-import-unit="solidInterface" aria-label="Solid interface units">
+                                            <option value="m">m</option><option value="cm">cm</option><option value="mm" selected>mm</option><option value="in">in</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+
+                        <div class="sample-result-card">
+                            <span class="sample-result-icon"><i data-lucide="badge-check" aria-hidden="true"></i></span>
+                            <span><strong>Chihuahua far back 1</strong><small>nTop sample complete</small></span>
+                            <button type="button" id="preview-generated-sample">Preview result</button>
+                        </div>
+
+                        <div class="workflow-step-actions">
+                            <button type="button" class="workflow-next" data-go-step="2a">Locate pelvic plane <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                        </div>
+                    </section>
+
+                    <section class="workflow-step" id="workflow-step-2a" data-step="2a">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 2a</span>
+                            <div>
+                                <h2>Locate the pelvic plane</h2>
+                            </div>
+                        </div>
+
+                        <div class="workflow-block workflow-plane-block">
+                            <div class="workflow-block-title">
+                                <i data-lucide="panel-top" aria-hidden="true"></i>
+                                <strong>Pelvic Plane</strong>
+                                <span>CB - Bounding Box Point &amp; Plane</span>
+                                <button class="workflow-visibility-toggle active" type="button" id="pelvic-plane-visibility" aria-label="Hide pelvic plane guides" title="Show or hide point, normal and plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                            </div>
+
+                            <div class="workflow-plane-fields">
+                                <div class="workflow-plane-source">
+                                    <span class="workflow-implicit-icon" aria-hidden="true">
+                                        <i class="workflow-implicit-waves" data-lucide="rss"></i>
+                                        <i class="workflow-implicit-cube" data-lucide="box"></i>
+                                    </span>
+                                    <span>Animal Surface</span>
+                                    <output>Imports / Attachment Animal Mesh</output>
+                                </div>
+
+                                <label class="workflow-select-row">
+                                    <span>X</span>
+                                    <select data-axis="0" aria-label="X bounding box position">
+                                        <option value="0">Min</option>
+                                        <option value="1" selected>Centroid</option>
+                                        <option value="2">Max</option>
+                                    </select>
+                                </label>
+                                <label class="workflow-select-row">
+                                    <span>Y</span>
+                                    <select data-axis="1" aria-label="Y bounding box position">
+                                        <option value="0">Min</option>
+                                        <option value="1">Centroid</option>
+                                        <option value="2" selected>Max</option>
+                                    </select>
+                                </label>
+                                <label class="workflow-select-row">
+                                    <span>Z</span>
+                                    <select data-axis="2" aria-label="Z bounding box position">
+                                        <option value="0">Min</option>
+                                        <option value="1" selected>Centroid</option>
+                                        <option value="2">Max</option>
+                                    </select>
+                                </label>
+
+                                <div class="workflow-normal-row">
+                                    <span><i data-lucide="move-up-right" aria-hidden="true"></i> Normal</span>
+                                    <label><span class="sr-only">Normal X</span><input type="number" value="0" step="any" data-normal="0" aria-label="Normal X fixed at 0" disabled></label>
+                                    <label><span class="sr-only">Normal Y</span><input type="number" value="-1" step="any" data-normal="1" aria-label="Normal Y fixed at -1" disabled></label>
+                                    <label><span class="sr-only">Normal Z</span><input type="number" value="0" step="any" data-normal="2" aria-label="Normal Z fixed at 0" disabled></label>
+                                </div>
+                            </div>
+                            <p class="workflow-slot-note"><span data-plane-test-status>Loading Y maximum face nTop mesh</span></p>
+                        </div>
+
+                        <div class="workflow-step-actions">
+                            <button type="button" class="workflow-back" data-go-step="1"><i data-lucide="arrow-up" aria-hidden="true"></i> Back to imports</button>
+                            <button type="button" class="workflow-next" data-go-step="2b">Set socket parameters <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                        </div>
+                    </section>
+
+                    <section class="workflow-step" id="workflow-step-2b" data-step="2b">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 2b</span>
+                            <div><h2>Define socket lattice parameters</h2></div>
+                        </div>
+
+                        <div class="workflow-block workflow-parameter-block">
+                            <div class="workflow-block-title">
+                                <span class="workflow-implicit-icon" aria-hidden="true">
+                                    <i class="workflow-implicit-waves" data-lucide="rss"></i>
+                                    <i class="workflow-implicit-cube" data-lucide="box"></i>
+                                </span>
+                                <strong>Socket</strong>
+                                <span>CB - Socket Lattice</span>
+                                <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
+                            </div>
+                            <div class="workflow-parameter-fields">
+                                <div class="workflow-source-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attach Surface</span><output>Imports / Attachment Animal Mesh</output></div>
+                                <label class="workflow-param-row">
+                                    <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Socket Thickness</span>
+                                    <input type="range" min="0" max="10" value="5" data-socket-param="socketThickness" aria-label="Socket thickness model">
+                                    <output data-param-output="socketThickness">10</output><small>mm</small>
+                                </label>
+                                <label class="workflow-param-row">
+                                    <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Boundary Lattice</span>
+                                    <input type="range" min="0" max="10" value="5" data-socket-param="boundaryThickness" aria-label="Boundary lattice thickness model">
+                                    <output data-param-output="boundaryThickness">10</output><small>mm</small>
+                                </label>
+                                <label class="workflow-param-row">
+                                    <i data-lucide="binary" aria-hidden="true"></i><span>Lattice Point Count</span>
+                                    <input type="range" min="0" max="20" value="5" data-socket-param="pointCount" aria-label="Lattice point count model">
+                                    <output data-param-output="pointCount">100</output><small>pts</small>
+                                </label>
+                                <div class="workflow-source-row"><i data-lucide="panel-top" aria-hidden="true"></i><span>Pelvic Plane</span><output>Step 2a / Pelvic Plane</output></div>
+                                <label class="workflow-param-row">
+                                    <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Pelvic Thickness</span>
+                                    <input type="range" min="0" max="15" value="0" data-socket-param="pelvicThickness" aria-label="Pelvic thickness model">
+                                    <output data-param-output="pelvicThickness">0</output><small>mm</small>
+                                </label>
+                                <label class="workflow-param-row">
+                                    <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Pelvic Thicken Distance</span>
+                                    <input type="range" min="0" max="21" value="15" data-socket-param="pelvicDistance" aria-label="Pelvic thicken distance model">
+                                    <output data-param-output="pelvicDistance">140</output><small>mm</small>
+                                </label>
+                            </div>
+                            <p class="workflow-slot-note"><span data-slot-status>Loading nTop-generated parameter models</span></p>
+                        </div>
+                        <div class="workflow-step-actions">
+                            <button type="button" class="workflow-back" data-go-step="2a"><i data-lucide="arrow-up" aria-hidden="true"></i> Pelvic plane</button>
+                            <button type="button" class="workflow-next" data-go-step="3a">Define interface plane <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                        </div>
+                    </section>
+
+                    <section class="workflow-step" id="workflow-step-3a" data-step="3a">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 3a</span>
+                            <div><h2>Define the interface plane</h2></div>
+                        </div>
+                        <div class="workflow-block workflow-plane-block">
+                            <div class="workflow-block-title workflow-block-title-with-mode">
+                                <i data-lucide="panel-top" aria-hidden="true"></i>
+                                <strong>Interface Plane</strong>
+                                <span>CB - Bounding Box Point &amp; Plane</span>
+                                <button class="workflow-control-mode-toggle" type="button" id="interface-plane-control-mode" aria-label="Use slider controls" aria-pressed="false" title="Switch between nTop menus and sliders"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
+                                <button class="workflow-visibility-toggle active" type="button" id="interface-plane-visibility" aria-label="Hide interface plane guides" title="Show or hide point, normal and plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                            </div>
+                            <div class="workflow-plane-fields">
+                                <div class="workflow-plane-source">
+                                    <span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span>
+                                    <span>Mechanical Interface</span><output>Imports / Mechanical Interface</output>
+                                </div>
+                                <label class="workflow-select-row"><span>X</span><select data-interface-axis="0" aria-label="Interface X bounding box position"><option value="0">Min</option><option value="1" selected>Centroid</option><option value="2">Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="1" step="0.01" data-interface-axis-slider="0" aria-label="Interface X position from minimum to maximum"><small>Max</small></span></label>
+                                <label class="workflow-select-row"><span>Y</span><select data-interface-axis="1" aria-label="Interface Y bounding box position"><option value="0">Min</option><option value="1">Centroid</option><option value="2" selected>Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="2" step="0.01" data-interface-axis-slider="1" aria-label="Interface Y position from minimum to maximum"><small>Max</small></span></label>
+                                <label class="workflow-select-row"><span>Z</span><select data-interface-axis="2" aria-label="Interface Z bounding box position"><option value="0">Min</option><option value="1" selected>Centroid</option><option value="2">Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="1" step="0.01" data-interface-axis-slider="2" aria-label="Interface Z position from minimum to maximum"><small>Max</small></span></label>
+                                <div class="workflow-normal-row">
+                                    <span><i data-lucide="move-up-right" aria-hidden="true"></i> Normal</span>
+                                    <label><span class="sr-only">Interface normal X</span><input type="number" value="0" step="any" data-interface-normal="0" aria-label="Interface normal X"></label>
+                                    <label><span class="sr-only">Interface normal Y</span><input type="number" value="-1" step="any" data-interface-normal="1" aria-label="Interface normal Y"></label>
+                                    <label><span class="sr-only">Interface normal Z</span><input type="number" value="0" step="any" data-interface-normal="2" aria-label="Interface normal Z"></label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="workflow-step-actions">
+                            <button type="button" class="workflow-back" data-go-step="2b"><i data-lucide="arrow-up" aria-hidden="true"></i> Socket parameters</button>
+                            <button type="button" class="workflow-next" data-go-step="3b">Set interface position <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                        </div>
+                    </section>
+
+                    <section class="workflow-step" id="workflow-step-3b" data-step="3b">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 3b</span>
+                            <div><h2>Define the interface position</h2></div>
+                        </div>
+                        <div class="workflow-block workflow-position-block">
+                            <div class="workflow-block-title">
+                                <i data-lucide="axis-3d" aria-hidden="true"></i><strong>Interface Position</strong><span>World Frame Triad</span>
+                                <button class="workflow-visibility-toggle active" type="button" id="interface-position-visibility" aria-label="Hide interface position" title="Show or hide interface position"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                            </div>
+                            <div class="workflow-position-fields">
+                                <label><span>X</span><output data-interface-position="0" aria-label="Interface position X">0.00</output><small>mm</small></label>
+                                <label><span>Y</span><output data-interface-position="1" aria-label="Interface position Y">0.00</output><small>mm</small></label>
+                                <label><span>Z</span><output data-interface-position="2" aria-label="Interface position Z">0.00</output><small>mm</small></label>
+                            </div>
+                            <div class="workflow-result-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Oriented Mech Interface</strong><output>Step 3c / Interface Position</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                        </div>
+                        <div class="workflow-step-actions">
+                            <button type="button" class="workflow-back" data-go-step="3a"><i data-lucide="arrow-up" aria-hidden="true"></i> Interface plane</button>
+                            <button type="button" class="workflow-next" data-go-step="3c">Orient interface <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                        </div>
+                    </section>
+
+                    <section class="workflow-step" id="workflow-step-3c" data-step="3c">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 3c</span>
+                            <div><h2>Orient the interface</h2></div>
+                        </div>
+                        <div class="workflow-block workflow-orient-block">
+                            <div class="workflow-block-title">
+                                <span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span>
+                                <strong>Interface Position</strong><span>Interface Cap (2)</span>
+                                <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Live</span>
+                            </div>
+                            <div class="workflow-orient-fields">
+                                <div class="workflow-source-row workflow-source-row-toggle"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>Solid Animal</span><output>Imports / Solid Animal Mesh</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="animal" aria-label="Hide solid animal" title="Show or hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                <details class="workflow-mesh-list" open>
+                                    <summary><i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i><i data-lucide="globe-2" aria-hidden="true"></i><strong>Mech, Solid Meshes</strong><span>Mesh List (2)</span><button class="workflow-visibility-toggle active" type="button" data-interface-group="mechSolid" aria-label="Hide mechanical and solid interface meshes" title="Show or hide both interface meshes"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></summary>
+                                    <div class="workflow-mesh-list-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>0:</span><output>Imports / Mechanical Interface</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                    <div class="workflow-mesh-list-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>1:</span><output>Imports / Solid Interface</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="solid" aria-label="Hide solid interface" title="Show or hide solid interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                </details>
+                                <div class="workflow-source-row workflow-source-row-toggle"><i data-lucide="panel-top" aria-hidden="true"></i><span>Interface Plane</span><output>Step 3a / Interface Plane</output><button class="workflow-visibility-toggle active" type="button" data-interface-group="interfacePlane" aria-label="Hide interface plane" title="Show or hide interface plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                <div class="workflow-source-row workflow-source-row-toggle"><i data-lucide="locate-fixed" aria-hidden="true"></i><span>Interface Position</span><output id="interface-position-readout">0, 0, 0 mm</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="target" aria-label="Hide interface position" title="Show or hide interface position"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                <label class="workflow-slider-row"><span>Lateral Angle</span><input type="range" min="-180" max="180" value="180" step="1" data-orient="lateral" aria-label="Lateral angle"><output data-orient-output="lateral">180</output><small>deg</small></label>
+                                <label class="workflow-slider-row"><span>Medial Angle</span><input type="range" min="-180" max="180" value="-179" step="1" data-orient="medial" aria-label="Medial angle"><output data-orient-output="medial">-179</output><small>deg</small></label>
+                                <label class="workflow-slider-row"><span>Interface Rotation</span><input type="range" min="-180" max="180" value="13" step="1" data-orient="rotation" aria-label="Interface rotation"><output data-orient-output="rotation">13</output><small>deg</small></label>
+                                <label class="workflow-slider-row"><span>Interface X Adjust</span><input type="range" min="-50" max="50" value="0" step="1" data-adjust="0" aria-label="Interface X adjustment"><output data-adjust-output="0">0</output><small>mm</small></label>
+                                <label class="workflow-slider-row"><span>Interface Y Adjust</span><input type="range" min="-50" max="50" value="5" step="1" data-adjust="1" aria-label="Interface Y adjustment"><output data-adjust-output="1">5</output><small>mm</small></label>
+                                <label class="workflow-slider-row"><span>Interface Z Adjust</span><input type="range" min="-50" max="50" value="0" step="1" data-adjust="2" aria-label="Interface Z adjustment"><output data-adjust-output="2">0</output><small>mm</small></label>
+                            </div>
+                        </div>
+                        <div class="workflow-step-actions">
+                            <button type="button" class="workflow-back" data-go-step="3b"><i data-lucide="arrow-up" aria-hidden="true"></i> Interface position</button>
+                            <button type="button" class="workflow-next" data-go-step="4">Attachment holes <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                        </div>
+                    </section>
+                    <section class="workflow-step" id="workflow-step-4" data-step="4">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 4</span>
+                            <div><h2>Attachment Holes</h2></div>
+                        </div>
+                        <div class="workflow-block attachment-holes-block">
+                            <div class="workflow-block-title">
+                                <i data-lucide="locate-fixed" aria-hidden="true"></i>
+                                <strong>Attachment Points</strong><span>6 points</span>
+                            </div>
+                            <div class="attachment-hole-source"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attachment Surface</span><output>Imports / Attachment Animal Mesh</output></div>
+                            <div id="attachment-point-list" class="attachment-point-list" role="group" aria-label="Attachment points"></div>
+                            <div class="attachment-hole-editor">
+                                <div class="attachment-editor-heading"><strong id="attachment-point-title">Point 1</strong><span>World Frame</span><button type="button" id="attachment-pick" aria-label="Place selected attachment point on surface" title="Place selected point on surface"><i data-lucide="mouse-pointer-2" aria-hidden="true"></i></button></div>
+                                <div class="attachment-coordinate-fields">
+                                    <label>X<input type="number" step="0.1" data-hole-coordinate="x" aria-label="Attachment point X"><small>mm</small></label>
+                                    <label>Y<input type="number" step="0.1" data-hole-coordinate="y" aria-label="Attachment point Y"><small>mm</small></label>
+                                    <label>Z<input type="number" step="0.1" data-hole-coordinate="z" aria-label="Attachment point Z"><small>mm</small></label>
+                                </div>
+                                <div class="attachment-hole-result"><i data-lucide="globe-2" aria-hidden="true"></i><span>Capsule</span><output>Capsule.3mf</output><button type="button" class="workflow-visibility-toggle active" data-hole-part="capsule" aria-label="Hide selected capsule" title="Show or hide selected capsule"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                <div class="attachment-hole-result"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attachment Boundary</span><output>AttachBdry.3mf</output><button type="button" class="workflow-visibility-toggle active" data-hole-part="boundary" aria-label="Hide selected boundary" title="Show or hide selected boundary"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                <div class="attachment-normal-row"><span>Normal</span><output id="attachment-normal">0, 0, 1</output></div>
+                            </div>
+                            <p class="workflow-slot-note" id="attachment-hole-status" role="status">Loading attachment models</p>
+                        </div>
+                        <div class="workflow-step-actions"><button type="button" class="workflow-back" data-go-step="3c"><i data-lucide="arrow-up" aria-hidden="true"></i> Orient interface</button></div>
+                    </section>
+                </div>
+            </section>
+
+            <div class="workflow-resizer" id="workflow-resizer" role="separator" aria-label="Resize workflow sidebar and 3D viewer" aria-orientation="vertical" tabindex="0"><span aria-hidden="true"></span></div>
+
+            <section class="workflow-viewer" aria-label="Live 3D model viewer">
+                <div class="workflow-viewer-bar">
+                    <div>
+                        <span class="workflow-viewer-step" id="viewer-step">Step 1</span>
+                        <strong id="viewer-title">Imported mesh assembly</strong>
+                    </div>
+                    <div class="workflow-viewer-actions">
+                        <button type="button" id="measure-tool" aria-label="Measure between two points" title="Measure between two points"><i data-lucide="ruler" aria-hidden="true"></i></button>
+                        <button type="button" id="toggle-grid" class="active" aria-label="Hide grid" title="Show or hide grid"><i data-lucide="grid-3x3" aria-hidden="true"></i></button>
+                        <button type="button" id="reset-view" aria-label="Reset 3D view" title="Reset 3D view"><i data-lucide="focus" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+                <div class="workflow-canvas-wrap" id="workflow-stage">
+                    <canvas id="workflow-canvas" aria-label="Interactive 3D view of the current workflow step"></canvas>
+                    <div class="measure-panel" id="measure-panel" hidden>
+                        <span id="measure-status">Select point 1</span>
+                        <strong id="measure-value">—</strong>
+                        <select id="measure-unit" aria-label="Measurement units">
+                            <option value="mm" selected>mm</option><option value="cm">cm</option><option value="m">m</option><option value="in">in</option>
+                        </select>
+                        <button type="button" id="clear-measurement" aria-label="Clear measurement" title="Clear measurement"><i data-lucide="x" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="workflow-overlay-controls" id="workflow-overlay-controls" aria-label="Pelvic plane viewer visibility" hidden>
+                        <button type="button" class="workflow-layer-toggle active" data-view-layer="attach" aria-label="Hide attachment surface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Attachment surface</button>
+                        <button type="button" class="workflow-layer-toggle active" data-view-layer="body" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
+                        <button type="button" class="workflow-layer-toggle active" data-view-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
+                        <button type="button" class="workflow-layer-toggle active pelvic-stage-2a" data-view-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
+                        <details class="workflow-layer-menu" data-layer-menu="plane">
+                            <summary class="workflow-layer-toggle active" data-highlight-plane-group="plane"><span class="workflow-visibility-dot" aria-hidden="true"></span>Plane from normal <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+                            <div class="workflow-layer-menu-panel" role="group" aria-label="Plane from normal visibility">
+                                <label><input type="checkbox" data-view-layer="point" checked> Point</label>
+                                <label><input type="checkbox" data-view-layer="normal" checked> Normal</label>
+                                <label><input type="checkbox" data-view-layer="plane" checked> Plane</label>
+                            </div>
+                        </details>
+                        <details class="workflow-layer-menu" data-layer-menu="triad">
+                            <summary class="workflow-layer-toggle active" data-highlight-plane-group="triad"><span class="workflow-visibility-dot" aria-hidden="true"></span>Axis triad <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+                            <div class="workflow-layer-menu-panel" role="group" aria-label="Axis triad visibility">
+                                <label><input type="checkbox" data-view-layer="triadX" checked> X</label>
+                                <label><input type="checkbox" data-view-layer="triadY" checked> Y</label>
+                                <label><input type="checkbox" data-view-layer="triadZ" checked> Z</label>
+                            </div>
+                        </details>
+                    </div>
+                    <div class="workflow-overlay-controls" id="interface-overlay-controls" aria-label="Interface orientation viewer visibility" hidden>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3a" data-interface-layer="reference" aria-label="Hide mechanical interface reference"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3b interface-stage-3c" data-interface-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3b interface-stage-3c" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3b interface-stage-3c" data-interface-layer="solid" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3a" data-interface-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
+                        <details class="workflow-layer-menu interface-stage-3a interface-stage-3c" data-layer-menu="interface-plane">
+                            <summary class="workflow-layer-toggle active" data-highlight-interface-group="interfacePlane"><span class="workflow-visibility-dot" aria-hidden="true"></span>Interface plane <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+                            <div class="workflow-layer-menu-panel" role="group" aria-label="Interface plane visibility">
+                                <label><input type="checkbox" data-interface-layer="point" checked> Point</label>
+                                <label><input type="checkbox" data-interface-layer="normal" checked> Normal</label>
+                                <label><input type="checkbox" data-interface-layer="plane" checked> Plane</label>
+                            </div>
+                        </details>
+                    </div>
+                    <div class="workflow-overlay-controls" id="attachment-overlay-controls" aria-label="Attachment holes viewer visibility" hidden>
+                        <button type="button" class="workflow-layer-toggle active" data-hole-layer="surface" aria-label="Hide attachment surface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Attachment surface</button>
+                        <button type="button" class="workflow-layer-toggle active" data-hole-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
+                        <button type="button" class="workflow-layer-toggle active" data-hole-layer="capsule" aria-label="Hide capsules"><span class="workflow-visibility-dot" aria-hidden="true"></span>Capsules</button>
+                        <button type="button" class="workflow-layer-toggle active" data-hole-layer="boundary" aria-label="Hide attachment boundaries"><span class="workflow-visibility-dot" aria-hidden="true"></span>Boundaries</button>
+                        <button type="button" class="workflow-layer-toggle active" data-hole-layer="points" aria-label="Hide attachment points"><span class="workflow-visibility-dot" aria-hidden="true"></span>Points</button>
+                    </div>
+                    <div class="workflow-loader" id="workflow-loader">
+                        <span></span>
+                        <p>Loading model sample&hellip;</p>
+                    </div>
+                    <p class="workflow-view-hint">Drag to orbit &middot; Scroll to zoom</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <button class="mobile-toggle" id="mobile-toggle" aria-label="Open navigation">
+        <span></span><span></span><span></span>
+    </button>
+    <script src="script.js?v=57"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=14"></script>
+</body>
+</html>
