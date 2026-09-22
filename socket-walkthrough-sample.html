@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=37">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=4">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=5">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
@@ -273,10 +273,10 @@
                             </div>
                         </div>
 
-                        <div class="workflow-block workflow-plane-block">
+                        <div class="workflow-block workflow-plane-block slider-mode">
                             <div class="workflow-block-title">
                                 <i data-lucide="panel-top" aria-hidden="true"></i>
-                                <strong>Pelvic Plane</strong>
+                                <strong>Pelvic Plane</strong><button type="button" id="pelvic-plane-control-mode" aria-pressed="true">Sliders / menus</button>
                                 <span>CB - Bounding Box Point &amp; Plane</span>
                                 <button class="workflow-visibility-toggle active" type="button" id="pelvic-plane-visibility" aria-label="Hide pelvic plane guides" title="Show or hide point, normal and plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
                             </div>
@@ -297,7 +297,7 @@
                                         <option value="0">Min</option>
                                         <option value="1" selected>Centroid</option>
                                         <option value="2">Max</option>
-                                    </select>
+                                    </select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" step="1" value="1" data-pelvic-axis-slider="0" aria-label="Pelvic X position"><small>Max</small></span>
                                 </label>
                                 <label class="workflow-select-row">
                                     <span>Y</span>
@@ -305,7 +305,7 @@
                                         <option value="0">Min</option>
                                         <option value="1">Centroid</option>
                                         <option value="2" selected>Max</option>
-                                    </select>
+                                    </select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" step="1" value="2" data-pelvic-axis-slider="1" aria-label="Pelvic Y position"><small>Max</small></span>
                                 </label>
                                 <label class="workflow-select-row">
                                     <span>Z</span>
@@ -313,14 +313,14 @@
                                         <option value="0">Min</option>
                                         <option value="1" selected>Centroid</option>
                                         <option value="2">Max</option>
-                                    </select>
+                                    </select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" step="1" value="1" data-pelvic-axis-slider="2" aria-label="Pelvic Z position"><small>Max</small></span>
                                 </label>
 
                                 <div class="workflow-normal-row">
                                     <span><i data-lucide="move-up-right" aria-hidden="true"></i> Normal</span>
-                                    <label><span class="sr-only">Normal X</span><input type="number" value="0" step="any" data-normal="0" aria-label="Normal X fixed at 0" disabled></label>
-                                    <label><span class="sr-only">Normal Y</span><input type="number" value="-1" step="any" data-normal="1" aria-label="Normal Y fixed at -1" disabled></label>
-                                    <label><span class="sr-only">Normal Z</span><input type="number" value="0" step="any" data-normal="2" aria-label="Normal Z fixed at 0" disabled></label>
+                                    <label><span class="sr-only">Normal X</span><input type="number" value="0" step="any" data-normal="0" aria-label="Normal X"></label>
+                                    <label><span class="sr-only">Normal Y</span><input type="number" value="-1" step="any" data-normal="1" aria-label="Normal Y"></label>
+                                    <label><span class="sr-only">Normal Z</span><input type="number" value="0" step="any" data-normal="2" aria-label="Normal Z"></label>
                                 </div>
                             </div>
                             <p class="workflow-slot-note"><span data-plane-test-status>Loading Y maximum face nTop mesh</span></p>
@@ -353,41 +353,64 @@
                                 <label class="workflow-param-row">
                                     <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Socket Thickness</span>
                                     <input type="range" min="0" max="10" value="5" data-socket-param="socketThickness" aria-label="Socket thickness model">
-                                    <output data-param-output="socketThickness">10</output><small>mm</small>
+                                    <input type="number" step="any" class="workflow-number" data-param-output="socketThickness" value="10"><small>mm</small>
                                 </label>
                                 <label class="workflow-param-row">
                                     <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Boundary Lattice</span>
                                     <input type="range" min="0" max="10" value="5" data-socket-param="boundaryThickness" aria-label="Boundary lattice thickness model">
-                                    <output data-param-output="boundaryThickness">10</output><small>mm</small>
+                                    <input type="number" step="any" class="workflow-number" data-param-output="boundaryThickness" value="10"><small>mm</small>
                                 </label>
                                 <label class="workflow-param-row">
                                     <i data-lucide="binary" aria-hidden="true"></i><span>Lattice Point Count</span>
                                     <input type="range" min="0" max="20" value="5" data-socket-param="pointCount" aria-label="Lattice point count model">
-                                    <output data-param-output="pointCount">100</output><small>pts</small>
+                                    <input type="number" step="any" class="workflow-number" data-param-output="pointCount" value="100"><small>pts</small>
                                 </label>
                                 <div class="workflow-source-row"><i data-lucide="panel-top" aria-hidden="true"></i><span>Pelvic Plane</span><output>Step 2a / Pelvic Plane</output></div>
                                 <label class="workflow-param-row">
                                     <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Pelvic Thickness</span>
                                     <input type="range" min="0" max="15" value="0" data-socket-param="pelvicThickness" aria-label="Pelvic thickness model">
-                                    <output data-param-output="pelvicThickness">0</output><small>mm</small>
+                                    <input type="number" step="any" class="workflow-number" data-param-output="pelvicThickness" value="0"><small>mm</small>
                                 </label>
                                 <label class="workflow-param-row">
                                     <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Pelvic Thicken Distance</span>
                                     <input type="range" min="0" max="21" value="6" data-socket-param="pelvicDistance" aria-label="Pelvic thicken distance model">
-                                    <output data-param-output="pelvicDistance">50</output><small>mm</small>
+                                    <input type="number" step="any" class="workflow-number" data-param-output="pelvicDistance" value="50"><small>mm</small>
                                 </label>
                             </div>
                             <p class="workflow-slot-note"><span data-slot-status>Loading nTop-generated parameter models</span></p>
                         </div>
                         <div class="workflow-step-actions">
                             <button type="button" class="workflow-back" data-go-step="2a"><i data-lucide="arrow-up" aria-hidden="true"></i> Pelvic plane</button>
-                            <button type="button" class="workflow-next" data-go-step="3a">Define interface plane <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                            <button type="button" class="workflow-next" data-go-step="3a">Set interface position <i data-lucide="arrow-down" aria-hidden="true"></i></button>
                         </div>
                     </section>
 
                     <section class="workflow-step" id="workflow-step-3a" data-step="3a">
                         <div class="workflow-step-heading">
                             <span class="workflow-step-number">Step 3a</span>
+                            <div><h2>Define the interface position</h2></div>
+                        </div>
+                        <div class="workflow-block workflow-position-block">
+                            <div class="workflow-block-title">
+                                <i data-lucide="axis-3d" aria-hidden="true"></i><strong>Interface Position</strong><span>World Frame Triad</span>
+                                <button class="workflow-visibility-toggle active" type="button" id="interface-position-visibility" aria-label="Hide interface position" title="Show or hide interface position"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
+                            </div>
+                            <div class="workflow-position-fields">
+                                <label><span>X</span><input type="number" step="any" class="workflow-number" data-interface-position="0" aria-label="Interface position X" value="0.00"><small>mm</small></label>
+                                <label><span>Y</span><input type="number" step="any" class="workflow-number" data-interface-position="1" aria-label="Interface position Y" value="0.00"><small>mm</small></label>
+                                <label><span>Z</span><input type="number" step="any" class="workflow-number" data-interface-position="2" aria-label="Interface position Z" value="0.00"><small>mm</small></label>
+                            </div>
+                            <div class="workflow-result-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Oriented Mech Interface</strong><output>Step 3c / Interface Position</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                        </div>
+                        <div class="workflow-step-actions">
+                            <button type="button" class="workflow-back" data-go-step="2b"><i data-lucide="arrow-up" aria-hidden="true"></i> Socket parameters</button>
+                            <button type="button" class="workflow-next" data-go-step="3b">Define interface plane <i data-lucide="arrow-down" aria-hidden="true"></i></button>
+                        </div>
+                    </section>
+
+                    <section class="workflow-step" id="workflow-step-3b" data-step="3b">
+                        <div class="workflow-step-heading">
+                            <span class="workflow-step-number">Step 3b</span>
                             <div><h2>Define the interface plane</h2></div>
                         </div>
                         <div class="workflow-block workflow-plane-block slider-mode">
@@ -403,9 +426,9 @@
                                     <span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span>
                                     <span>Mechanical Interface</span><output>Imports / Mechanical Interface</output>
                                 </div>
-                                <label class="workflow-select-row"><span>X</span><select data-interface-axis="0" aria-label="Interface X bounding box position"><option value="0">Min</option><option value="1" selected>Centroid</option><option value="2">Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="1" step="0.01" data-interface-axis-slider="0" aria-label="Interface X position from minimum to maximum"><small>Max</small></span></label>
-                                <label class="workflow-select-row"><span>Y</span><select data-interface-axis="1" aria-label="Interface Y bounding box position"><option value="0">Min</option><option value="1">Centroid</option><option value="2" selected>Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="2" step="0.01" data-interface-axis-slider="1" aria-label="Interface Y position from minimum to maximum"><small>Max</small></span></label>
-                                <label class="workflow-select-row"><span>Z</span><select data-interface-axis="2" aria-label="Interface Z bounding box position"><option value="0">Min</option><option value="1" selected>Centroid</option><option value="2">Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="1" step="0.01" data-interface-axis-slider="2" aria-label="Interface Z position from minimum to maximum"><small>Max</small></span></label>
+                                <label class="workflow-select-row"><span>X</span><select data-interface-axis="0" aria-label="Interface X bounding box position"><option value="0">Min</option><option value="1" selected>Centroid</option><option value="2">Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="1" step="1" data-interface-axis-slider="0" aria-label="Interface X position from minimum to maximum"><small>Max</small></span></label>
+                                <label class="workflow-select-row"><span>Y</span><select data-interface-axis="1" aria-label="Interface Y bounding box position"><option value="0">Min</option><option value="1">Centroid</option><option value="2" selected>Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="2" step="1" data-interface-axis-slider="1" aria-label="Interface Y position from minimum to maximum"><small>Max</small></span></label>
+                                <label class="workflow-select-row"><span>Z</span><select data-interface-axis="2" aria-label="Interface Z bounding box position"><option value="0">Min</option><option value="1" selected>Centroid</option><option value="2">Max</option></select><span class="workflow-axis-slider"><small>Min</small><input type="range" min="0" max="2" value="1" step="1" data-interface-axis-slider="2" aria-label="Interface Z position from minimum to maximum"><small>Max</small></span></label>
                                 <div class="workflow-normal-row">
                                     <span><i data-lucide="move-up-right" aria-hidden="true"></i> Normal</span>
                                     <label><span class="sr-only">Interface normal X</span><input type="number" value="0" step="any" data-interface-normal="0" aria-label="Interface normal X"></label>
@@ -415,30 +438,7 @@
                             </div>
                         </div>
                         <div class="workflow-step-actions">
-                            <button type="button" class="workflow-back" data-go-step="2b"><i data-lucide="arrow-up" aria-hidden="true"></i> Socket parameters</button>
-                            <button type="button" class="workflow-next" data-go-step="3b">Set interface position <i data-lucide="arrow-down" aria-hidden="true"></i></button>
-                        </div>
-                    </section>
-
-                    <section class="workflow-step" id="workflow-step-3b" data-step="3b">
-                        <div class="workflow-step-heading">
-                            <span class="workflow-step-number">Step 3b</span>
-                            <div><h2>Define the interface position</h2></div>
-                        </div>
-                        <div class="workflow-block workflow-position-block">
-                            <div class="workflow-block-title">
-                                <i data-lucide="axis-3d" aria-hidden="true"></i><strong>Interface Position</strong><span>World Frame Triad</span>
-                                <button class="workflow-visibility-toggle active" type="button" id="interface-position-visibility" aria-label="Hide interface position" title="Show or hide interface position"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
-                            </div>
-                            <div class="workflow-position-fields">
-                                <label><span>X</span><output data-interface-position="0" aria-label="Interface position X">0.00</output><small>mm</small></label>
-                                <label><span>Y</span><output data-interface-position="1" aria-label="Interface position Y">0.00</output><small>mm</small></label>
-                                <label><span>Z</span><output data-interface-position="2" aria-label="Interface position Z">0.00</output><small>mm</small></label>
-                            </div>
-                            <div class="workflow-result-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Oriented Mech Interface</strong><output>Step 3c / Interface Position</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
-                        </div>
-                        <div class="workflow-step-actions">
-                            <button type="button" class="workflow-back" data-go-step="3a"><i data-lucide="arrow-up" aria-hidden="true"></i> Interface plane</button>
+                            <button type="button" class="workflow-back" data-go-step="3a"><i data-lucide="arrow-up" aria-hidden="true"></i> Interface position</button>
                             <button type="button" class="workflow-next" data-go-step="3c">Orient interface <i data-lucide="arrow-down" aria-hidden="true"></i></button>
                         </div>
                     </section>
@@ -461,18 +461,18 @@
                                     <div class="workflow-mesh-list-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>0:</span><output>Imports / Mechanical Interface</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                                     <div class="workflow-mesh-list-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>1:</span><output>Imports / Solid Interface</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="solid" aria-label="Hide solid interface" title="Show or hide solid interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                                 </details>
-                                <div class="workflow-source-row workflow-source-row-toggle"><i data-lucide="panel-top" aria-hidden="true"></i><span>Interface Plane</span><output>Step 3a / Interface Plane</output><button class="workflow-visibility-toggle active" type="button" data-interface-group="interfacePlane" aria-label="Hide interface plane" title="Show or hide interface plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                <div class="workflow-source-row workflow-source-row-toggle"><i data-lucide="panel-top" aria-hidden="true"></i><span>Interface Plane</span><output>Step 3b / Interface Plane</output></div>
                                 <div class="workflow-source-row workflow-source-row-toggle"><i data-lucide="locate-fixed" aria-hidden="true"></i><span>Interface Position</span><output id="interface-position-readout">0, 0, 0 mm</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="target" aria-label="Hide interface position" title="Show or hide interface position"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
-                                <label class="workflow-slider-row"><span>Lateral Angle</span><input type="range" min="-180" max="180" value="180" step="1" data-orient="lateral" aria-label="Lateral angle"><output data-orient-output="lateral">180</output><small>deg</small></label>
-                                <label class="workflow-slider-row"><span>Medial Angle</span><input type="range" min="-180" max="180" value="-179" step="1" data-orient="medial" aria-label="Medial angle"><output data-orient-output="medial">-179</output><small>deg</small></label>
-                                <label class="workflow-slider-row"><span>Interface Rotation</span><input type="range" min="-180" max="180" value="13" step="1" data-orient="rotation" aria-label="Interface rotation"><output data-orient-output="rotation">13</output><small>deg</small></label>
-                                <label class="workflow-slider-row"><span>Interface X Adjust</span><input type="range" min="-50" max="50" value="0" step="1" data-adjust="0" aria-label="Interface X adjustment"><output data-adjust-output="0">0</output><small>mm</small></label>
-                                <label class="workflow-slider-row"><span>Interface Y Adjust</span><input type="range" min="-50" max="50" value="5" step="1" data-adjust="1" aria-label="Interface Y adjustment"><output data-adjust-output="1">5</output><small>mm</small></label>
-                                <label class="workflow-slider-row"><span>Interface Z Adjust</span><input type="range" min="-50" max="50" value="0" step="1" data-adjust="2" aria-label="Interface Z adjustment"><output data-adjust-output="2">0</output><small>mm</small></label>
+                                <label class="workflow-slider-row"><span>Lateral Angle</span><input type="range" min="-180" max="180" value="180" step="1" data-orient="lateral" aria-label="Lateral angle"><input type="number" step="any" class="workflow-number" data-orient-output="lateral" value="180"><small>deg</small></label>
+                                <label class="workflow-slider-row"><span>Medial Angle</span><input type="range" min="-180" max="180" value="-179" step="1" data-orient="medial" aria-label="Medial angle"><input type="number" step="any" class="workflow-number" data-orient-output="medial" value="-179"><small>deg</small></label>
+                                <label class="workflow-slider-row"><span>Interface Rotation</span><input type="range" min="-180" max="180" value="13" step="1" data-orient="rotation" aria-label="Interface rotation"><input type="number" step="any" class="workflow-number" data-orient-output="rotation" value="13"><small>deg</small></label>
+                                <label class="workflow-slider-row"><span>Interface X Adjust</span><input type="range" min="-50" max="50" value="0" step="1" data-adjust="0" aria-label="Interface X adjustment"><input type="number" step="any" class="workflow-number" data-adjust-output="0" value="0"><small>mm</small></label>
+                                <label class="workflow-slider-row"><span>Interface Y Adjust</span><input type="range" min="-50" max="50" value="5" step="1" data-adjust="1" aria-label="Interface Y adjustment"><input type="number" step="any" class="workflow-number" data-adjust-output="1" value="5"><small>mm</small></label>
+                                <label class="workflow-slider-row"><span>Interface Z Adjust</span><input type="range" min="-50" max="50" value="0" step="1" data-adjust="2" aria-label="Interface Z adjustment"><input type="number" step="any" class="workflow-number" data-adjust-output="2" value="0"><small>mm</small></label>
                             </div>
                         </div>
                         <div class="workflow-step-actions">
-                            <button type="button" class="workflow-back" data-go-step="3b"><i data-lucide="arrow-up" aria-hidden="true"></i> Interface position</button>
+                            <button type="button" class="workflow-back" data-go-step="3b"><i data-lucide="arrow-up" aria-hidden="true"></i> Interface plane</button>
                             <button type="button" class="workflow-next" data-go-step="4">Attachment holes <i data-lucide="arrow-down" aria-hidden="true"></i></button>
                         </div>
                     </section>
@@ -484,17 +484,12 @@
                         <div class="workflow-block attachment-holes-block">
                             <div class="workflow-block-title">
                                 <i data-lucide="locate-fixed" aria-hidden="true"></i>
-                                <strong>Attachment Points</strong><span>6 points</span>
+                                <strong>Point List (<span id="attachment-point-count">6</span>)</strong><button type="button" id="attachment-add" aria-label="Add attachment point">+</button>
                             </div>
                             <div class="attachment-hole-source"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attachment Surface</span><output>Imports / Attachment Animal Mesh</output></div>
-                            <div id="attachment-point-list" class="attachment-point-list" role="group" aria-label="Attachment points"></div>
+                            <div class="attachment-point-columns" aria-hidden="true"><span></span><span></span><span>X</span><span>Y</span><span>Z</span><span>mm</span></div><div id="attachment-point-list" class="attachment-point-list" role="group" aria-label="Attachment points"></div>
                             <div class="attachment-hole-editor">
                                 <div class="attachment-editor-heading"><strong id="attachment-point-title">Point 1</strong><span>World Frame</span><button type="button" id="attachment-pick" aria-label="Place selected attachment point on surface" title="Place selected point on surface"><i data-lucide="mouse-pointer-2" aria-hidden="true"></i></button></div>
-                                <div class="attachment-coordinate-fields">
-                                    <label>X<input type="number" step="0.1" data-hole-coordinate="x" aria-label="Attachment point X"><small>mm</small></label>
-                                    <label>Y<input type="number" step="0.1" data-hole-coordinate="y" aria-label="Attachment point Y"><small>mm</small></label>
-                                    <label>Z<input type="number" step="0.1" data-hole-coordinate="z" aria-label="Attachment point Z"><small>mm</small></label>
-                                </div>
                                 <div class="attachment-hole-result"><i data-lucide="globe-2" aria-hidden="true"></i><span>Capsule</span><output>Capsule.3mf</output><button type="button" class="workflow-visibility-toggle active" data-hole-part="capsule" aria-label="Hide selected capsule" title="Show or hide selected capsule"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                                 <div class="attachment-hole-result"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attachment Boundary</span><output>AttachBdry.3mf</output><button type="button" class="workflow-visibility-toggle active" data-hole-part="boundary" aria-label="Hide selected boundary" title="Show or hide selected boundary"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                                 <div class="attachment-normal-row"><span>Normal</span><output id="attachment-normal">0, 0, 1</output></div>
@@ -553,12 +548,12 @@
                         </details>
                     </div>
                     <div class="workflow-overlay-controls" id="interface-overlay-controls" aria-label="Interface orientation viewer visibility" hidden>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-3a" data-interface-layer="reference" aria-label="Hide mechanical interface reference"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-3b interface-stage-3c" data-interface-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-3b interface-stage-3c" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-3b interface-stage-3c" data-interface-layer="solid" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-3a" data-interface-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
-                        <details class="workflow-layer-menu interface-stage-3a interface-stage-3c" data-layer-menu="interface-plane">
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3b" data-interface-layer="reference" aria-label="Hide mechanical interface reference"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3a interface-stage-3c" data-interface-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3a interface-stage-3c" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3a interface-stage-3c" data-interface-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-3b" data-interface-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
+                        <details class="workflow-layer-menu interface-stage-3b" data-layer-menu="interface-plane">
                             <summary class="workflow-layer-toggle active" data-highlight-interface-group="interfacePlane"><span class="workflow-visibility-dot" aria-hidden="true"></span>Interface plane <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
                             <div class="workflow-layer-menu-panel" role="group" aria-label="Interface plane visibility">
                                 <label><input type="checkbox" data-interface-layer="point" checked> Point</label>
@@ -588,6 +583,6 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=17"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=18"></script>
 </body>
 </html>

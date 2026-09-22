@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { createAttachmentHoles } from './attachment-holes.js?v=2';
+import { createAttachmentHoles } from './attachment-holes.js?v=3';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -178,6 +178,7 @@ const interfaceLayerTargets = {
     solid: interfaceSolid,
     ...interfaceOverlayGroups,
 };
+interfaceLayerTargets.socket = socketPreviewRoot;
 const interfaceLayerVisibility = Object.fromEntries(Object.keys(interfaceLayerTargets).map(key => [key, true]));
 const interfaceLayerGroups = {
     mechSolid: ['mechanical', 'solid'],
@@ -522,6 +523,7 @@ async function loadSocketParameterModel(key, value) {
         status.textContent = '';
         status.hidden = true;
         applyPelvicStageVisibility();
+        applyInterfaceStageVisibility();
         const values = parameterValues[key];
         const index = values.indexOf(value);
         [index - 1, index + 1].forEach(next => {
@@ -687,7 +689,7 @@ function measurementRoots() {
     if (activeStep === '4') return attachmentHoles.measurementRoots();
     if (activeStep === '1') return Object.values(layers).filter(layer => layer.group.visible).map(layer => layer.group);
     if (activeStep.startsWith('2')) return [pelvicBody, pelvicAttach, socketPreviewRoot].filter(root => root.visible);
-    if (activeStep.startsWith('3')) return [interfaceAnimal, interfaceReferenceMechanical, orientedAssembly].filter(root => root.visible);
+    if (activeStep.startsWith('3')) return [interfaceAnimal, interfaceReferenceMechanical, orientedAssembly, socketPreviewRoot].filter(root => root.visible);
     return [];
 }
 
@@ -1108,6 +1110,7 @@ function updateInterfacePlane() {
     interfacePlaneMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), data.normal);
     interfacePlaneOutline.quaternion.copy(interfacePlaneMesh.quaternion);
     interfaceNormalArrow.setDirection(data.normal);
+    interfaceAxisTriad.position.copy(data.point);
     interfacePlaneMesh.visible = interfacePlaneOutline.visible = interfaceNormalArrow.visible = data.valid;
     if (interfacePositionFollowsPlane) {
         setInterfacePositionFromQuery(data.point);
@@ -1119,7 +1122,7 @@ function updateInterfacePlane() {
 function syncInterfacePositionInputs() {
     document.querySelectorAll('[data-interface-position]').forEach(output => {
         const axis = +output.dataset.interfacePosition;
-        output.textContent = (interfacePositionState.getComponent(axis) * 1000).toFixed(2);
+        output.value = (interfacePositionState.getComponent(axis) * 1000).toFixed(2);
     });
 }
 
@@ -1245,10 +1248,17 @@ function syncInterfaceGroupVisibility(group, visible) {
     applyInterfaceStageVisibility();
 }
 
+const interfaceAxisTriad = new THREE.Group();
+[new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1)].forEach((axis, index) => {
+    interfaceAxisTriad.add(new THREE.ArrowHelper(axis, new THREE.Vector3(), 0.04, [0xe65050,0x58b85a,0x398fe6][index], 0.008, 0.004));
+});
+keepOverlayVisible(interfaceAxisTriad, 130);
+interfaceRoot.add(interfaceAxisTriad);
+
 function applyInterfaceStageVisibility() {
     if (!activeStep.startsWith('3')) return;
-    const isPlane = activeStep === '3a';
-    const isPosition = activeStep === '3b';
+    const isPlane = activeStep === '3b';
+    const isPosition = activeStep === '3a';
     const isOrientation = activeStep === '3c';
     interfaceLayerTargets.reference.visible = isPlane && interfaceLayerVisibility.reference;
     interfaceLayerTargets.animal.visible = (isPosition || isOrientation) && interfaceLayerVisibility.animal;
@@ -1258,9 +1268,11 @@ function applyInterfaceStageVisibility() {
     ['surfaceNormal', 'frame'].forEach(key => { interfaceLayerTargets[key].visible = false; });
     interfaceLayerTargets.box.visible = isPlane && interfaceLayerVisibility.box;
     ['point', 'normal', 'plane'].forEach(key => {
-        interfaceLayerTargets[key].visible = (isPlane || isOrientation) && interfaceLayerVisibility[key];
+        interfaceLayerTargets[key].visible = isPlane && interfaceLayerVisibility[key];
     });
-    positionTransform.enabled = activeStep === '3b' && interfaceLayerVisibility.target;
+    interfaceLayerTargets.socket.visible = !isPlane && interfaceLayerVisibility.socket;
+    interfaceAxisTriad.visible = isPlane;
+    positionTransform.enabled = activeStep === '3a' && interfaceLayerVisibility.target;
     positionTransformHelper.visible = positionTransform.enabled;
     interfaceOverlayControlsEl.dataset.stage = activeStep;
 }
@@ -1546,13 +1558,14 @@ function showStep(step, shouldScroll = false) {
         '1': 'Imported mesh assembly',
         '2a': 'Pelvic plane location',
         '2b': 'Socket lattice parameters',
-        '3a': 'Interface plane location',
-        '3b': 'Interface target position',
+        '3b': 'Interface plane location',
+        '3a': 'Interface target position',
         '3c': 'Oriented mechanical interface',
         '4': 'Attachment Holes',
     };
     importRoot.visible = isImport;
     planeRoot.visible = isPelvic;
+    (isInterface ? interfaceRoot : planeRoot).add(socketPreviewRoot);
     interfaceRoot.visible = isInterface;
     overlayControlsEl.hidden = !isPelvic;
     interfaceOverlayControlsEl.hidden = !isInterface;
@@ -1567,6 +1580,7 @@ function showStep(step, shouldScroll = false) {
             loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
         }
     } else if (isInterface) {
+        loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
         if (targetHandle) positionTransform.attach(targetHandle);
         applyInterfaceStageVisibility();
         syncInterfaceLayerMenus();
@@ -1580,7 +1594,7 @@ function showStep(step, shouldScroll = false) {
     const major = activeStep.charAt(0);
     document.querySelectorAll('.workflow-progress-step').forEach(button => button.classList.toggle('active', button.dataset.goStep.charAt(0) === major));
     renderLegend();
-    const viewRoot = isAttachment ? attachmentHoles.root : isImport ? importRoot : isPelvic ? planeRoot : activeStep === '3a' ? interfaceReferenceMechanical : interfaceRoot;
+    const viewRoot = isAttachment ? attachmentHoles.root : isImport ? importRoot : isPelvic ? planeRoot : activeStep === '3b' ? interfaceReferenceMechanical : interfaceRoot;
     requestAnimationFrame(() => frameObject(viewRoot));
     if (shouldScroll) {
         const section = document.getElementById('workflow-step-' + activeStep);
@@ -1673,11 +1687,21 @@ document.querySelectorAll('[data-axis]').forEach(select => {
     });
 });
 document.querySelectorAll('[data-normal]').forEach(input => {
-    input.addEventListener('input', () => {
-        const value = parseFloat(input.value);
-        planeState.normal[+input.dataset.normal] = Number.isFinite(value) ? value : 0;
-        updatePlane();
-    });
+    const commit = () => {
+        const axis = +input.dataset.normal;
+        const value = Number(input.value);
+        if (input.value !== '' && Number.isFinite(value) && value !== 0) {
+            planeState.pick = [1, 1, 1];
+            document.querySelectorAll('[data-axis]').forEach(select => { select.value = '1'; });
+            const select = document.querySelector(`[data-axis="${axis}"]`);
+            select.value = value > 0 ? '0' : '2';
+            select.dispatchEvent(new Event('change'));
+        }
+        document.querySelectorAll('[data-normal]').forEach(field => { field.value = planeState.normal[+field.dataset.normal]; });
+        document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => { slider.value = planeState.pick[+slider.dataset.pelvicAxisSlider]; });
+    };
+    input.addEventListener('change', commit);
+    input.addEventListener('keydown', event => { if (event.key === 'Enter') { commit(); input.blur(); } });
 });
 
 document.querySelectorAll('[data-interface-axis]').forEach(select => {
@@ -1690,19 +1714,22 @@ document.querySelectorAll('[data-interface-axis]').forEach(select => {
 });
 document.querySelectorAll('[data-interface-axis-slider]').forEach(slider => {
     slider.addEventListener('input', () => {
+        slider.value = Math.round(+slider.value);
         interfacePlaneState.pick[+slider.dataset.interfaceAxisSlider] = +slider.value;
+        document.querySelector('[data-interface-axis="' + slider.dataset.interfaceAxisSlider + '"]').value = slider.value;
+        slider.setAttribute('aria-valuetext', ['Min', 'Centroid', 'Max'][+slider.value]);
         updateInterfacePlane();
     });
 });
 
-const interfacePlaneBlock = document.querySelector('#workflow-step-3a .workflow-plane-block');
+const interfacePlaneBlock = document.querySelector('#workflow-step-3b .workflow-plane-block');
 const interfacePlaneModeButton = document.getElementById('interface-plane-control-mode');
 interfacePlaneModeButton.addEventListener('click', () => {
     const sliderMode = !interfacePlaneBlock.classList.contains('slider-mode');
     interfacePlaneBlock.classList.toggle('slider-mode', sliderMode);
     interfacePlaneModeButton.setAttribute('aria-pressed', sliderMode);
     interfacePlaneModeButton.setAttribute('aria-label', sliderMode ? 'Use nTop menu controls' : 'Use slider controls');
-    interfacePlaneModeButton.title = sliderMode ? 'Switch to nTop min, centroid and max menus' : 'Switch to continuous sliders';
+    interfacePlaneModeButton.title = sliderMode ? 'Switch to nTop min, centroid and max menus' : 'Switch to min, centroid and max sliders';
     if (!sliderMode) {
         interfacePlaneState.pick = interfacePlaneState.pick.map(value => Math.round(value));
         document.querySelectorAll('[data-interface-axis]').forEach(select => {
@@ -1722,26 +1749,26 @@ document.querySelectorAll('[data-interface-normal]').forEach(input => {
 });
 document.querySelectorAll('[data-orient]').forEach(input => {
     input.value = orientationState[input.dataset.orient];
-    document.querySelector('[data-orient-output="' + input.dataset.orient + '"]').textContent = input.value;
+    document.querySelector('[data-orient-output="' + input.dataset.orient + '"]').value = input.value;
     input.setAttribute('aria-valuetext', input.value + ' degrees');
     input.addEventListener('input', () => {
         const value = parseFloat(input.value);
         if (!Number.isFinite(value)) return;
         orientationState[input.dataset.orient] = value;
-        document.querySelector('[data-orient-output="' + input.dataset.orient + '"]').textContent = value;
+        document.querySelector('[data-orient-output="' + input.dataset.orient + '"]').value = value;
         input.setAttribute('aria-valuetext', value + ' degrees');
         updateInterfaceOrientation();
     });
 });
 document.querySelectorAll('[data-adjust]').forEach(input => {
     input.value = orientationState.adjust[+input.dataset.adjust];
-    document.querySelector('[data-adjust-output="' + input.dataset.adjust + '"]').textContent = input.value;
+    document.querySelector('[data-adjust-output="' + input.dataset.adjust + '"]').value = input.value;
     input.setAttribute('aria-valuetext', input.value + ' millimeters');
     input.addEventListener('input', () => {
         const value = parseFloat(input.value);
         if (!Number.isFinite(value)) return;
         orientationState.adjust[+input.dataset.adjust] = value;
-        document.querySelector('[data-adjust-output="' + input.dataset.adjust + '"]').textContent = value;
+        document.querySelector('[data-adjust-output="' + input.dataset.adjust + '"]').value = value;
         input.setAttribute('aria-valuetext', value + ' millimeters');
         updateInterfaceOrientation();
     });
@@ -1753,7 +1780,7 @@ function setSocketParameterControl(key, value) {
     if (!input || index < 0) return;
     input.value = String(index);
     socketParameterState[key] = value;
-    document.querySelector('[data-param-output="' + key + '"]').textContent = value;
+    document.querySelector('[data-param-output="' + key + '"]').value = value;
     input.setAttribute('aria-valuetext', value + ', model slot ' + (index + 1) + ' of ' + parameterValues[key].length);
 }
 
@@ -1815,7 +1842,7 @@ document.getElementById('toggle-grid').addEventListener('click', event => {
     event.currentTarget.setAttribute('aria-label', grid.visible ? 'Hide grid' : 'Show grid');
 });
 document.getElementById('reset-view').addEventListener('click', () => {
-    frameObject(activeStep === '4' ? attachmentHoles.root : activeStep === '1' ? importRoot : activeStep.startsWith('2') ? planeRoot : activeStep === '3a' ? interfaceReferenceMechanical : interfaceRoot);
+    frameObject(activeStep === '4' ? attachmentHoles.root : activeStep === '1' ? importRoot : activeStep.startsWith('2') ? planeRoot : activeStep === '3b' ? interfaceReferenceMechanical : interfaceRoot);
 });
 
 const attachmentHoles = createAttachmentHoles({ scene, camera, canvas,
@@ -1851,3 +1878,49 @@ Promise.all([
 
 renderLegend();
 window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+
+// Typed values use the same update path as their paired slider.
+for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
+    document.querySelectorAll(`[data-${outputAttr}]`).forEach(field => {
+        const key = field.getAttribute(`data-${outputAttr}`);
+        const slider = document.querySelector(`[data-${sliderAttr}="${key}"]`);
+        field.setAttribute('aria-label', slider.getAttribute('aria-label') + ' value');
+        const commit = () => {
+            const value = Number(field.value);
+            if (field.value === '' || !Number.isFinite(value)) { slider.dispatchEvent(new Event('input')); return; }
+            if (outputAttr === 'param-output') {
+                const values = parameterValues[key];
+                slider.value = values.reduce((best, v, i) => Math.abs(v-value) < Math.abs(values[best]-value) ? i : best, 0);
+            } else slider.value = Math.round(Math.max(+slider.min, Math.min(+slider.max, value)));
+            slider.dispatchEvent(new Event('input'));
+        };
+        field.addEventListener('change', commit);
+        field.addEventListener('keydown', event => { if (event.key === 'Enter') { commit(); field.blur(); } });
+    });
+}
+document.querySelectorAll('[data-interface-position]').forEach(field => {
+    const commit = () => {
+        if (field.value !== '' && Number.isFinite(+field.value)) {
+            const query = interfacePositionState.clone();
+            query.setComponent(+field.dataset.interfacePosition, +field.value / 1000);
+            interfacePositionFollowsPlane = false;
+            setInterfacePositionFromQuery(query);
+        } else syncInterfacePositionInputs();
+    };
+    field.addEventListener('change', commit);
+    field.addEventListener('keydown', event => { if (event.key === 'Enter') { commit(); field.blur(); } });
+});
+document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => {
+    slider.addEventListener('input', () => {
+        const select = document.querySelector(`[data-axis="${slider.dataset.pelvicAxisSlider}"]`);
+        select.value = Math.round(+slider.value);
+        select.dispatchEvent(new Event('change'));
+        slider.value = select.value;
+        slider.setAttribute('aria-valuetext', ['Min', 'Centroid', 'Max'][+slider.value]);
+    });
+    document.querySelector(`[data-axis="${slider.dataset.pelvicAxisSlider}"]`).addEventListener('change', event => { slider.value = event.target.value; });
+});
+document.getElementById('pelvic-plane-control-mode').addEventListener('click', event => {
+    const enabled = document.querySelector('#workflow-step-2a .workflow-plane-block').classList.toggle('slider-mode');
+    event.currentTarget.setAttribute('aria-pressed', enabled);
+});

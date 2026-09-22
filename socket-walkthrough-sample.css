@@ -76,7 +76,7 @@
 }
 
 .model-picker-trigger[aria-expanded="true"] {
-    border-color: #73a3c8;
+    border-color: #73b3c8;
     box-shadow: 0 0 0 1px rgba(115, 163, 200, 0.25);
 }
 
@@ -332,3 +332,24 @@
 }
 .workflow-import-choice select:focus-visible { outline: 2px solid #fdb515; outline-offset: 2px; }
 #interface-size-status { padding: 0 14px; color: #f0cfa0; font-size: 12px; }
+
+/* Editable values and nTop-style point rows. */
+.workflow-number { width: 100%; min-width: 0; box-sizing: border-box; background: #202326; color: #fff; border: 1px solid #53575c; border-radius: 4px; padding: 10px 6px; text-align: center; font: inherit; }
+.workflow-position-fields .workflow-number { width: 100%; }
+.attachment-point-list { display: flex; flex-direction: column; gap: 6px; padding: 12px 8px; }
+.attachment-point-row { display: grid; grid-template-columns: 22px 48px repeat(3, minmax(0, 1fr)) 24px; align-items: center; gap: 6px; }
+.attachment-point-row input { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px 5px; background: #242628; color: #fff; border: 1px solid #555; border-radius: 4px; }
+.attachment-point-row button { width: auto; min-width: 0; margin: 0; padding: 4px; background: transparent; border: 0; color: inherit; }
+.attachment-point-row .attachment-remove { opacity: 0; font-size: 22px; }
+.attachment-point-row:hover .attachment-remove, .attachment-point-row:focus-within .attachment-remove { opacity: 1; }
+#attachment-add { margin-left: auto; font-size: 24px; background: transparent; border: 0; color: inherit; cursor: pointer; }
+.workflow-number:focus, .attachment-point-row input:focus { outline: 2px solid #7fbfa8; outline-offset: 1px; }
+
+.attachment-point-columns { display: grid; grid-template-columns: 22px 48px repeat(3, minmax(0, 1fr)) 24px; gap: 6px; padding: 10px 8px 0; color: #aeb5bd; font-size: 12px; }
+
+.workflow-slider-row { grid-template-columns: minmax(100px, 1.3fr) minmax(35px, 1fr) 58px 24px; }
+.workflow-param-row { grid-template-columns: 20px minmax(95px, 1.4fr) minmax(30px, 1fr) 58px 22px; }
+.workflow-number { font-size: 13px; padding: 8px 4px; }
+.workflow-number::-webkit-inner-spin-button, .workflow-number::-webkit-outer-spin-button,
+.attachment-point-row input::-webkit-inner-spin-button, .attachment-point-row input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.workflow-number, .attachment-point-row input { appearance: textfield; -moz-appearance: textfield; }
