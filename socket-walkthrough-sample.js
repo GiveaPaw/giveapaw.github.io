@@ -179,6 +179,7 @@ const interfaceLayerTargets = {
     ...interfaceOverlayGroups,
 };
 interfaceLayerTargets.socket = socketPreviewRoot;
+let positionMechanicalVisible = false;
 const interfaceLayerVisibility = Object.fromEntries(Object.keys(interfaceLayerTargets).map(key => [key, true]));
 const interfaceLayerGroups = {
     mechSolid: ['mechanical', 'solid'],
@@ -1229,7 +1230,8 @@ function syncInterfaceLayerMenus() {
 function syncInterfaceVisibility(key, visible) {
     const target = interfaceLayerTargets[key];
     if (!target) return;
-    interfaceLayerVisibility[key] = visible;
+    if (activeStep === '3a' && key === 'mechanical') positionMechanicalVisible = visible;
+    else interfaceLayerVisibility[key] = visible;
     target.visible = visible;
     document.querySelectorAll('button[data-interface-layer="' + key + '"]').forEach(button => setVisibilityButton(button, visible));
     document.querySelectorAll('input[data-interface-layer="' + key + '"]').forEach(input => { input.checked = visible; });
@@ -1270,6 +1272,11 @@ function applyInterfaceStageVisibility() {
     ['point', 'normal', 'plane'].forEach(key => {
         interfaceLayerTargets[key].visible = isPlane && interfaceLayerVisibility[key];
     });
+    if (isPosition) {
+        interfaceLayerTargets.mechanical.visible = positionMechanicalVisible;
+        interfaceLayerTargets.solid.visible = false;
+    }
+    document.querySelectorAll('button[data-interface-layer="mechanical"]').forEach(button => setVisibilityButton(button, isPosition ? positionMechanicalVisible : interfaceLayerVisibility.mechanical));
     interfaceLayerTargets.socket.visible = !isPlane && interfaceLayerVisibility.socket;
     interfaceAxisTriad.visible = isPlane;
     positionTransform.enabled = activeStep === '3a' && interfaceLayerVisibility.target;
@@ -1565,7 +1572,11 @@ function showStep(step, shouldScroll = false) {
     };
     importRoot.visible = isImport;
     planeRoot.visible = isPelvic;
-    (isInterface ? interfaceRoot : planeRoot).add(socketPreviewRoot);
+    (isAttachment ? attachmentHoles.root : isInterface ? interfaceRoot : planeRoot).add(socketPreviewRoot);
+    if (isAttachment) {
+        socketPreviewRoot.visible = planeLayerVisibility.socket;
+        loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
+    }
     interfaceRoot.visible = isInterface;
     overlayControlsEl.hidden = !isPelvic;
     interfaceOverlayControlsEl.hidden = !isInterface;
@@ -1638,7 +1649,7 @@ document.addEventListener('click', event => {
     const interfaceLayerButton = event.target.closest('button[data-interface-layer]');
     if (interfaceLayerButton) {
         const key = interfaceLayerButton.dataset.interfaceLayer;
-        syncInterfaceVisibility(key, !interfaceLayerVisibility[key]);
+        syncInterfaceVisibility(key, !(activeStep === '3a' && key === 'mechanical' ? positionMechanicalVisible : interfaceLayerVisibility[key]));
         return;
     }
     const stepButton = event.target.closest('[data-go-step]');
@@ -1923,4 +1934,5 @@ document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => {
 document.getElementById('pelvic-plane-control-mode').addEventListener('click', event => {
     const enabled = document.querySelector('#workflow-step-2a .workflow-plane-block').classList.toggle('slider-mode');
     event.currentTarget.setAttribute('aria-pressed', enabled);
+    event.currentTarget.setAttribute('aria-label', enabled ? 'Use nTop menu controls' : 'Use slider controls');
 });

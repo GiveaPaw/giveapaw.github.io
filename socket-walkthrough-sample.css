@@ -353,3 +353,6 @@
 .workflow-number::-webkit-inner-spin-button, .workflow-number::-webkit-outer-spin-button,
 .attachment-point-row input::-webkit-inner-spin-button, .attachment-point-row input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .workflow-number, .attachment-point-row input { appearance: textfield; -moz-appearance: textfield; }
+
+.workflow-plane-block > .workflow-block-title { display: grid; grid-template-columns: 20px max-content minmax(0, 1fr) 40px 22px; gap: 8px; }
+.workflow-plane-block > .workflow-block-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

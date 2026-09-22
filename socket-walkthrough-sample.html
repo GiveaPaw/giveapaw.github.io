@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=37">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=5">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=6">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
@@ -276,8 +276,8 @@
                         <div class="workflow-block workflow-plane-block slider-mode">
                             <div class="workflow-block-title">
                                 <i data-lucide="panel-top" aria-hidden="true"></i>
-                                <strong>Pelvic Plane</strong><button type="button" id="pelvic-plane-control-mode" aria-pressed="true">Sliders / menus</button>
-                                <span>CB - Bounding Box Point &amp; Plane</span>
+                                <strong>Pelvic Plane</strong>
+                                <span>CB - Bounding Box Point &amp; Plane</span><button class="workflow-control-mode-toggle" type="button" id="pelvic-plane-control-mode" aria-label="Use nTop menu controls" aria-pressed="true" title="Switch to min, centroid and max menus"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
                                 <button class="workflow-visibility-toggle active" type="button" id="pelvic-plane-visibility" aria-label="Hide pelvic plane guides" title="Show or hide point, normal and plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
                             </div>
 
@@ -562,7 +562,7 @@
                             </div>
                         </details>
                     </div>
-                    <div class="workflow-overlay-controls" id="attachment-overlay-controls" aria-label="Attachment holes viewer visibility" hidden>
+                    <div class="workflow-overlay-controls" id="attachment-overlay-controls" aria-label="Attachment holes viewer visibility" hidden><button type="button" class="workflow-layer-toggle active" data-view-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
                         <button type="button" class="workflow-layer-toggle active" data-hole-layer="surface" aria-label="Hide attachment surface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Attachment surface</button>
                         <button type="button" class="workflow-layer-toggle active" data-hole-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
                         <button type="button" class="workflow-layer-toggle active" data-hole-layer="capsule" aria-label="Hide capsules"><span class="workflow-visibility-dot" aria-hidden="true"></span>Capsules</button>
@@ -583,6 +583,6 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=18"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=19"></script>
 </body>
 </html>
