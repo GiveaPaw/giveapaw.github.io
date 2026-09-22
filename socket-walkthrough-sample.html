@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=37">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=3">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=4">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
@@ -114,6 +114,7 @@
                                 <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
                             </div>
 
+                            <label class="workflow-field workflow-import-choice"><span>Animal model</span><select id="animal-model" disabled aria-label="Animal model"><option value="chihuahua">Chihuahua</option><option value="german-shepherd">German Shepherd</option><option value="greyhound">Greyhound</option></select></label>
                             <details class="workflow-node" data-model="solidAnimal" open>
                                 <summary>
                                     <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
@@ -219,7 +220,7 @@
                                     <div class="workflow-field">
                                         <i data-lucide="folder-open" aria-hidden="true"></i>
                                         <span>Path</span>
-                                        <output title="billie-mechanical-interface.glb">billie-mechanical-interface.glb</output>
+                                        <output data-interface-path="mechanical" title="billie-mechanical-interface.glb">billie-mechanical-interface.glb</output>
                                     </div>
                                     <div class="workflow-field">
                                         <i data-lucide="ruler" aria-hidden="true"></i>
@@ -243,7 +244,7 @@
                                     <div class="workflow-field">
                                         <i data-lucide="folder-open" aria-hidden="true"></i>
                                         <span>Path</span>
-                                        <output title="billie-solid-interface.stl">billie-solid-interface.stl</output>
+                                        <output data-interface-path="solidInterface" title="billie-solid-interface.stl">billie-solid-interface.stl</output>
                                     </div>
                                     <div class="workflow-field">
                                         <i data-lucide="ruler" aria-hidden="true"></i>
@@ -254,12 +255,9 @@
                                     </div>
                                 </div>
                             </details>
-                        </div>
 
-                        <div class="sample-result-card">
-                            <span class="sample-result-icon"><i data-lucide="badge-check" aria-hidden="true"></i></span>
-                            <span><strong>Chihuahua far back 1</strong><small>nTop sample complete</small></span>
-                            <button type="button" id="preview-generated-sample">Preview result</button>
+                            <label class="workflow-field workflow-import-choice"><span>Prosthetic interface</span><select id="interface-size" disabled aria-label="Prosthetic interface size"><option value="large">Large dog</option><option value="small">Small dog (Ollie)</option></select></label>
+                            <p id="interface-size-status" role="status" hidden></p>
                         </div>
 
                         <div class="workflow-step-actions">
@@ -375,8 +373,8 @@
                                 </label>
                                 <label class="workflow-param-row">
                                     <i data-lucide="move-horizontal" aria-hidden="true"></i><span>Pelvic Thicken Distance</span>
-                                    <input type="range" min="0" max="21" value="15" data-socket-param="pelvicDistance" aria-label="Pelvic thicken distance model">
-                                    <output data-param-output="pelvicDistance">140</output><small>mm</small>
+                                    <input type="range" min="0" max="21" value="6" data-socket-param="pelvicDistance" aria-label="Pelvic thicken distance model">
+                                    <output data-param-output="pelvicDistance">50</output><small>mm</small>
                                 </label>
                             </div>
                             <p class="workflow-slot-note"><span data-slot-status>Loading nTop-generated parameter models</span></p>
@@ -392,12 +390,12 @@
                             <span class="workflow-step-number">Step 3a</span>
                             <div><h2>Define the interface plane</h2></div>
                         </div>
-                        <div class="workflow-block workflow-plane-block">
+                        <div class="workflow-block workflow-plane-block slider-mode">
                             <div class="workflow-block-title workflow-block-title-with-mode">
                                 <i data-lucide="panel-top" aria-hidden="true"></i>
                                 <strong>Interface Plane</strong>
                                 <span>CB - Bounding Box Point &amp; Plane</span>
-                                <button class="workflow-control-mode-toggle" type="button" id="interface-plane-control-mode" aria-label="Use slider controls" aria-pressed="false" title="Switch between nTop menus and sliders"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
+                                <button class="workflow-control-mode-toggle" type="button" id="interface-plane-control-mode" aria-label="Use nTop menu controls" aria-pressed="true" title="Switch to nTop min, centroid and max menus"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
                                 <button class="workflow-visibility-toggle active" type="button" id="interface-plane-visibility" aria-label="Hide interface plane guides" title="Show or hide point, normal and plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
                             </div>
                             <div class="workflow-plane-fields">
@@ -590,6 +588,6 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=14"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=17"></script>
 </body>
 </html>

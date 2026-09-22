@@ -85,10 +85,6 @@ const layers = {
         label: 'Solid interface', color: '#6750a4', group: new THREE.Group(), visible: false,
         file: 'billie-solid-interface.stl', type: 'stl', opacity: 1, baseUnit: 'mm', importUnit: 'mm',
     },
-    sampleOutput: {
-        label: 'Generated nTop sample', color: '#6750a4', group: new THREE.Group(), visible: false,
-        file: 'sample-models/point-count-test/point-count-100.glb?v=4x', type: 'glb', opacity: 1, baseUnit: 'mm', importUnit: 'mm',
-    },
 };
 Object.values(layers).forEach(layer => {
     layer.group.visible = layer.visible;
@@ -102,11 +98,11 @@ const modelCatalog = {
     },
     greyhound: {
         label: 'Greyhound', slug: 'greyhound',
-        solid: { label: 'Greyhound original', file: 'sample-models/greyhound-original.stl', type: 'stl', units: 'm' },
+        solid: { label: 'Greyhound original', file: 'sample-models/greyhound-solid.obj', type: 'obj', units: 'm' },
     },
     'german-shepherd': {
         label: 'German Shepherd', slug: 'german-shepherd',
-        solid: { label: 'German Shepherd original', file: 'sample-models/german-shepherd-original.stl', type: 'stl', units: 'm' },
+        solid: { label: 'German Shepherd original', file: 'sample-models/german-shepherd-solid.obj', type: 'obj', units: 'm' },
     },
 };
 
@@ -374,7 +370,7 @@ const socketParameterState = {
     boundaryThickness: 10,
     pointCount: 100,
     pelvicThickness: 0,
-    pelvicDistance: 140,
+    pelvicDistance: 50,
 };
 const POINT_COUNT_VALUES = [10, 20, 40, 60, 80, 100, 120, 140, 160, 180,
     200, 220, 240, 260, 280, 300, 320, 340, 360, 380, 400];
@@ -391,7 +387,7 @@ const socketParameterDefaults = {
     boundaryThickness: 10,
     pointCount: 100,
     pelvicThickness: 0,
-    pelvicDistance: 140,
+    pelvicDistance: 50,
 };
 const socketParameterModelMeta = {
     socketThickness: { directory: 'socket-thickness', label: 'socket thickness', unit: ' mm' },
@@ -452,7 +448,7 @@ function socketParameterModelFile(key, value) {
     if (key === 'pointCount') return pointCountModelFile(value);
     const directory = socketParameterModelMeta[key].directory;
     const fileValue = String(value).padStart(3, '0');
-    return `sample-models/step-2b/${directory}/${directory}-${fileValue}.glb?v=step2b2`;
+    return `sample-models/step-2b/${directory}/${directory}-${fileValue}.glb?v=${key === 'pelvicThickness' ? 'distance50' : 'step2b2'}`;
 }
 
 function pelvicPlaneModelFile(preset) {
@@ -496,10 +492,25 @@ function pelvicPlaneModelPromise(preset) {
     return pelvicPlaneModelPromises.get(preset);
 }
 
+function hasSocketModelLibrary() {
+    return modelPickerState.breed === 'chihuahua' && modelPickerState.category === 'farback'
+        && modelPickerState.variation === 1;
+}
+
+function showSourceModelsOnly(status) {
+    if (hasSocketModelLibrary()) return false;
+    socketPreviewRoot.clear();
+    status.hidden = false;
+    status.textContent = 'Source models only. Socket results are not generated for this selection yet.';
+    return true;
+}
+
 async function loadSocketParameterModel(key, value) {
     const request = ++socketModelRequest;
     const status = document.querySelector('[data-slot-status]');
+    if (showSourceModelsOnly(status)) return;
     const meta = socketParameterModelMeta[key];
+    status.hidden = false;
     status.textContent = `Loading nTop mesh · ${meta.label} ${value}${meta.unit}`;
     try {
         const object = await socketModelPromise(key, value);
@@ -508,7 +519,8 @@ async function loadSocketParameterModel(key, value) {
         socketPreviewRoot.add(object);
         socketParameterState[key] = value;
         activeSocketParameter = key;
-        status.textContent = `nTop mesh loaded · ${meta.label} ${value}${meta.unit}`;
+        status.textContent = '';
+        status.hidden = true;
         applyPelvicStageVisibility();
         const values = parameterValues[key];
         const index = values.indexOf(value);
@@ -530,13 +542,16 @@ async function loadPelvicPlaneTestModel(preset) {
     const request = ++socketModelRequest;
     const config = PELVIC_PLANE_PRESETS[preset];
     const status = document.querySelector('[data-plane-test-status]');
+    if (showSourceModelsOnly(status)) return;
+    status.hidden = false;
     status.textContent = `Loading ${config.label} nTop mesh`;
     try {
         const object = await pelvicPlaneModelPromise(preset);
         if (request !== socketModelRequest) return;
         socketPreviewRoot.clear();
         socketPreviewRoot.add(object);
-        status.textContent = `nTop test mesh loaded · ${config.label}`;
+        status.textContent = '';
+        status.hidden = true;
         applyPelvicStageVisibility();
     } catch (error) {
         if (request !== socketModelRequest) return;
@@ -941,6 +956,12 @@ function cloneForInterface(layer) {
 }
 
 function buildInterfaceScene() {
+    positionTransform.detach();
+    [interfaceAnimal, interfaceReferenceMechanical, interfaceMechanical, interfaceSolid,
+        ...Object.values(interfaceOverlayGroups)].forEach(group => group.clear());
+    orientedAssembly.position.set(0, 0, 0);
+    orientedAssembly.quaternion.identity();
+    orientedAssembly.updateMatrixWorld(true);
     interfaceAnimal.add(cloneForInterface(layers.solidAnimal));
     interfaceReferenceMechanical.add(cloneForInterface(layers.mechanical));
     interfaceMechanical.add(cloneForInterface(layers.mechanical));
@@ -1345,6 +1366,7 @@ function catalogFileName(file) {
 
 function updateModelPickerUI() {
     const breed = modelCatalog[modelPickerState.breed];
+    document.getElementById('animal-model').value = modelPickerState.breed;
     const attachment = attachmentCatalogEntry();
     document.querySelectorAll('[data-model-breed]').forEach(button => {
         button.classList.toggle('active', button.dataset.modelBreed === modelPickerState.breed);
@@ -1367,23 +1389,7 @@ function updateModelPickerUI() {
     document.querySelector('[data-import-unit="attachment"]').value = layers.attachment.importUnit;
 }
 
-function setGeneratedSamplePreview(enabled) {
-    syncImportVisibility('sampleOutput', enabled);
-    syncImportVisibility('solidAnimal', !enabled);
-    syncImportVisibility('attachment', !enabled);
-    syncImportVisibility('mechanical', false);
-    syncImportVisibility('solidInterface', false);
-    const button = document.getElementById('preview-generated-sample');
-    button.classList.toggle('active', enabled);
-    button.textContent = enabled ? 'Return to sources' : 'Preview result';
-    if (activeStep === '1') {
-        viewerTitleEl.textContent = enabled ? 'Generated nTop socket sample' : 'Imported mesh assembly';
-        requestAnimationFrame(() => frameObject(enabled ? layers.sampleOutput.group : importRoot));
-    }
-}
-
 async function refreshCatalogModels({ solid = false, attachment = false } = {}) {
-    setGeneratedSamplePreview(false);
     const breed = modelCatalog[modelPickerState.breed];
     const jobs = [];
     if (solid) jobs.push(replaceImportLayer('solidAnimal', breed.solid));
@@ -1396,7 +1402,9 @@ async function refreshCatalogModels({ solid = false, attachment = false } = {}) 
         await Promise.all(jobs);
         importBounds = new THREE.Box3().setFromObject(importRoot);
         rebuildPelvicScene();
+        buildInterfaceScene();
         updateModelPickerUI();
+        showStep(activeStep);
         loaderEl.hidden = true;
         requestAnimationFrame(() => frameObject(importRoot));
     } catch (error) {
@@ -1416,6 +1424,12 @@ document.querySelectorAll('[data-model-picker]').forEach(trigger => {
         panel.hidden = !shouldOpen;
         trigger.setAttribute('aria-expanded', String(shouldOpen));
     });
+});
+
+document.getElementById('animal-model').addEventListener('change', event => {
+    modelPickerState.breed = event.currentTarget.value;
+    updateModelPickerUI();
+    refreshCatalogModels({ solid: true, attachment: true });
 });
 
 document.querySelectorAll('[data-model-breed]').forEach(button => {
@@ -1446,8 +1460,60 @@ document.querySelectorAll('[data-attachment-variation]').forEach(button => {
     });
 });
 
-document.getElementById('preview-generated-sample').addEventListener('click', event => {
-    setGeneratedSamplePreview(!event.currentTarget.classList.contains('active'));
+
+const interfaceCatalog = {
+    large: {
+        mechanical: { file: 'billie-mechanical-interface.glb', type: 'glb' },
+        solidInterface: { file: 'billie-solid-interface.stl', type: 'stl' },
+    },
+    small: {
+        mechanical: { file: 'sample-models/interfaces/small-mechanical.stl', type: 'stl' },
+        solidInterface: { file: 'sample-models/interfaces/small-solid.stl', type: 'stl' },
+    },
+};
+let selectedInterfaceSize = 'large';
+document.getElementById('interface-size').addEventListener('change', async event => {
+    const select = event.currentTarget;
+    const nextSize = select.value;
+    const status = document.getElementById('interface-size-status');
+    select.disabled = true;
+    status.hidden = false;
+    status.textContent = 'Loading interface...';
+    try {
+        // Stage both files before replacing either half of the matched pair.
+        const staged = await Promise.all(Object.entries(interfaceCatalog[nextSize]).map(async ([key, model]) => {
+            const layer = { ...layers[key], ...model, group: new THREE.Group() };
+            await loadImportLayer(layer);
+            return [key, layer];
+        }));
+        for (const [key, stagedLayer] of staged) {
+            const layer = layers[key];
+            layer.group.clear();
+            while (stagedLayer.group.children.length) layer.group.add(stagedLayer.group.children[0]);
+            layer.file = stagedLayer.file;
+            layer.type = stagedLayer.type;
+            layer.baseUnit = layer.importUnit = 'mm';
+            applyImportUnitScale(layer);
+            document.querySelector('[data-import-unit="' + key + '"]').value = 'mm';
+            const output = document.querySelector('[data-interface-path="' + key + '"]');
+            output.textContent = catalogFileName(layer.file);
+            output.title = layer.file;
+        }
+        syncImportVisibility('mechanical', true);
+        syncImportVisibility('solidInterface', true);
+        selectedInterfaceSize = nextSize;
+        buildInterfaceScene();
+        clearMeasurement();
+        importBounds = new THREE.Box3().setFromObject(importRoot);
+        showStep(activeStep);
+        status.hidden = true;
+    } catch (error) {
+        select.value = selectedInterfaceSize;
+        status.textContent = 'Could not load the interface. Please try again.';
+        console.error(error);
+    } finally {
+        select.disabled = false;
+    }
 });
 
 document.querySelectorAll('[data-import-unit]').forEach(select => {
@@ -1459,6 +1525,7 @@ document.querySelectorAll('[data-import-unit]').forEach(select => {
         applyImportUnitScale(layer);
         importBounds = new THREE.Box3().setFromObject(importRoot);
         if (key === 'solidAnimal' || key === 'attachment') rebuildPelvicScene();
+        buildInterfaceScene();
         clearMeasurement();
         if (activeStep === '1') requestAnimationFrame(() => frameObject(importRoot));
         if (activeStep.startsWith('2')) requestAnimationFrame(() => frameObject(planeRoot));
@@ -1692,7 +1759,6 @@ function setSocketParameterControl(key, value) {
 
 function resetSocketParametersForSweep(activeKey) {
     const values = { ...socketParameterDefaults };
-    if (activeKey === 'pelvicThickness') values.pelvicDistance = 20;
     if (activeKey === 'pelvicDistance') values.pelvicThickness = 10;
     Object.entries(values).forEach(([key, value]) => {
         if (key !== activeKey) setSocketParameterControl(key, value);
@@ -1775,6 +1841,8 @@ Promise.all([
     Object.keys(layers).forEach(key => syncImportVisibility(key, layers[key].visible));
     loaderEl.hidden = true;
     showStep('1');
+    document.getElementById('interface-size').disabled = false;
+    document.getElementById('animal-model').disabled = false;
 }).catch(error => {
     loaderEl.classList.add('error');
     loaderEl.querySelector('p').textContent = 'A model could not be loaded. Refresh the page to try again.';
