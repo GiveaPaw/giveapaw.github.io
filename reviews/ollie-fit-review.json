@@ -1,0 +1,1027 @@
+{
+  "id": "ollie-fit-2026-10",
+  "title": "Ollie: why the leg does not track",
+  "subtitle": "Give a Paw × Bionic Pets",
+  "intro": "Ollie's prosthetic leg does not move with him. It does not point where we want it to, it crosses over, and it drags on the floor. Below is the socket he wore, followed by the changes we are considering.",
+  "reviewerDefault": "Derrick Campana",
+  "returnEmail": "",
+  "participantTools": [
+    "pin",
+    "measure",
+    "section",
+    "layers",
+    "alpha",
+    "tabs",
+    "draw"
+  ],
+  "library": [
+    {
+      "id": "anatomy-video",
+      "kind": "video",
+      "label": "Anatomy considerations (video)",
+      "src": "media/pitch/anatomy-considerations.mp4",
+      "poster": "media/pitch/anatomy-considerations.jpg"
+    },
+    {
+      "id": "anatomy-skeleton",
+      "kind": "image",
+      "label": "Canine skeleton, joints",
+      "src": "media/pitch/anatomy-1.jpg",
+      "caption": "Canine skeleton with the joints labelled"
+    },
+    {
+      "id": "anatomy-forelimb",
+      "kind": "image",
+      "label": "Forelimb joints",
+      "src": "media/pitch/anatomy-2.jpg",
+      "caption": "Thoracic limb: shoulder to digits"
+    }
+  ],
+  "items": [
+    {
+      "id": "ollie-current",
+      "kind": "stage",
+      "title": "The socket Ollie wore",
+      "context": "Ollie is a partial forelimb amputee. This is his 3D scan with the socket we printed and fitted. In use, the leg did not point where we wanted, it crossed over, and it dragged on the floor.",
+      "sources": {
+        "model": {
+          "kind": "assembly",
+          "label": "Current socket",
+          "caption": "the socket Ollie wore",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 0.38
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
+            }
+          ]
+        },
+        "videos": {
+          "kind": "playlist",
+          "label": "Fitting videos",
+          "caption": "Ollie's fitting session",
+          "clips": [
+            {
+              "id": "img_3890",
+              "label": "1 · 1:47",
+              "src": "media/ollie-fitting/IMG_3890.mp4",
+              "poster": "media/ollie-fitting/IMG_3890.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3893",
+              "label": "2 · 0:56",
+              "src": "media/ollie-fitting/IMG_3893.mp4",
+              "poster": "media/ollie-fitting/IMG_3893.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3894",
+              "label": "3 · 0:37",
+              "src": "media/ollie-fitting/IMG_3894.mp4",
+              "poster": "media/ollie-fitting/IMG_3894.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3895",
+              "label": "4 · 1:04",
+              "src": "media/ollie-fitting/IMG_3895.mp4",
+              "poster": "media/ollie-fitting/IMG_3895.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3896",
+              "label": "5 · 0:36",
+              "src": "media/ollie-fitting/IMG_3896.mp4",
+              "poster": "media/ollie-fitting/IMG_3896.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3897",
+              "label": "6 · 0:48",
+              "src": "media/ollie-fitting/IMG_3897.mp4",
+              "poster": "media/ollie-fitting/IMG_3897.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3898",
+              "label": "7 · 0:54",
+              "src": "media/ollie-fitting/IMG_3898.mp4",
+              "poster": "media/ollie-fitting/IMG_3898.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3899",
+              "label": "8 · 0:01",
+              "src": "media/ollie-fitting/IMG_3899.mp4",
+              "poster": "media/ollie-fitting/IMG_3899.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3900",
+              "label": "9 · 0:29",
+              "src": "media/ollie-fitting/IMG_3900.mp4",
+              "poster": "media/ollie-fitting/IMG_3900.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3903",
+              "label": "10 · 0:18",
+              "src": "media/ollie-fitting/IMG_3903.mp4",
+              "poster": "media/ollie-fitting/IMG_3903.jpg",
+              "stops": []
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "videos",
+          "label": "Fitting videos",
+          "icon": "film",
+          "panes": [
+            "videos"
+          ]
+        },
+        {
+          "key": "both",
+          "label": "Video + model",
+          "icon": "columns-2",
+          "panes": [
+            "videos",
+            "model"
+          ]
+        },
+        {
+          "key": "model",
+          "label": "3D model",
+          "icon": "box",
+          "panes": [
+            "model"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ollie-a-tighter-fit",
+      "kind": "compare",
+      "title": "A · Tighter fit: shrink the scan 2 to 5%",
+      "context": "We built the socket on the raw scan and did not account for Ollie's fur.",
+      "problem": "The socket was generated directly on the scan, fur included, so it may sit loose on his body and rotate.",
+      "proposal": "Shrink the scan by 2 to 5% before generating the socket so it grips him more tightly. Drag the bar under the right-hand view to see each amount against his real size.",
+      "ask": "Is a loose fit the likely reason the leg does not track? How much would you take off for a coat like his?",
+      "current": {
+        "kind": "assembly",
+        "caption": "socket on the raw scan",
+        "layers": [
+          {
+            "key": "animal",
+            "label": "Solid animal",
+            "file": "ollie-solid-animal.glb",
+            "color": "#496b94",
+            "opacity": 0.38
+          },
+          {
+            "key": "socket",
+            "label": "Socket",
+            "file": "ollie-socket.glb",
+            "color": "#b9c2cc",
+            "opacity": 1
+          }
+        ]
+      },
+      "proposed": {
+        "kind": "sweep",
+        "caption": "preview: current socket scaled down",
+        "param": "Scan shrink",
+        "unit": "%",
+        "values": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "defaultValue": 3,
+        "source": "ollie-socket.glb",
+        "color": "#e0a100",
+        "animal": {
+          "file": "ollie-solid-animal.glb",
+          "label": "Solid animal",
+          "color": "#496b94",
+          "opacity": 0.38,
+          "visible": true
+        }
+      }
+    },
+    {
+      "id": "ollie-b-third-strap",
+      "kind": "stage",
+      "title": "B · Add a third strap",
+      "context": "The socket is held on with two velcro straps.",
+      "problem": "With only two straps the socket can shift and rotate on his chest as he moves.",
+      "proposal": "Add a third strap so the socket is held at three points and stays put.",
+      "ask": "Where would you place a third strap? Would you change the strap material? We used velcro.",
+      "sources": {
+        "video": {
+          "kind": "playlist",
+          "label": "Video",
+          "caption": "straps in use",
+          "clips": [
+            {
+              "id": "img_3890",
+              "label": "1 · 1:47",
+              "src": "media/ollie-fitting/IMG_3890.mp4",
+              "poster": "media/ollie-fitting/IMG_3890.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3893",
+              "label": "2 · 0:56",
+              "src": "media/ollie-fitting/IMG_3893.mp4",
+              "poster": "media/ollie-fitting/IMG_3893.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3894",
+              "label": "3 · 0:37",
+              "src": "media/ollie-fitting/IMG_3894.mp4",
+              "poster": "media/ollie-fitting/IMG_3894.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3895",
+              "label": "4 · 1:04",
+              "src": "media/ollie-fitting/IMG_3895.mp4",
+              "poster": "media/ollie-fitting/IMG_3895.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3896",
+              "label": "5 · 0:36",
+              "src": "media/ollie-fitting/IMG_3896.mp4",
+              "poster": "media/ollie-fitting/IMG_3896.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3897",
+              "label": "6 · 0:48",
+              "src": "media/ollie-fitting/IMG_3897.mp4",
+              "poster": "media/ollie-fitting/IMG_3897.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3898",
+              "label": "7 · 0:54",
+              "src": "media/ollie-fitting/IMG_3898.mp4",
+              "poster": "media/ollie-fitting/IMG_3898.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3899",
+              "label": "8 · 0:01",
+              "src": "media/ollie-fitting/IMG_3899.mp4",
+              "poster": "media/ollie-fitting/IMG_3899.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3900",
+              "label": "9 · 0:29",
+              "src": "media/ollie-fitting/IMG_3900.mp4",
+              "poster": "media/ollie-fitting/IMG_3900.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3903",
+              "label": "10 · 0:18",
+              "src": "media/ollie-fitting/IMG_3903.mp4",
+              "poster": "media/ollie-fitting/IMG_3903.jpg",
+              "stops": []
+            }
+          ]
+        },
+        "model": {
+          "kind": "assembly",
+          "label": "Current socket",
+          "caption": "two straps",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 0.38
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "video",
+          "label": "Video",
+          "icon": "film",
+          "panes": [
+            "video"
+          ]
+        },
+        {
+          "key": "both",
+          "label": "Video + 3D",
+          "icon": "columns-2",
+          "panes": [
+            "video",
+            "model"
+          ]
+        },
+        {
+          "key": "model",
+          "label": "3D model",
+          "icon": "box",
+          "panes": [
+            "model"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ollie-c-extend-chest",
+      "kind": "stage",
+      "title": "C · Extend further down the chest",
+      "context": "We stopped just past the apex of his chest to stay clear of the 13th rib.",
+      "problem": "We did not want the socket past his 13th rib where it could press on his organs, so we went only a little past the apex of his chest. That may leave too little socket to hold it steady.",
+      "proposal": "Extend the socket an extra inch or two down his chest, still well clear of the 13th rib. Click the animal and press T to make it solid or see-through.",
+      "ask": "How far down can we safely go, and which landmark would you use to set that limit?",
+      "sources": {
+        "gif": {
+          "kind": "pending",
+          "label": "Animation",
+          "expects": "ollie-chest-extension.gif",
+          "note": "Drop the GIF in the site folder. It is converted to a video so it gets stop points, frame stepping and drawing."
+        },
+        "current": {
+          "kind": "assembly",
+          "label": "Current",
+          "caption": "stops just past the chest apex",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 0.38
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
+            }
+          ]
+        },
+        "proposed": {
+          "kind": "pending",
+          "label": "Proposed",
+          "tone": "proposed",
+          "caption": "1 to 2 inches longer",
+          "expects": "ollie-socket-extend-25mm.glb, ollie-socket-extend-50mm.glb",
+          "note": "Export one socket per extra length from nTop. Two or more files become a slider."
+        },
+        "paint": {
+          "kind": "assembly",
+          "label": "Draw the extension",
+          "tone": "proposed",
+          "caption": "paint where the socket should reach",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 0.5,
+              "visible": false
+            }
+          ],
+          "paint": {
+            "layer": "animal",
+            "surface": "ollie-attachment-surface.glb",
+            "color": "#169c8c",
+            "brush": 10,
+            "tolerance": 3,
+            "fileName": "ollie-chest-extension-surface"
+          }
+        }
+      },
+      "views": [
+        {
+          "key": "gif",
+          "label": "Animation",
+          "icon": "film",
+          "panes": [
+            "gif"
+          ]
+        },
+        {
+          "key": "gif-model",
+          "label": "Animation + 3D",
+          "icon": "columns-2",
+          "panes": [
+            "gif",
+            "current"
+          ]
+        },
+        {
+          "key": "compare",
+          "label": "Current vs proposed",
+          "icon": "columns-2",
+          "panes": [
+            "current",
+            "proposed"
+          ]
+        },
+        {
+          "key": "paint",
+          "label": "Draw the extension",
+          "icon": "paintbrush",
+          "panes": [
+            "paint"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ollie-d-leg-cutout",
+      "kind": "stage",
+      "title": "D · Attachment surface and leg cutout",
+      "context": "We cut a generous opening so the socket would not limit his leg.",
+      "problem": "We were liberal with the hole for his leg. Less socket touching his body may be letting it slip.",
+      "proposal": "Redraw the attachment surface together: paint to add, erase to remove, smooth the edge, then grow or shrink it. The proposed surface downloads as an STL for nTop.",
+      "ask": "Where should the attachment surface end, around the leg and down the chest?",
+      "sources": {
+        "original": {
+          "kind": "assembly",
+          "label": "Original surface",
+          "caption": "what the socket was built on",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 1,
+              "visible": true,
+              "decal": true
+            }
+          ]
+        },
+        "proposed": {
+          "kind": "assembly",
+          "label": "Proposed surface",
+          "tone": "proposed",
+          "caption": "drawn in this session",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
+            }
+          ],
+          "paint": {
+            "layer": "animal",
+            "surface": "ollie-attachment-surface.glb",
+            "color": "#169c8c",
+            "brush": 10,
+            "tolerance": 3,
+            "fileName": "ollie-proposed-attachment-surface"
+          }
+        },
+        "anatomy": {
+          "kind": "image",
+          "label": "Anatomy",
+          "caption": "canine skeleton",
+          "images": [
+            {
+              "src": "media/pitch/anatomy-1.jpg",
+              "caption": "Canine skeleton with the joints labelled"
+            },
+            {
+              "src": "media/pitch/anatomy-2.jpg",
+              "caption": "Thoracic limb: shoulder to digits"
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "original",
+          "label": "Original",
+          "icon": "box",
+          "panes": [
+            "original"
+          ]
+        },
+        {
+          "key": "split",
+          "label": "Original vs proposed",
+          "icon": "columns-2",
+          "panes": [
+            "original",
+            "proposed"
+          ]
+        },
+        {
+          "key": "proposed",
+          "label": "Proposed",
+          "icon": "paintbrush",
+          "panes": [
+            "proposed"
+          ]
+        },
+        {
+          "key": "anatomy",
+          "label": "Anatomy",
+          "icon": "image",
+          "panes": [
+            "anatomy"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ollie-e-stiffer-ribs",
+      "kind": "stage",
+      "title": "E · Stiffer where it pushes on the ribs",
+      "context": "The socket may be flexing instead of holding its position.",
+      "problem": "If the socket flexes, it cannot push against his ribs to keep the leg pointed the right way.",
+      "proposal": "Thicken the wall near the pelvic end. Two nTop inputs control it: pelvic thickness (how much thicker) and pelvic thicken distance (how far the thickening reaches). Use the two bars under the sweep model; every combination shown was generated in nTop. At 0 thickness the distance changes nothing.",
+      "ask": "Is stiffness the right thing to change here? Where on the socket would you add it?",
+      "sources": {
+        "current": {
+          "kind": "assembly",
+          "label": "Current",
+          "caption": "uniform wall",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 0.38
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            }
+          ]
+        },
+        "proposed": {
+          "kind": "sweep",
+          "label": "Pelvic thickening",
+          "tone": "proposed",
+          "caption": "nTop v3 sweep (lattice point count 50)",
+          "axes": [
+            {
+              "param": "Pelvic thickness",
+              "short": "Thickness",
+              "unit": "mm",
+              "values": [
+                0,
+                6,
+                12,
+                18,
+                24,
+                30
+              ]
+            },
+            {
+              "param": "Pelvic thicken distance",
+              "short": "Distance",
+              "unit": "mm",
+              "values": [
+                0,
+                40,
+                80,
+                120,
+                160,
+                200
+              ],
+              "idleWhen": {
+                "axis": 0,
+                "value": 0,
+                "note": "No effect while the thickness is 0"
+              }
+            }
+          ],
+          "files": {
+            "0|0": "ollie-v3-lattice-050.glb",
+            "0|40": "ollie-v3-pelvic-t00-d040.glb",
+            "0|80": "ollie-v3-pelvic-t00-d080.glb",
+            "0|120": "ollie-v3-pelvic-t00-d120.glb",
+            "0|160": "ollie-v3-pelvic-t00-d160.glb",
+            "0|200": "ollie-v3-pelvic-t00-d200.glb",
+            "6|0": "ollie-v3-pelvic-t06-d000.glb",
+            "6|40": "ollie-v3-pelvic-t06-d040.glb",
+            "6|80": "ollie-v3-pelvic-t06-d080.glb",
+            "6|120": "ollie-v3-pelvic-t06-d120.glb",
+            "6|160": "ollie-v3-pelvic-t06-d160.glb",
+            "6|200": "ollie-v3-pelvic-t06-d200.glb",
+            "12|0": "ollie-v3-pelvic-t12-d000.glb",
+            "12|40": "ollie-v3-pelvic-t12-d040.glb",
+            "12|80": "ollie-v3-pelvic-t12-d080.glb",
+            "12|120": "ollie-v3-pelvic-t12-d120.glb",
+            "12|160": "ollie-v3-pelvic-t12-d160.glb",
+            "12|200": "ollie-v3-pelvic-t12-d200.glb",
+            "18|0": "ollie-v3-pelvic-t18-d000.glb",
+            "18|40": "ollie-v3-pelvic-t18-d040.glb",
+            "18|80": "ollie-v3-pelvic-t18-d080.glb",
+            "18|120": "ollie-v3-pelvic-t18-d120.glb",
+            "18|160": "ollie-v3-pelvic-t18-d160.glb",
+            "18|200": "ollie-v3-pelvic-t18-d200.glb",
+            "24|0": "ollie-v3-pelvic-t24-d000.glb",
+            "24|40": "ollie-v3-pelvic-t24-d040.glb",
+            "24|80": "ollie-v3-pelvic-t24-d080.glb",
+            "24|120": "ollie-v3-pelvic-t24-d120.glb",
+            "24|160": "ollie-v3-pelvic-t24-d160.glb",
+            "24|200": "ollie-v3-pelvic-t24-d200.glb",
+            "30|0": "ollie-v3-pelvic-t30-d000.glb",
+            "30|40": "ollie-v3-pelvic-t30-d040.glb",
+            "30|80": "ollie-v3-pelvic-t30-d080.glb",
+            "30|120": "ollie-v3-pelvic-t30-d120.glb",
+            "30|160": "ollie-v3-pelvic-t30-d160.glb",
+            "30|200": "ollie-v3-pelvic-t30-d200.glb"
+          },
+          "defaultValue": "18|120",
+          "color": "#e0a100",
+          "animal": {
+            "file": "ollie-solid-animal.glb",
+            "label": "Solid animal",
+            "color": "#496b94",
+            "opacity": 0.38,
+            "visible": true
+          }
+        }
+      },
+      "views": [
+        {
+          "key": "split",
+          "label": "Current vs sweep",
+          "icon": "columns-2",
+          "panes": [
+            "current",
+            "proposed"
+          ]
+        },
+        {
+          "key": "sweep",
+          "label": "Pelvic sweep",
+          "icon": "sliders-horizontal",
+          "panes": [
+            "proposed"
+          ]
+        },
+        {
+          "key": "current",
+          "label": "Current",
+          "icon": "box",
+          "panes": [
+            "current"
+          ]
+        }
+      ],
+      "defaultView": "split"
+    },
+    {
+      "id": "ollie-f-denser-lattice",
+      "kind": "stage",
+      "title": "F · Denser lattice",
+      "context": "The vet asked for ventilation, so we kept the lattice open.",
+      "problem": "The lattice may be too sparse to hold its shape under load.",
+      "proposal": "Increase the lattice density while keeping enough openings for airflow. Drag the bar under the sweep model from 5 to 250 lattice points; Ollie's socket used 50. Every step is a real nTop export.",
+      "ask": "How open does a socket need to be for a dog's skin and coat? Would you trade some ventilation for stiffness?",
+      "sources": {
+        "current": {
+          "kind": "assembly",
+          "label": "Current",
+          "caption": "sparse lattice",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 0.38
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            }
+          ]
+        },
+        "proposed": {
+          "kind": "sweep",
+          "label": "Lattice point count",
+          "tone": "proposed",
+          "caption": "nTop v3 sweep (pelvic inputs at 0)",
+          "param": "Lattice point count",
+          "unit": "points",
+          "files": {
+            "5": "ollie-v3-lattice-005.glb",
+            "50": "ollie-v3-lattice-050.glb",
+            "100": "ollie-v3-lattice-100.glb",
+            "150": "ollie-v3-lattice-150.glb",
+            "200": "ollie-v3-lattice-200.glb",
+            "250": "ollie-v3-lattice-250.glb"
+          },
+          "defaultValue": 50,
+          "color": "#e0a100",
+          "animal": {
+            "file": "ollie-solid-animal.glb",
+            "label": "Solid animal",
+            "color": "#496b94",
+            "opacity": 0.38,
+            "visible": true
+          }
+        }
+      },
+      "views": [
+        {
+          "key": "split",
+          "label": "Current vs sweep",
+          "icon": "columns-2",
+          "panes": [
+            "current",
+            "proposed"
+          ]
+        },
+        {
+          "key": "sweep",
+          "label": "Lattice sweep",
+          "icon": "sliders-horizontal",
+          "panes": [
+            "proposed"
+          ]
+        },
+        {
+          "key": "current",
+          "label": "Current",
+          "icon": "box",
+          "panes": [
+            "current"
+          ]
+        }
+      ],
+      "defaultView": "split"
+    },
+    {
+      "id": "ollie-g-leg-length",
+      "kind": "stage",
+      "title": "G · How long should the leg be?",
+      "context": "The mechanical interface is built into the bottom of Ollie's socket. A 5/8 inch pipe slides 40 mm up into it, and the paw slides onto the other end.",
+      "problem": "A leg that is too long drags and pushes the socket around; too short and he will not load it.",
+      "proposal": "Set the pipe length and see where the paw lands. The green disc is the floor under his scan. Touch the floor picks the length that puts the paw on it.",
+      "ask": "How much clearance would you leave between the paw and the floor for a dog like Ollie?",
+      "sources": {
+        "leg": {
+          "kind": "assembly",
+          "label": "Leg",
+          "caption": "pipe and paw on the socket's built-in interface",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 0.38
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            }
+          ],
+          "leg": {
+            "mount": {
+              "origin": [
+                -152.64,
+                156.47,
+                77.06
+              ],
+              "down": [
+                -0.031,
+                0.023,
+                -0.999
+              ],
+              "side": [
+                0.995,
+                0.098,
+                -0.029
+              ]
+            },
+            "interface": {
+              "bottom": 0,
+              "builtIn": true
+            },
+            "paw": {
+              "file": "ollie-paw-140.glb",
+              "top": 53,
+              "socketDepth": 21,
+              "yaw": 0,
+              "color": "#c9a76b"
+            },
+            "pipe": {
+              "od": 15.875,
+              "insertInterface": 40
+            },
+            "length": {
+              "min": 61,
+              "max": 250,
+              "step": 1,
+              "value": 84
+            }
+          }
+        }
+      },
+      "views": [
+        {
+          "key": "leg",
+          "label": "Leg length",
+          "icon": "ruler",
+          "panes": [
+            "leg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ollie-h-paw",
+      "kind": "stage",
+      "title": "H · Paw shape and traction",
+      "context": "The paw is a printed lattice so it can flex. We are considering new shapes and how to give it grip.",
+      "proposal": "Scrub through the paw shapes we are considering: the bar steps the nTop paw input \"Semi circle percent\" from 1 to 100%. The current paw is the 140-point lattice he wore.",
+      "ask": "Which paw shape would you choose, and how would you give it traction?",
+      "choices": {
+        "ask": "Traction",
+        "options": [
+          {
+            "key": "bumps",
+            "label": "Bumps printed into the paw",
+            "icon": "grip"
+          },
+          {
+            "key": "pad",
+            "label": "Rubber pad glued on",
+            "icon": "layers"
+          },
+          {
+            "key": "either",
+            "label": "Either / depends",
+            "icon": "circle-help"
+          }
+        ]
+      },
+      "sources": {
+        "shapes": {
+          "kind": "sweep",
+          "label": "Paw shapes",
+          "tone": "proposed",
+          "caption": "nTop paw sweep",
+          "param": "Semi circle percent",
+          "unit": "%",
+          "files": {
+            "1": "ollie-paw-shape-001.glb",
+            "5": "ollie-paw-shape-005.glb",
+            "10": "ollie-paw-shape-010.glb",
+            "15": "ollie-paw-shape-015.glb",
+            "20": "ollie-paw-shape-020.glb",
+            "25": "ollie-paw-shape-025.glb",
+            "30": "ollie-paw-shape-030.glb",
+            "35": "ollie-paw-shape-035.glb",
+            "40": "ollie-paw-shape-040.glb",
+            "45": "ollie-paw-shape-045.glb",
+            "50": "ollie-paw-shape-050.glb",
+            "55": "ollie-paw-shape-055.glb",
+            "60": "ollie-paw-shape-060.glb",
+            "65": "ollie-paw-shape-065.glb",
+            "70": "ollie-paw-shape-070.glb",
+            "75": "ollie-paw-shape-075.glb",
+            "80": "ollie-paw-shape-080.glb",
+            "85": "ollie-paw-shape-085.glb",
+            "90": "ollie-paw-shape-090.glb",
+            "95": "ollie-paw-shape-095.glb",
+            "100": "ollie-paw-shape-100.glb"
+          },
+          "defaultValue": 100,
+          "color": "#e0a100"
+        },
+        "current": {
+          "kind": "assembly",
+          "label": "Current paw",
+          "caption": "140-point lattice",
+          "layers": [
+            {
+              "key": "paw",
+              "label": "Paw",
+              "file": "ollie-paw-140.glb",
+              "color": "#c9a76b",
+              "opacity": 1
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "shapes",
+          "label": "Paw shapes",
+          "icon": "sliders-horizontal",
+          "panes": [
+            "shapes"
+          ]
+        },
+        {
+          "key": "current",
+          "label": "Current paw",
+          "icon": "box",
+          "panes": [
+            "current"
+          ]
+        },
+        {
+          "key": "both",
+          "label": "Side by side",
+          "icon": "columns-2",
+          "panes": [
+            "current",
+            "shapes"
+          ]
+        }
+      ],
+      "linkCameras": false
+    }
+  ]
+}

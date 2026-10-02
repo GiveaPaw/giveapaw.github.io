@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Review - Give a Paw</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="Interactive design review: play and mark up fitting videos, scrub through nTop socket variants, and pin notes on 3D scans.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Give a Paw">
+    <meta property="og:title" content="Socket design review">
+    <meta property="og:description" content="Play and mark up fitting videos, scrub through socket variants, and pin notes on 3D scans.">
+    <meta property="og:image" content="https://giveapaw.github.io/social-card.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="design-review.css?v=16">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <header class="rv-top">
+        <div class="rv-top-title">
+            <a class="rv-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw"></a>
+            <div>
+                <span class="rv-eyebrow" id="rv-subtitle">Give a Paw</span>
+                <h1 id="rv-title">Design review</h1>
+            </div>
+        </div>
+        <nav class="rv-variants" aria-label="Prototype layouts" id="rv-variants">
+            <button type="button" data-variant="scroll">
+                <strong>A · Scroll</strong>
+                <span>Everything on one page. Scroll past videos and models, notes sit beside each one.</span>
+            </button>
+            <button type="button" data-variant="studio">
+                <strong>B · Studio</strong>
+                <span>One big viewer. Item list on the left, notes and pins on the right.</span>
+            </button>
+            <button type="button" data-variant="guided">
+                <strong>C · Guided</strong>
+                <span>One question per screen. Answer, press Next, get a summary at the end.</span>
+            </button>
+        </nav>
+        <div class="rv-top-actions">
+            <label class="rv-reviewer">Reviewer <input type="text" id="rv-reviewer" placeholder="Your name" autocomplete="name" maxlength="60"></label>
+            <button type="button" id="rv-add" title="Load your own videos or meshes for this session"><i data-lucide="upload" aria-hidden="true"></i> Add files</button>
+            <input type="file" id="rv-file" multiple accept=".mp4,.webm,.mov,.m4v,.glb,.gltf,.stl,.obj" hidden>
+            <button type="button" id="rv-summary" title="See everything you have marked so far"><i data-lucide="clipboard-list" aria-hidden="true"></i> Summary</button>
+            <button type="button" id="rv-live" title="Present this review live to others"><i data-lucide="radio" aria-hidden="true"></i> <span>Live session</span></button>
+            <button type="button" id="rv-share" class="rv-primary" title="Copy a link that carries all of your notes"><i data-lucide="link" aria-hidden="true"></i> Copy link</button>
+        </div>
+    </header>
+
+    <div class="rv-banner" id="rv-banner" hidden></div>
+
+    <main class="rv-host" id="rv-host" aria-live="polite"></main>
+
+    <div class="rv-toast" id="rv-toast" role="status" hidden></div>
+
+    <dialog class="rv-dialog" id="rv-summary-dialog" aria-labelledby="rv-summary-title">
+        <form method="dialog" class="rv-dialog-head">
+            <h2 id="rv-summary-title">Review summary</h2>
+            <button type="submit" aria-label="Close summary">&times;</button>
+        </form>
+        <p class="rv-dialog-lead">A plain-text version of everything marked so far. Copy it, download the full review file, or send the link.</p>
+        <textarea id="rv-summary-text" readonly spellcheck="false"></textarea>
+        <div class="rv-dialog-actions">
+            <button type="button" id="rv-copy-summary"><i data-lucide="copy" aria-hidden="true"></i> Copy text</button>
+            <button type="button" id="rv-download"><i data-lucide="download" aria-hidden="true"></i> Download .json</button>
+            <button type="button" id="rv-load"><i data-lucide="folder-open" aria-hidden="true"></i> Load .json</button>
+            <input type="file" id="rv-load-file" accept=".json,application/json" hidden>
+            <button type="button" id="rv-email" hidden><i data-lucide="mail" aria-hidden="true"></i> Send by email</button>
+            <button type="button" id="rv-reset" class="rv-danger"><i data-lucide="trash-2" aria-hidden="true"></i> Clear my review</button>
+        </div>
+    </dialog>
+
+    <script>
+    // If the module fails to start (blocked CDN, no WebGL, old browser), say so instead of a white page.
+    (function () {
+        const errors = [];
+        window.__rvErrors = errors;
+        addEventListener('error', e => errors.push(e.message || String(e.error || e)));
+        addEventListener('unhandledrejection', e => errors.push(String(e.reason && e.reason.message || e.reason)));
+        setTimeout(function () {
+            if (window.rvDebug) return;
+            const host = document.getElementById('rv-host');
+            host.innerHTML = '<div class="rv-fatal"><h2>The review page could not start</h2>'
+                + '<p>This page needs a current browser with WebGL and access to <code>unpkg.com</code> and <code>cdn.jsdelivr.net</code> for its 3D library. '
+                + 'If an ad blocker or network filter is active, allow those two hosts and reload.</p>'
+                + '<pre>' + (errors.length ? errors.map(m => String(m).replace(/</g, '&lt;')).join('\n') : 'No error message was captured. Press F12 and check the Console tab.') + '</pre></div>';
+        }, 6000);
+    })();
+    </script>
+    <script type="module" src="design-review.js?v=19" onerror="window.__rvErrors.push('The page script or one of its imports failed to load (network or blocked host).')"></script>
+</body>
+</html>

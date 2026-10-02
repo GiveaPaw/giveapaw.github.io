@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentation Editor - Give a Paw</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="Reorder the screens of a design review, set up each screen's tabs and materials, and save the review file.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="review-editor.css?v=5">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+    <header class="ed-top">
+        <div class="ed-top-title">
+            <a class="ed-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw"></a>
+            <div>
+                <span class="ed-eyebrow">Give a Paw · Presentation editor</span>
+                <select id="ed-file" aria-label="Review file"></select>
+            </div>
+            <span id="ed-status" class="ed-status">Loading…</span>
+        </div>
+        <div class="ed-top-actions">
+            <button type="button" class="ed-btn ed-icon" id="ed-undo" title="Undo (Ctrl+Z)"><i data-lucide="undo-2"></i></button>
+            <button type="button" class="ed-btn ed-icon" id="ed-redo" title="Redo (Ctrl+Y)"><i data-lucide="redo-2"></i></button>
+            <button type="button" class="ed-btn" id="ed-toggle-preview" title="Show or hide the live preview"><i data-lucide="panel-right"></i> Preview</button>
+            <button type="button" class="ed-btn" id="ed-present" title="Open the presentation in a new tab, as presenter"><i data-lucide="presentation"></i> Present</button>
+            <button type="button" class="ed-btn" id="ed-download" title="Download the review file"><i data-lucide="download"></i></button>
+            <button type="button" class="ed-btn" id="ed-save-as" title="Save as a new presentation file">Save as…</button>
+            <button type="button" class="ed-btn ed-primary" id="ed-save" title="Save (Ctrl+S)"><i data-lucide="save"></i> Save</button>
+        </div>
+    </header>
+
+    <div id="ed-banner" class="ed-banner" hidden></div>
+
+    <main class="ed-app">
+        <aside class="ed-list-col">
+            <div class="ed-list-head">
+                <h2>Screens</h2>
+                <button type="button" class="ed-btn" id="ed-add-screen"><i data-lucide="plus"></i> Add screen</button>
+            </div>
+            <p class="ed-hint">Drag to reorder. The eye hides a screen without deleting it.</p>
+            <ol id="ed-list" class="ed-list"></ol>
+        </aside>
+        <section id="ed-form" class="ed-form-col" aria-live="polite"></section>
+        <aside id="ed-preview" class="ed-preview">
+            <div class="ed-preview-head">
+                <h2>Preview</h2>
+                <span class="ed-hint">Updates as you edit</span>
+                <button type="button" class="ed-btn ed-icon" id="ed-reload-preview" title="Reload the preview"><i data-lucide="refresh-cw"></i></button>
+            </div>
+            <div class="ed-frame-box"><iframe id="ed-frame" title="Presentation preview"></iframe></div>
+        </aside>
+    </main>
+
+    <datalist id="dl-models"></datalist>
+    <datalist id="dl-videos"></datalist>
+    <datalist id="dl-images"></datalist>
+    <div id="ed-toast" class="ed-toast" role="status" hidden></div>
+
+    <script type="module" src="review-editor.js?v=5"></script>
+</body>
+</html>
