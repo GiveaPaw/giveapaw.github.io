@@ -7,8 +7,8 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { createViewerControls } from './viewer-controls.js?v=4';
 import { review as builtinReview } from './design-review-content.js?v=1';
 import { driveConfig } from './drive-config.js?v=1';
-import { createLiveSession } from './live-session.js?v=6';
-import { createPaintTool, createLegTool } from './review-tools.js?v=3';
+import { createLiveSession } from './live-session.js?v=8';
+import { createPaintTool, createLegTool, createGuide } from './review-tools.js?v=12';
 
 // The active review: the built-in manifest, or one loaded from ?review=drive:<id> | draft:<key> | <same-site .json path>.
 let review = builtinReview;
@@ -62,13 +62,13 @@ export const TOOL_KEYS = [
     ['pin', 'Pin comments'], ['measure', 'Measure'], ['section', 'Section cut'],
     ['grid', 'Grid toggle'], ['cube', 'View cube toggle'], ['snapshot', 'Snapshot'], ['fit', 'Fit view'], ['help', 'Controls help'],
     ['layers', 'Show / hide parts'], ['alpha', 'See-through (T)'], ['tabs', 'View tabs'], ['draw', 'Draw on video'],
-    ['paint', 'Paint the surface'], ['pipe', 'Change pipe length'],
+    ['paint', 'Paint the surface'], ['pipe', 'Change pipe length'], ['iface', 'Move the interface'], ['demo', 'Slider demo'],
 ];
 const pageParams = new URLSearchParams(location.search);
 const policy = {
     host: pageParams.has('host') || pageParams.has('dev'),
     liveHost: false,
-    defaults: ['pin', 'measure', 'section', 'layers', 'alpha', 'tabs', 'draw'],
+    defaults: ['pin', 'measure', 'section', 'layers', 'alpha', 'tabs', 'draw', 'demo'],
     allowed: null,
     isHost() { return this.host || this.liveHost; },
     allows(key) { return this.isHost() || this.allowed.has(key); },
@@ -87,6 +87,9 @@ const hostStore = {
     save() { try { localStorage.setItem(this.key(), JSON.stringify(this.data)); } catch { /* storage unavailable */ } },
     stops(key) { return (this.data || this.load()).stops[key]; },
     setStops(key, list) { (this.data || this.load()).stops[key] = list; this.save(); },
+    // Video turned by the presenter (degrees), per clip; written into the file by "Download review file".
+    rotation(key) { return ((this.data || this.load()).rotations || {})[key]; },
+    setRotation(key, deg) { const data = this.data || this.load(); (data.rotations ||= {})[key] = deg; this.save(); },
 };
 const VERDICTS = [['yes', 'Worth trying', 'thumbs-up'], ['maybe', 'Not sure', 'circle-help'], ['no', 'Would not do this', 'thumbs-down']];
 const VERDICT_LABEL = Object.fromEntries(VERDICTS.map(([key, label]) => [key, label]));
@@ -173,18 +176,34 @@ function initStore() {
     store.load();
 }
 
-function clipLabel(item, annotation) {
-    if (!annotation.clip || !item.sources) return '';
+function clipOf(item, annotation) {
+    if (!annotation.clip || !item.sources) return null;
     for (const source of Object.values(item.sources)) {
         const clip = source.clips?.find(c => c.id === annotation.clip);
-        if (clip) return `${clip.label} `;
+        if (clip) return clip;
     }
-    return '';
+    return null;
+}
+function clipLabel(item, annotation) {
+    const clip = clipOf(item, annotation);
+    return clip ? `${clip.label} ` : '';
+}
+// "IMG_12 0:04.2" for a video mark; just the name for a mark on a picture clip.
+function markWhen(item, a) {
+    const clip = clipOf(item, a);
+    if (clip && isPicture(clip)) return `${clip.label} (picture)`;
+    const off = Math.max(0, +clip?.start || 0);
+    return clipLabel(item, a) + fmtTime(Math.max(0, a.t - off)) + (a.t2 !== undefined ? `–${fmtTime(Math.max(0, a.t2 - off))}` : '');
 }
 function sweepUnitLabel(item, value) {
+    // "original": the part that was actually made (e.g. the socket or paw used at the fitting).
+    if (value === 'original') return item.original?.label || 'Original';
     // Two-input sweeps key each part as "a|b" (one value per axis).
-    if (item.axes) return String(value).split('|').map((v, i) => `${item.axes[i].short || item.axes[i].param} ${v}${item.axes[i].unit ? ' ' + item.axes[i].unit : ''}`).join(' · ');
-    return item.unit ? `${value} ${item.unit}` : String(value);
+    const marked = item.original && !item.original.file && item.original.at !== undefined && String(item.original.at) === String(value) ? ` · ${item.original.label || 'Original'}` : '';
+    if (item.axes) return String(value).split('|').map((v, i) => `${item.axes[i].short || item.axes[i].param} ${v}${item.axes[i].unit ? ' ' + item.axes[i].unit : ''}`).join(' · ') + marked;
+    const text = item.unit ? `${value} ${item.unit}` : String(value);
+    // An existing stop marked as the original ("original": { "at": 50, "label": ... }, no file of its own).
+    return item.original && !item.original.file && item.original.at !== undefined && Number(item.original.at) === Number(value) ? `${text} · ${item.original.label || 'Original'}` : text;
 }
 function buildSummary(items) {
     const data = store.data;
@@ -214,7 +233,7 @@ function buildSummary(items) {
         }
         if (entry.note.trim()) lines.push(`- Notes: ${entry.note.trim().replace(/\s*\n\s*/g, ' / ')}`);
         entry.annotations.forEach((a, index) => {
-            const where = a.kind === 'mark' ? `at ${clipLabel(item, a)}${fmtTime(a.t)}${a.t2 !== undefined ? `–${fmtTime(a.t2)}` : ''}` : `on model at (${a.pos.map(v => v.toFixed(1)).join(', ')}) mm${a.value !== undefined ? `, ${sweepUnitLabel(item, a.value)}` : ''}`;
+            const where = a.kind === 'mark' ? `at ${markWhen(item, a)}` : `on model at (${a.pos.map(v => v.toFixed(1)).join(', ')}) mm${a.value !== undefined ? `, ${sweepUnitLabel(item, a.value)}` : ''}`;
             lines.push(`- #${index + 1} ${a.label || '(no label)'} ${where}${a.note ? `: ${a.note.replace(/\s*\n\s*/g, ' / ')}` : ''}`);
         });
         lines.push('');
@@ -286,6 +305,8 @@ function normalizeItem(item, index) {
             it.values = (it.values || []).map(Number);
             it.file = () => source;
             it.scaleFor = value => 1 - value / 100;
+            // The unscaled mesh is the original: mark that stop ("original": { "at": 0, "label": ... }).
+            if (it.original && it.original.at === undefined) it.original = { ...it.original, at: 0 };
         } else if (Array.isArray(it.axes) && it.axes.length === 2) {
             // Two inputs swept together: files is { "<a>|<b>": source }. Combinations that were not
             // exported yet are simply absent; the bars show them as not generated.
@@ -293,6 +314,8 @@ function normalizeItem(item, index) {
             it.axes = it.axes.map(axis => ({ ...axis, values: (axis.values || []).map(Number) }));
             it.values = [];
             it.axes[0].values.forEach(a => it.axes[1].values.forEach(b => { if (map.has(`${a}|${b}`)) it.values.push(`${a}|${b}`); }));
+            // "original": { "file", "at": "<a>|<b>", "label" } adds the part that was really made as an extra stop.
+            if (it.original?.file) { map.set('original', resolveSource(it.original.file)); it.values.push('original'); }
             it.file = value => map.get(value);
             it.param = it.axes.map(axis => axis.param).join(' × ');
             it.unit = '';
@@ -303,6 +326,8 @@ function normalizeItem(item, index) {
             if (Array.isArray(it.files)) it.files.forEach(f => map.set(+f.value, resolveSource(f.src)));
             else Object.entries(it.files || {}).forEach(([v, src]) => map.set(+v, resolveSource(src)));
             it.values = [...map.keys()].sort((x, y) => x - y);
+            // "original": { "file", "label", "short" } puts the part that was really made first on the bar.
+            if (it.original?.file) { map.set('original', resolveSource(it.original.file)); it.values.unshift('original'); }
             it.file = value => map.get(value);
         } else {
             const original = it.file;
@@ -385,6 +410,12 @@ let firstViewer = true;
 
 // ---- 3D viewer (sweep or assembly) -----------------------------------------------------------
 
+// Slider labels: every n-th one plus the last, skipping any that would sit right next to the last.
+function showLabel(i, count, every) {
+    if (i === count - 1) return true;
+    return i % every === 0 && (every === 1 || count - 1 - i >= every);
+}
+
 function createModelViewer(item) {
     const root = el('div', 'rv-viewer');
     const isSweep = item.kind === 'sweep';
@@ -431,7 +462,11 @@ function createModelViewer(item) {
         ${isSweep && item.axes ? `
         <div class="rv-sweep rv-sweep-grid">
             ${item.axes.map((axis, i) => `<div class="rv-sweep-axis" data-axis="${i}"><span class="rv-sweep-axis-name">${escapeHTML(axis.param)}${axis.unit ? ` <small>(${escapeHTML(axis.unit)})</small>` : ''}<em class="rv-sweep-axis-idle" hidden></em></span><div class="rv-segs" role="group" aria-label="${escapeHTML(axis.param)}"></div></div>`).join('')}
-            <button type="button" class="rv-pick" title="Star this as the one you would choose"></button>
+            <div class="rv-sweep-actions">
+                ${item.original?.file ? `<button type="button" class="rv-orig" title="Show the part that was actually made">${icon('history')} <span>${escapeHTML(item.original.label || 'Original')}</span></button>`
+                    : item.original?.at !== undefined ? `<button type="button" class="rv-orig" title="Go to the marked combination">${icon('flag')} <span>${escapeHTML(item.original.label || 'Original')} · ${escapeHTML(String(item.original.at).split('|').map((v, i) => `${item.axes[i]?.short || item.axes[i]?.param} ${v}${item.axes[i]?.unit ? ' ' + item.axes[i].unit : ''}`).join(' · '))}</span></button>` : ''}
+                <button type="button" class="rv-pick" title="Star this as the one you would choose"></button>
+            </div>
         </div>` : isSweep ? `
         <div class="rv-sweep">
             <div class="rv-strip">
@@ -477,6 +512,8 @@ function createModelViewer(item) {
     grid.material.transparent = true;
     grid.material.opacity = 0.58;
     grid.material.depthWrite = false;
+    // "grid": false on a model or slider starts with the XY grid (the floor) hidden; the toolbar still toggles it.
+    grid.visible = item.grid !== false;
     scene.add(grid);
 
     const modelRoot = new THREE.Group();
@@ -762,6 +799,7 @@ function createModelViewer(item) {
     toolButtons.pin.addEventListener('click', () => setMode('pin'));
     toolButtons.measure.addEventListener('click', () => setMode('measure'));
     toolButtons.section.addEventListener('click', () => setSection(!section.enabled));
+    toolButtons.grid.classList.toggle('active', grid.visible);
     toolButtons.grid.addEventListener('click', () => { grid.visible = !grid.visible; toolButtons.grid.classList.toggle('active', grid.visible); });
     toolButtons.cube.addEventListener('click', () => {
         const visible = !toolButtons.cube.classList.contains('active');
@@ -820,6 +858,10 @@ function createModelViewer(item) {
     // Layers (assembly) --------------------------------------------------------------------------
     const layersEl = root.querySelector('.rv-layers');
     const layerGroups = {};
+    if (isSweep) {
+        layerGroups.sweep = modelRoot;
+        layerChip({ key: 'sweep', label: item.label || 'Model', color: item.color || '#e0a100', opacity: item.opacity ?? 1 }, 'sweep', modelRoot);
+    }
     if (item.kind === 'assembly') {
         item.layers.forEach(layer => {
             const group = new THREE.Group();
@@ -929,6 +971,7 @@ function createModelViewer(item) {
         stage, scene, modelRoot, camera, canvas, controls, root, materials, store, itemId: item.id,
         sectionPlanes: () => (section.enabled ? [sectionPlane] : null),
         toast, emitChange, emitNav, refreshIcons, download, loadMesh, frame: () => frame(),
+        pickMeshes, sectionCut: () => (section.enabled ? sectionPlane : null),
         makeMaterial: (color, opacity) => makeMaterial(color, opacity, section.enabled ? [sectionPlane] : null),
         findLayerMesh: key => { let found = null; layerGroups[key]?.traverse(o => { if (!found && o.isMesh) found = o; }); return found; },
         animalBounds: () => { const group = layerGroups.animal; if (!group) return null; const box = new THREE.Box3().setFromObject(group); return box.isEmpty() ? null : box; },
@@ -938,6 +981,7 @@ function createModelViewer(item) {
 
     // Sweep --------------------------------------------------------------------------------------
     const sweep = { index: 0, cache: new Map(), loading: new Set(), pending: null, loaded: 0 };
+    const partListeners = new Set();
     const sweepEls = isSweep ? {
         pick: root.querySelector('.rv-pick'), strip: root.querySelector('.rv-strip'), segs: root.querySelector('.rv-segs'),
     } : null;
@@ -952,7 +996,9 @@ function createModelViewer(item) {
             seg.dataset.index = index;
             seg.title = sweepUnitLabel(item, value);
             seg.setAttribute('aria-label', sweepUnitLabel(item, value));
-            seg.innerHTML = `<span class="rv-seg-bar"></span><span class="rv-seg-label">${escapeHTML(String(value))}</span>`;
+            const isOriginal = value === 'original' || (item.original && !item.original.file && Number(item.original.at) === value);
+            if (isOriginal) seg.classList.add('is-original');
+            seg.innerHTML = `<span class="rv-seg-bar"></span><span class="rv-seg-label">${escapeHTML(value === 'original' ? (item.original.short || 'Orig.') : String(value))}</span>`;
             sweepEls.segs.append(seg);
         });
         // One control: click a block or drag across the row to scrub.
@@ -982,10 +1028,25 @@ function createModelViewer(item) {
             if (event.key === 'Home') { showValue(0); event.preventDefault(); }
             if (event.key === 'End') { showValue(item.values.length - 1); event.preventDefault(); }
         });
+        // (A real part with its own file is already the first block, labelled with its short name.)
+        const origIndex = item.original && !item.original.file ? item.values.findIndex(v => Number(item.original.at) === v) : -1;
+        if (origIndex >= 0) {
+            sweepEls.flag = el('button', 'rv-orig-flag');
+            sweepEls.flag.type = 'button';
+            sweepEls.flag.title = `Show ${item.original.label || 'the original'}`;
+            sweepEls.flag.innerHTML = `${icon('history')}<span>${escapeHTML(item.original.label || 'Original')} · ${escapeHTML(sweepUnitLabel({ ...item, original: null }, item.values[origIndex]))}</span>`;
+            sweepEls.flag.dataset.index = origIndex;
+            sweepEls.flag.addEventListener('click', () => showValue(origIndex));
+            sweepEls.strip.classList.add('has-orig');
+            sweepEls.strip.append(sweepEls.flag);
+        }
         new ResizeObserver(() => placePick()).observe(sweepEls.strip);
     }
     // Two-input sweep: one bar per input. Moving along one bar keeps the other input where it is.
-    function gridCoords(value = item.values[sweep.index]) { return String(value).split('|'); }
+    function gridCoords(value = item.values[sweep.index]) {
+        if (value === 'original') return String(item.original?.at ?? item.values[0]).split('|');
+        return String(value).split('|');
+    }
     function gridGo(axis, axisValue) {
         const coords = gridCoords();
         coords[axis] = String(axisValue);
@@ -1030,9 +1091,14 @@ function createModelViewer(item) {
             const value = item.values[sweep.index];
             store.update(item.id, entry => { entry.pick = entry.pick === value ? null : value; });
         });
+        const markedValue = item.original?.file ? 'original' : String(item.original?.at);
+        root.querySelector('.rv-orig')?.addEventListener('click', () => { const at = item.values.indexOf(markedValue); if (at >= 0) showValue(at); });
     }
     function syncGrid(entry) {
         const coords = gridCoords();
+        const onOriginal = item.values[sweep.index] === 'original';
+        const origCoords = item.original?.at !== undefined ? gridCoords('original') : null;
+        root.querySelector('.rv-orig')?.classList.toggle('active', onOriginal || (!item.original?.file && item.original?.at !== undefined && String(item.values[sweep.index]) === String(item.original.at)));
         const pickCoords = entry.pick !== null && entry.pick !== undefined ? gridCoords(entry.pick) : null;
         sweepEls.rows.forEach((row, axis) => {
             const other = 1 - axis;
@@ -1044,8 +1110,9 @@ function createModelViewer(item) {
                 seg.classList.toggle('missing', !exists);
                 seg.title = exists ? sweepUnitLabel(item, key) : `${sweepUnitLabel(item, key)}: not generated yet`;
                 seg.classList.toggle('loaded', sweep.cache.has(key));
-                seg.classList.toggle('current', seg.dataset.value === coords[axis]);
-                seg.classList.toggle('picked', !!pickCoords && pickCoords[axis] === seg.dataset.value && pickCoords[other] === coords[other]);
+                seg.classList.toggle('current', !onOriginal && seg.dataset.value === coords[axis]);
+                seg.classList.toggle('is-original', !!origCoords && seg.dataset.value === origCoords[axis]);
+                seg.classList.toggle('picked', !!pickCoords && entry.pick !== 'original' && pickCoords[axis] === seg.dataset.value && pickCoords[other] === coords[other]);
                 seg.setAttribute('aria-pressed', seg.dataset.value === coords[axis] ? 'true' : 'false');
             });
             // An input can have no effect at some value of the other one (e.g. thicken distance while the
@@ -1054,6 +1121,10 @@ function createModelViewer(item) {
             const idleEl = row.querySelector('.rv-sweep-axis-idle');
             const isIdle = !!idle && String(coords[idle.axis ?? other]) === String(idle.value);
             row.classList.toggle('idle', isIdle);
+            const segs = [...row.querySelectorAll('.rv-seg')];
+            const width = row.querySelector('.rv-segs').clientWidth / Math.max(1, segs.length);
+            const every = !width || width >= 34 ? 1 : width >= 22 ? 2 : width >= 13 ? 4 : 8;
+            segs.forEach((seg, i) => seg.classList.toggle('no-label', !showLabel(i, segs.length, every)));
             idleEl.hidden = !isIdle;
             idleEl.textContent = isIdle ? (idle.note || 'no effect here') : '';
         });
@@ -1066,7 +1137,7 @@ function createModelViewer(item) {
         if (!segWidth) return;
         const every = segWidth >= 34 ? 1 : segWidth >= 22 ? 2 : segWidth >= 13 ? 4 : 8;
         [...sweepEls.segs.children].forEach((seg, index) => {
-            seg.classList.toggle('no-label', !(index % every === 0 || index === n - 1));
+            seg.classList.toggle('no-label', !showLabel(index, n, every));
         });
         const stripWidth = sweepEls.strip.clientWidth;
         const pillWidth = sweepEls.pick.offsetWidth || 0;
@@ -1074,6 +1145,14 @@ function createModelViewer(item) {
         const left = Math.max(pillWidth / 2, Math.min(stripWidth - pillWidth / 2, center));
         sweepEls.pick.style.left = `${left}px`;
         sweepEls.pick.style.setProperty('--arrow', `${Math.max(10, Math.min(pillWidth - 10, center - (left - pillWidth / 2)))}px`);
+        if (sweepEls.flag) {
+            const flagWidth = sweepEls.flag.offsetWidth || 0;
+            const at = (+sweepEls.flag.dataset.index + 0.5) * segWidth;
+            const flagLeft = Math.max(flagWidth / 2, Math.min(stripWidth - flagWidth / 2, at));
+            sweepEls.flag.style.left = `${flagLeft}px`;
+            sweepEls.flag.style.setProperty('--arrow', `${Math.max(8, Math.min(flagWidth - 8, at - (flagLeft - flagWidth / 2)))}px`);
+            sweepEls.flag.classList.toggle('active', sweep.index === +sweepEls.flag.dataset.index);
+        }
     }
     function syncSweepUI() {
         if (!isSweep) return;
@@ -1100,12 +1179,13 @@ function createModelViewer(item) {
         if (sweep.cache.has(value) || sweep.loading.has(value)) return sweep.cache.get(value);
         sweep.loading.add(value);
         return loadMesh(item.file(value)).then(object => {
-            prepare(object, item.color || '#b9c2cc', 1);
+            prepare(object, item.color || '#b9c2cc', layerAlpha.sweep ?? item.opacity ?? 1);
             if (item.scaleFor) object = scaledAboutCentre(object, item.scaleFor(value));
             sweep.cache.set(value, object);
             sweep.loading.delete(value);
             sweep.loaded += 1;
             if (item.values[sweep.index] === value) present(object);
+            trimSweepCache();
             syncSweepUI();
             return object;
         }).catch(error => {
@@ -1117,6 +1197,8 @@ function createModelViewer(item) {
     function present(object) {
         modelRoot.clear();
         modelRoot.add(object);
+        // Parts loaded earlier keep the look chosen since (solid or see-through).
+        if (isSweep && layerAlpha.sweep !== undefined) setAlpha('sweep', layerAlpha.sweep);
         hideLoader();
         if (!framed) { frame(); framed = true; }
         else updateSection();
@@ -1128,19 +1210,216 @@ function createModelViewer(item) {
         const value = item.values[index];
         syncSweepUI();
         emitChange('sweep');
+        partListeners.forEach(fn => fn());
         const object = sweep.cache.get(value);
         if (object) present(object);
         else {
             showLoader(`Loading ${sweepUnitLabel(item, value)}…`, false, true);
             ensureLoaded(value);
         }
+        if (item.values.length > SWEEP_AHEAD) loadAround();
+    }
+    // Slider demo: a short guided run of the slider. It moves the bar(s) through the designs, points out the
+    // preloading, the original / proposed marker, the part chips and Pick, then goes back to where it was.
+    // Any click on the viewer (or Esc) stops it. In a live session the moves are shared like any slider
+    // move, and the presenter's current tip ({ step }) goes out with the view, so followers see the same tips.
+    let demo = null;
+    let demoStep = null;          // the tip on screen now (shared with followers)
+    let remoteTip = null;         // a tip shown because the presenter is running the demo
+    const demoBtn = isSweep && item.values.length > 1 ? el('button', 'rv-demo-btn') : null;
+    if (demoBtn) {
+        demoBtn.type = 'button';
+        demoBtn.title = 'Show how this slider works';
+        demoBtn.innerHTML = `${icon('circle-play')} <span>Slider demo</span>`;
+        stage.append(demoBtn);
+        demoBtn.addEventListener('click', () => (demo ? stopDemo() : runDemo()));
+    }
+    const demoWait = ms => new Promise(resolve => setTimeout(resolve, ms));
+    function demoTarget(step) {
+        const bar = item.axes ? sweepEls?.rows?.[0]?.querySelector('.rv-segs') : sweepEls?.segs;
+        if (step === 'axis0' || step === 'axis1') return sweepEls?.rows?.[+step.slice(4)]?.querySelector('.rv-segs');
+        if (step === 'marker') return sweepEls?.flag || root.querySelector('.rv-orig');
+        if (step === 'parts') return layersEl;
+        if (step === 'pick') return sweepEls?.pick;
+        return bar;
+    }
+    function demoText(step) {
+        const unit = item.axes ? '' : (item.unit ? ` (${item.unit})` : '');
+        if (step === 'intro') {
+            const what = item.axes ? `combination of ${item.axes.map(axis => escapeHTML(axis.param.toLowerCase())).join(' and ')}` : `${escapeHTML((item.param || 'value').toLowerCase())}${escapeHTML(unit)}`;
+            const made = item.source ? 'the same scan shown at a different size' : `exported from nTop with a different ${what}`;
+            return `<b>Each block is one design</b>: ${made}. Click a block, or drag across the bar, to swap the 3D model.`;
+        }
+        if (step === 'axis0' || step === 'axis1') {
+            const axis = item.axes[+step.slice(4)], other = item.axes[1 - +step.slice(4)];
+            return `<b>${escapeHTML(axis.param)}</b>: this bar changes only this input. ${escapeHTML(other.short || other.param)} stays where it is.`;
+        }
+        if (step === 'preview') return '<b>Previews load ahead.</b> Darker blocks are already downloaded and switch instantly; the camera stays put, so you compare designs from the same angle.';
+        if (step === 'marker') return `<b>${escapeHTML(item.original?.label || 'Original')}</b> is marked on the bar. Click this to jump straight back to it.`;
+        if (step === 'parts') return '<b>Parts:</b> the eye hides a part; the half circle (or click the part and press <kbd>T</kbd>) makes it see-through.';
+        if (step === 'pick') return '<b>Pick</b> stars the design you would choose. It goes into your notes and the summary.';
+        if (step === 'end') return '<b>Your turn:</b> drag across the bar, or use the arrow keys on it.';
+        return '';
+    }
+    function clearDemoTip() {
+        root.querySelectorAll('.rv-demo-tip').forEach(node => node.remove());
+        root.querySelectorAll('.rv-demo-focus').forEach(node => node.classList.remove('rv-demo-focus'));
+    }
+    function showDemoTip(step) {
+        clearDemoTip();
+        const target = step && demoTarget(step);
+        if (!target || !target.offsetParent) return null;
+        if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
+        target.classList.add('rv-demo-focus');
+        const tip = el('div', 'rv-demo-tip', `<p>${demoText(step)}</p>`);
+        root.append(tip);
+        const box = root.getBoundingClientRect(), t = target.getBoundingClientRect();
+        const w = tip.offsetWidth, h = tip.offsetHeight;
+        const centre = t.left + t.width / 2 - box.left;
+        const left = Math.max(8, Math.min(box.width - w - 8, centre - w / 2));
+        tip.style.left = `${left}px`;
+        tip.style.setProperty('--arrow', `${Math.max(14, Math.min(w - 14, centre - left))}px`);
+        const above = t.top - box.top - h - 12;
+        if (above >= 4) { tip.style.top = `${above}px`; tip.classList.add('above'); }
+        else { tip.style.top = `${t.bottom - box.top + 12}px`; tip.classList.add('below'); }
+        return tip;
+    }
+    function setDemoStep(step) {
+        demoStep = step;
+        showDemoTip(step);
+        emitChange('demo');
+    }
+    function stopDemo() {
+        if (!demo) return;
+        demo.stopped = true;
+        removeEventListener('pointerdown', demo.cancel, true);
+        removeEventListener('keydown', demo.key, true);
+        demo = null;
+        setDemoStep(null);
+        root.classList.remove('rv-demoing');
+        demoBtn.innerHTML = `${icon('circle-play')} <span>Slider demo</span>`;
+        refreshIcons();
+    }
+    async function runDemo() {
+        const d = { stopped: false };
+        demo = d;
+        remoteTip = null;
+        const alive = () => demo === d && !d.stopped && root.isConnected && root.offsetParent !== null;
+        d.cancel = event => { if (!event.target.closest?.('.rv-demo-btn, .rv-demo-tip')) stopDemo(); };
+        d.key = event => { if (event.key === 'Escape') stopDemo(); };
+        addEventListener('pointerdown', d.cancel, true);
+        addEventListener('keydown', d.key, true);
+        root.classList.add('rv-demoing');
+        demoBtn.innerHTML = `${icon('circle-stop')} <span>Stop demo</span>`;
+        refreshIcons();
+        const startIndex = sweep.index;
+        const say = async (step, ms) => {
+            if (!alive()) return false;
+            setDemoStep(step);
+            await demoWait(ms);
+            return alive();
+        };
+        const along = (count, steps) => {
+            // About `steps` evenly spread positions from 0 to count - 1.
+            const n = Math.min(count, steps);
+            return Array.from({ length: n }, (_, i) => Math.round(i * (count - 1) / Math.max(1, n - 1)));
+        };
+        try {
+            if (!await say('intro', 4200)) return;
+            if (!item.axes) {
+                setDemoStep(null);   // the tip would cover the Pick label while the bar moves
+                const path = along(item.values.length, 14);
+                for (const i of [...path, ...path.slice().reverse()]) {
+                    if (!alive()) return;
+                    showValue(i);
+                    await demoWait(300);
+                }
+            } else {
+                for (let axis = 0; axis < item.axes.length; axis++) {
+                    if (!await say(`axis${axis}`, 3200)) return;
+                    setDemoStep(null);
+                    const keep = gridCoords()[axis];
+                    const values = item.axes[axis].values;
+                    for (const i of along(values.length, 10)) {
+                        if (!alive()) return;
+                        gridGo(axis, values[i]);
+                        await demoWait(320);
+                    }
+                    gridGo(axis, keep);
+                    await demoWait(250);
+                }
+            }
+            if (!await say('preview', 4200)) return;
+            if (item.original) {
+                const at = item.original.file ? item.values.indexOf('original') : item.values.findIndex(v => String(v) === String(item.original.at));
+                if (at >= 0) showValue(at);
+                if (!await say('marker', 3800)) return;
+            }
+            if (!await say('parts', 3800)) return;
+            if (!await say('pick', 3600)) return;
+            showValue(startIndex);
+            await say('end', 3000);
+        } finally {
+            if (demo === d) stopDemo();
+        }
+    }
+    // Followers: show (or clear) the tip the presenter is showing.
+    function applyDemoTip(step) {
+        if (demo) return;
+        const next = step || null;
+        if (next === remoteTip) return;
+        remoteTip = next;
+        if (next) showDemoTip(next); else clearDemoTip();
+    }
+    // Big sweeps (the pelvic grid has 336 parts) cannot all be downloaded and kept on the graphics card,
+    // so only the parts nearest the current one are fetched ahead, and the furthest are freed again.
+    const LOW_MEMORY = matchMedia('(pointer: coarse)').matches || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+    const SWEEP_AHEAD = LOW_MEMORY ? 10 : 30;   // phones and tablets: about 40 MB of parts instead of ~220 MB
+    const SWEEP_KEEP = LOW_MEMORY ? 20 : 60;
+    function sweepDistance(a, b) {
+        if (!item.axes) return Math.abs(a - b);
+        const ca = gridCoords(item.values[a]);
+        const cb = gridCoords(item.values[b]);
+        return item.axes.reduce((sum, axis, i) => sum + Math.abs(axis.values.indexOf(Number(ca[i])) - axis.values.indexOf(Number(cb[i]))), 0);
+    }
+    function nearestIndices(count) {
+        return item.values.map((_, i) => i).sort((a, b) => sweepDistance(a, sweep.index) - sweepDistance(b, sweep.index)).slice(0, count);
+    }
+    function disposeObject(object) {
+        object.traverse(child => {
+            if (!child.isMesh) return;
+            child.geometry.dispose();
+            [].concat(child.material).forEach(material => { materials.delete(material); material.dispose(); });
+        });
+    }
+    function trimSweepCache() {
+        if (sweep.cache.size <= SWEEP_KEEP) return;
+        const shown = item.values[sweep.index];
+        const furthest = [...sweep.cache.keys()]
+            .filter(value => value !== shown)
+            .sort((a, b) => sweepDistance(item.values.indexOf(b), sweep.index) - sweepDistance(item.values.indexOf(a), sweep.index));
+        while (sweep.cache.size > SWEEP_KEEP && furthest.length) {
+            const value = furthest.shift();
+            const object = sweep.cache.get(value);
+            if (object.parent) continue;   // still on screen
+            sweep.cache.delete(value);
+            disposeObject(object);
+        }
     }
     async function preloadSweep() {
         // Load the current value first, then spread outward so scrubbing near it stays smooth.
-        const order = [sweep.index];
-        for (let d = 1; d < item.values.length; d++) { if (sweep.index - d >= 0) order.push(sweep.index - d); if (sweep.index + d < item.values.length) order.push(sweep.index + d); }
+        const order = nearestIndices(SWEEP_AHEAD);
         await ensureLoaded(item.values[order[0]]);
         for (let i = 1; i < order.length; i += 2) await Promise.all(order.slice(i, i + 2).map(index => ensureLoaded(item.values[index])));
+    }
+    let aheadTimer = 0;
+    function loadAround() {
+        // After a jump, fetch the neighbours of the new value (a few at a time, nearest first).
+        clearTimeout(aheadTimer);
+        aheadTimer = setTimeout(async () => {
+            const missing = nearestIndices(12).filter(index => !sweep.cache.has(item.values[index]));
+            for (let i = 0; i < missing.length; i += 3) await Promise.all(missing.slice(i, i + 3).map(index => ensureLoaded(item.values[index])));
+        }, 250);
     }
 
     function showLoader(message, error = false, soft = false) {
@@ -1234,6 +1513,7 @@ function createModelViewer(item) {
             alpha: { ...layerAlpha },
             ...(paintTool?.getState() || {}),
             ...(legTool?.getState() || {}),
+            ...(isSweep ? { demoStep: demoStep || '' } : {}),   // '' not null: the live database drops nulls
             annotations: pinAnnotations().map(p => ({ id: p.id, kind: 'pin', label: p.label, pos: p.pos })),
         };
     }
@@ -1254,6 +1534,7 @@ function createModelViewer(item) {
                 const index = item.values.indexOf(state.sweep);
                 if (index >= 0 && index !== sweep.index) showValue(index);
             }
+            if (isSweep && 'demoStep' in state) applyDemoTip(state.demoStep);
             if (state.camera) {
                 flight = null;
                 camera.position.fromArray(state.camera.p);
@@ -1303,6 +1584,21 @@ function createModelViewer(item) {
             resize();
             // Layouts that swap items in and out re-attach the stage; do not wait for the observer.
             if (stage.isConnected && stage.clientWidth > 0) { visible = true; start(); }
+        },
+        tutorials() { return ['camera', ...(paintTool ? ['paint'] : []), ...(legTool ? ['leg'] : [])]; },
+        // The part a slider is showing, and how a paw from it sits on the pipe ("pawFit").
+        currentPart() {
+            if (!isSweep) return null;
+            const value = item.values[sweep.index];
+            return { value, file: item.file(value), fit: value === 'original' ? item.original?.pawFit : item.pawFit };
+        },
+        onPart(fn) { partListeners.add(fn); },
+        setLegPaw(spec) { return legTool?.setPaw(spec); },
+        showTutorial(kind = 'camera') {
+            if (kind === 'paint') return paintTool ? paintTool.showGuide() : false;
+            if (kind === 'leg') return legTool ? legTool.showGuide() : false;
+            viewerControls.startIntro({ force: true });
+            return true;
         },
         // Frees both WebGL contexts (stage and view cube). The viewer cannot be used afterwards.
         destroy() {
@@ -1426,6 +1722,8 @@ function createStageViewer(item) {
                 body.replaceChildren(viewer.root);
                 built[key] = viewer;
                 wire(viewer);
+                viewer.onPart(() => { pawParts[key] = viewer.currentPart(); syncLegs(); });
+                syncLegs();
             } catch (error) {
                 console.error(`Could not build "${key}" of "${item.title}"`, error);
                 body.replaceChildren(createErrorMedia(src, error).root);
@@ -1433,6 +1731,13 @@ function createStageViewer(item) {
             return;
         }
         if (kept[key]) return;
+        // A video or picture slot with nothing in it yet (set up in the editor, files chosen later).
+        const empty = src.kind === 'playlist' ? !(src.clips || []).length : src.kind === 'video' ? !src.src : src.kind === 'image' ? !(src.images || []).some(i => i.src) : false;
+        if (empty) {
+            kept[key] = { pending: true };
+            body.replaceChildren(pendingCard({ label: src.label, note: src.kind === 'image' ? 'Choose pictures for it in the presentation editor (Browse pictures).' : 'Choose videos or pictures for it in the presentation editor (Browse media).' }));
+            return;
+        }
         if (src.kind === 'video' || src.kind === 'playlist') {
             const child = createVideoAnnotator({ ...src, id: item.id, sourceKey: key, title: item.title });
             body.replaceChildren(child.root);
@@ -1446,17 +1751,36 @@ function createStageViewer(item) {
             body.replaceChildren(pendingCard(src));
         }
     }
+    // Paw chosen on a slider -> the leg tool on the same screen (even when they are on different tabs).
+    const pawParts = {};
+    function defaultPart(key) {
+        const src = sourceOf(key);
+        if (!src || src.kind !== 'sweep') return null;
+        const value = src.values.includes(src.defaultValue) ? src.defaultValue : src.values[0];
+        return { value, file: src.file(value), fit: value === 'original' ? src.original?.pawFit : src.pawFit };
+    }
+    function syncLegs() {
+        Object.keys(item.sources).forEach(key => {
+            const follow = sourceOf(key)?.leg?.followPaw;
+            if (!follow || !built?.[key]) return;
+            const part = pawParts[follow] || defaultPart(follow);
+            if (part?.file) built[key].setLegPaw({ file: part.file, ...(part.fit || {}), label: part.value });
+        });
+    }
     function linkModels() {
         const keys = Object.keys(built);
         keys.forEach(a => keys.forEach(b => {
             if (a === b || linkedPairs.has(a + '>' + b)) return;
             linkedPairs.add(a + '>' + b);
             built[a].onChange(kind => {
-                if (linking || kind === 'sweep' || kind === 'surface' || kind === 'leg' || !built?.[b]) return;
+                if (linking || kind === 'sweep' || kind === 'surface' || kind === 'leg' || kind === 'demo' || !built?.[b]) return;
                 if (paneEls[a]?.hidden || paneEls[b]?.hidden) return;
                 const state = built[a].getState();
                 linking = true;
-                try { built[b].applyState({ camera: state.camera, section: state.section, layers: state.layers }); } finally { linking = false; }
+                // Camera and section follow always; parts only when someone shows, hides or turns one
+                // see-through, so each side keeps the look it was set to open with.
+                const parts = kind === 'layers' ? { layers: state.layers, alpha: state.alpha } : {};
+                try { built[b].applyState({ camera: state.camera, section: state.section, ...parts }); } finally { linking = false; }
             });
         }));
     }
@@ -1487,7 +1811,8 @@ function createStageViewer(item) {
         ensureLive();
         view = key;
         let panes = views.find(v => v.key === key).panes;
-        if (narrow.matches && panes.length > 1) panes = [panes[0]];
+        // Phones and tablets held upright: the two halves of a split view go one above the other.
+        const stacked = narrow.matches && panes.length > 1;
         panes.forEach(buildPane);
         // "linkCameras": false for screens whose models are in different frames (e.g. paw shapes vs the worn paw).
         if (item.linkCameras !== false) linkModels();
@@ -1496,19 +1821,22 @@ function createStageViewer(item) {
             pane.hidden = at < 0;
             pane.style.order = at;
             pane.classList.toggle('is-secondary', at > 0);
+            pane.classList.toggle('is-linked', item.linkCameras !== false);
             if (at < 0) pane.querySelector('video')?.pause();
         });
         root.dataset.view = key;
         root.dataset.panes = panes.length;
+        root.dataset.stacked = stacked ? '1' : '';
         linkEl.hidden = item.linkCameras === false || panes.filter(k => isModel(sourceOf(k))).length < 2;
         renderTabs();
+        const bars = () => { if (stacked) panes.forEach(k => { paneEls[k].querySelector('.rv-pane-body').style.paddingBottom = ''; }); else equalizeBars(panes); };
         const refresh = () => {
             panes.forEach(k => { built?.[k]?.remount(); kept[k]?.remount?.(); });
-            equalizeBars(panes);
+            bars();
         };
         refresh();
         requestAnimationFrame(refresh);
-        setTimeout(() => equalizeBars(panes), 600);
+        setTimeout(bars, 600);
         if (!silent) emit('view');
     }
     function addLibraryView(key) {
@@ -1613,6 +1941,16 @@ function createStageViewer(item) {
             Object.values(kept).forEach(child => child.setRemote?.(remote.list, name));
         },
         setOthers(list) { Object.values(kept).forEach(child => child.setOthers?.(list)); },
+        // The camera tutorial opens on the first 3D view showing on this screen.
+        tutorials() {
+            const visible = Object.keys(paneEls).filter(key => !paneEls[key]?.hidden).map(key => built?.[key] || kept[key]).filter(Boolean);
+            return [...new Set(visible.flatMap(pane => pane.tutorials?.() || []))];
+        },
+        showTutorial(kind = 'camera') {
+            const visible = Object.keys(paneEls).filter(key => !paneEls[key]?.hidden).map(key => built?.[key] || kept[key]).filter(Boolean);
+            const pane = visible.find(p => (p.tutorials?.() || []).includes(kind));
+            return pane ? pane.showTutorial(kind) : false;
+        },
         onChange: cb => changeListeners.add(cb),
         onUserNav: cb => navListeners.add(cb),
         remount() { showView(view, true); },
@@ -1626,32 +1964,41 @@ function createStageViewer(item) {
 
 const PEN_COLORS = ['#ff3fa4', '#ffd400', '#00c2ff', '#3ddc84', '#ffffff'];
 const GHOST_STEPS = [0, 2, 5, 10];
+// A clip can be a picture as well as a video: it gets the same drawing tools, without the play bar.
+const PICTURE_FILE = /\.(jpe?g|png|webp|gif|svg|avif)(?:[?#]|$)/i;
+const isPicture = c => !!c && (c.type === 'image' || PICTURE_FILE.test(c.src || ''));
+const LINE_WIDTH = 1.5;   // px, every drawn line (there is no thickness choice)
 function createVideoAnnotator(item) {
     const root = el('div', 'rv-video');
     root.tabIndex = 0;
     const sourceKey = item.sourceKey || '';
-    const clips = item.kind === 'playlist' ? item.clips : [{ id: '', label: item.label || item.title, src: item.src, poster: item.poster, stops: item.stops || [] }];
+    const clips = item.kind === 'playlist' ? item.clips : [{ id: '', label: item.label || item.title, src: item.src, poster: item.poster, stops: item.stops || [], rotate: item.rotate, start: item.start, end: item.end }];
     let clip = clips[0];
-    if (clips.length > 1) root.classList.add('has-clips');
+    // The strip of clip thumbnails is hidden until you open it (remembered in this browser).
+    const CLIPS_KEY = 'gap-review-clips-shown';
+    let clipsShown = (() => { try { return localStorage.getItem(CLIPS_KEY) === '1'; } catch { return false; } })();
     root.innerHTML = `
-        ${clips.length > 1 ? `<div class="rv-clips" role="tablist" aria-label="Choose a video">${clips.map(c => `<button type="button" role="tab" data-clip="${escapeHTML(c.id)}" title="${escapeHTML(c.label)}">${c.poster ? `<img src="${escapeHTML(c.poster)}" alt="">` : icon('film')}<span>${escapeHTML(c.label)}</span></button>`).join('')}</div>` : ''}
+        ${clips.length > 1 ? `<div class="rv-clips" role="tablist" aria-label="Choose a clip"${clipsShown ? '' : ' hidden'}>${clips.map(c => { const thumb = c.poster || (isPicture(c) ? c.src : ''); return `<button type="button" role="tab" data-clip="${escapeHTML(c.id)}" title="${escapeHTML(c.label)}">${thumb ? `<img src="${escapeHTML(thumb)}" alt="" loading="lazy">` : icon(isPicture(c) ? 'image' : 'film')}<span>${escapeHTML(c.label)}</span></button>`; }).join('')}</div>` : ''}
         <div class="rv-video-frame">
-            <video preload="metadata" playsinline src="${escapeHTML(clip.src)}"${clip.poster ? ` poster="${escapeHTML(clip.poster)}"` : ''}></video>
+            <div class="rv-zoom-layer">
+                <video preload="metadata" playsinline muted></video>
+                <img class="rv-picture" alt="" hidden>
+                <canvas class="rv-ghost"></canvas>
+                <canvas class="rv-draw"></canvas>
+                <div class="rv-mark-labels"></div>
+            </div>
             <div class="rv-stop-banner" hidden>${icon('octagon-pause')}<span></span><button type="button" class="rv-stop-go">${icon('play')} Continue</button></div>
-            <canvas class="rv-ghost"></canvas>
-            <canvas class="rv-draw"></canvas>
-            <div class="rv-mark-labels"></div>
+            <div class="rv-zoom-box" hidden></div>
+            <button type="button" class="rv-zoom-reset" hidden title="Back to the whole picture (Esc, or double-click the video)">${icon('zoom-out')} <span></span></button>
             <div class="rv-video-tools" role="toolbar" aria-label="Annotation tools">
-                <button type="button" data-tool="rect" title="Draw a box">${icon('square')}</button>
-                <button type="button" data-tool="arrow" title="Draw an arrow">${icon('move-up-right')}</button>
+                <button type="button" class="rv-tools-toggle" title="Drawing tools" aria-expanded="false">${icon('pencil-line')}</button>
                 <button type="button" data-tool="pen" title="Draw freehand">${icon('pencil')}</button>
-                <button type="button" data-tool="point" title="Drop a point">${icon('circle-dot')}</button>
                 <button type="button" data-tool="text" title="Type a note on the frame">${icon('type')}</button>
+                <button type="button" data-tool="erase" title="Eraser: drag over a drawing to remove it">${icon('eraser')}</button>
+                <button type="button" data-action="undo" title="Undo the last line">${icon('undo-2')}</button>
+                <button type="button" data-tool="zoom" title="Zoom: drag a box over the part to look at closely">${icon('zoom-in')}</button>
                 <span class="rv-sep"></span>
                 <span class="rv-swatches" role="group" aria-label="Pen colour">${PEN_COLORS.map((c, i) => `<button type="button" class="rv-swatch${i === 0 ? ' active' : ''}" data-color="${c}" style="--swatch:${c}" title="Pen colour"></button>`).join('')}</span>
-                <button type="button" data-action="width" title="Thin or thick lines">${icon('minus')}</button>
-                <span class="rv-sep"></span>
-                <button type="button" data-action="undo" title="Remove the last shape">${icon('undo-2')}</button>
             </div>
             <input type="text" class="rv-text-input" maxlength="80" placeholder="Type, then Enter" hidden>
             <p class="rv-mode-hint" hidden></p>
@@ -1659,21 +2006,19 @@ function createVideoAnnotator(item) {
         <div class="rv-timeline"><div class="rv-timeline-track"><div class="rv-timeline-fill"></div><div class="rv-timeline-head"></div></div></div>
         <div class="rv-video-bar">
             <button type="button" class="rv-play" title="Play or pause (space)">${icon('play')}</button>
-            <button type="button" data-action="back" title="Back one frame (←)">${icon('skip-back')}</button>
-            <button type="button" data-action="fwd" title="Forward one frame (→)">${icon('skip-forward')}</button>
+            ${clips.length > 1 ? `<button type="button" class="rv-clips-toggle" aria-expanded="${clipsShown}" title="Show or hide the list of clips">${icon('list-video')} <span></span></button>` : ''}
             <span class="rv-time">0:00.0 <small>/ 0:00.0</small></span>
             <span class="rv-frame" title="Frame number">f 0</span>
-            <select class="rv-speed" aria-label="Playback speed"><option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
             <span class="rv-range-btns" role="group" aria-label="Comment on a stretch of video">
                 <button type="button" data-action="in" title="Start of a range (I)">${icon('arrow-right-to-line')}</button>
                 <button type="button" data-action="out" title="End of a range (O)">${icon('arrow-left-to-line')}</button>
                 <button type="button" data-action="loop" title="Loop the selected range">${icon('repeat')}</button>
             </span>
-            <button type="button" data-action="ghost" class="rv-ghost-btn" title="Ghost frames: show the frames before and after">${icon('layers')} <span>Ghost</span></button>
-            <button type="button" data-action="mute" title="Mute or unmute">${icon('volume-2')}</button>
+            <button type="button" data-action="mute" title="Unmute (videos start muted)">${icon('volume-x')}</button>
             <button type="button" class="rv-flag" title="Bookmark this moment without drawing">${icon('bookmark-plus')} Flag this moment</button>
             <button type="button" class="rv-autostop" title="Pause automatically at each stop point">${icon('octagon-pause')} Stops</button>
             <button type="button" class="rv-stop-edit rv-host-only" title="Add a stop point here, or remove the one you are on">${icon('map-pin-plus')} Add stop</button>
+            <button type="button" class="rv-rotate rv-host-only" title="Turn this video a quarter turn (for clips filmed sideways or upside down)">${icon('rotate-cw')}</button>
         </div>`;
     const frameEl = root.querySelector('.rv-video-frame');
     const video = root.querySelector('video');
@@ -1691,11 +2036,39 @@ function createVideoAnnotator(item) {
     const frameEl2 = root.querySelector('.rv-frame');
     const ghostCanvas = root.querySelector('.rv-ghost');
     const ghostCtx = ghostCanvas.getContext('2d');
+    video.muted = true;   // the attribute alone is not reliable once the element exists
+    const picture = root.querySelector('.rv-picture');
+    // Show the current clip: a video in <video>, a picture in <img> (same frame, same drawing layer).
+    function loadMedia() {
+        const pic = isPicture(clip);
+        root.classList.toggle('is-picture', pic);
+        picture.hidden = !pic;
+        if (pic) {
+            video.pause();
+            video.removeAttribute('src');
+            video.removeAttribute('poster');
+            video.load();
+            picture.src = clip.src;
+        } else {
+            picture.removeAttribute('src');
+            video.src = clip.src;
+            if (clip.poster) video.poster = clip.poster; else video.removeAttribute('poster');
+        }
+    }
+    loadMedia();
+    picture.addEventListener('load', () => { layout(); renderTimeline(); syncStopUI(); draw(); });
 
     let tool = null;
     let selected = null;
     let drawing = null;
     const content = { left: 0, top: 0, width: 1, height: 1 };
+    // Zoom: a box on the picture ([x0, y0, x1, y1], 0..1 of the picture) fills the frame. The video, the
+    // drawings and their labels zoom together; drawing while zoomed lands in the right place. zs = scale.
+    let zoomRegion = null;
+    let zs = 1;
+    const zoomLayer = root.querySelector('.rv-zoom-layer');
+    const zoomBox = root.querySelector('.rv-zoom-box');
+    const zoomReset = root.querySelector('.rv-zoom-reset');
     // Live-session hooks.
     let applying = false;
     const changeListeners = new Set();
@@ -1708,7 +2081,7 @@ function createVideoAnnotator(item) {
     const markMeta = () => ({ ...(sourceKey ? { source: sourceKey } : {}), ...(clip.id ? { clip: clip.id } : {}) });
     const fps = () => clip.fps || item.fps || 30;
     let penColor = PEN_COLORS[0];
-    let penWidth = 2.5;
+    const penWidth = 2.5;   // sets the size of typed notes; lines are always drawn at LINE_WIDTH
     let rangeIn = null;
     let looping = false;
     let ghostStep = 0;
@@ -1723,6 +2096,54 @@ function createVideoAnnotator(item) {
     const autoBtn = root.querySelector('.rv-autostop');
     const stopEditBtn = root.querySelector('.rv-stop-edit');
     function stops() { return (hostStore.stops(stopKey()) || remoteStops || clip.stops || []).slice().sort((x, y) => x - y); }
+    // Trim: a clip can start and end inside its file ("start" / "end" in seconds, set in the editor). The
+    // timeline covers only that part and the clock counts from its start; marks keep file times.
+    const trimStart = () => Math.max(0, +clip.start || 0);
+    const trimEnd = () => {
+        const d = video.duration || 0;
+        const e = +clip.end;
+        return e > trimStart() ? (d ? Math.min(e, d) : e) : d;
+    };
+    const trimSpan = () => Math.max(trimEnd() - trimStart(), 0.001);
+    const relTime = t => fmtTime(Math.max(0, Math.min(t, trimEnd() || t) - trimStart()));
+    const trimFrac = t => (t - trimStart()) / trimSpan();
+    const trimmed = () => trimStart() > 0 || +clip.end > 0;
+    // Rotation: the presenter's turn in this browser, else the presenter's live state, else the review file.
+    let remoteRotate = null;
+    function rotation() {
+        const deg = hostStore.rotation(stopKey()) ?? remoteRotate ?? clip.rotate ?? 0;
+        return ((Math.round(+deg / 90) * 90) % 360 + 360) % 360;
+    }
+    const sideways = () => rotation() % 180 !== 0;
+    function applyRotation() {
+        const deg = rotation();
+        const W = frameEl.clientWidth, H = frameEl.clientHeight;
+        [video, picture].forEach(node => {
+            if (deg % 180) {
+                // Swap the element's width and height, then turn it: object-fit keeps the picture whole.
+                Object.assign(node.style, { width: `${H}px`, height: `${W}px`, left: `${(W - H) / 2}px`, top: `${(H - W) / 2}px`, right: 'auto', bottom: 'auto', transform: `rotate(${deg}deg)` });
+            } else {
+                Object.assign(node.style, { width: '', height: '', left: '', top: '', right: '', bottom: '', transform: deg ? `rotate(${deg}deg)` : '' });
+            }
+        });
+        clipsEl?.querySelectorAll('[data-clip]').forEach(button => {
+            const c = clips.find(x => x.id === button.dataset.clip);
+            const img = button.querySelector('img');
+            if (!c || !img) return;
+            const d = c === clip ? deg : ((Math.round(+(hostStore.rotation(`${item.id}|${sourceKey}|${c.id || ''}`) ?? c.rotate ?? 0) / 90) * 90) % 360 + 360) % 360;
+            img.style.transform = d ? `rotate(${d}deg)${d % 180 ? ' scale(0.5625)' : ''}` : '';
+        });
+    }
+    function drawRotated(ctx2, source, width, height) {
+        const deg = rotation();
+        if (!deg) { ctx2.drawImage(source, 0, 0, width, height); return; }
+        ctx2.save();
+        ctx2.translate(width / 2, height / 2);
+        ctx2.rotate(deg * Math.PI / 180);
+        if (deg % 180) ctx2.drawImage(source, -height / 2, -width / 2, height, width);
+        else ctx2.drawImage(source, -width / 2, -height / 2, width, height);
+        ctx2.restore();
+    }
     function syncStopUI() {
         const list = stops();
         autoBtn.hidden = !list.length && !policy.isHost();
@@ -1733,19 +2154,26 @@ function createVideoAnnotator(item) {
     }
     function showStopBanner(at) {
         stopBanner.hidden = false;
-        stopBanner.querySelector('span').textContent = `Stop at ${fmtTime(at)}. Look, draw, discuss.`;
+        stopBanner.querySelector('span').textContent = `Stop at ${relTime(at)}. Look, draw, discuss.`;
     }
     autoBtn.addEventListener('click', () => { autoStop = !autoStop; syncStopUI(); });
+    root.querySelector('.rv-rotate').addEventListener('click', () => {
+        const deg = (rotation() + 90) % 360;
+        hostStore.setRotation(stopKey(), deg);
+        layout();
+        emitChange();
+        toast(`Turned to ${deg}°, for everyone in a live session. To keep it in the review file, use "Download review file with my stop points" in the Live panel, or set Turn for this clip in the editor.`, 5000);
+    });
     stopEditBtn.addEventListener('click', () => {
         const t = +video.currentTime.toFixed(2);
         const list = stops();
         const here = list.findIndex(st => Math.abs(st - t) < 0.06);
-        if (here >= 0) list.splice(here, 1); else list.push(t);
+        if (here >= 0) list.splice(here, 1); else { list.push(t); guide.done('stop'); }
         hostStore.setStops(stopKey(), list.sort((x, y) => x - y));
         renderTimeline();
         syncStopUI();
         emitChange();
-        toast(here >= 0 ? 'Stop point removed' : `Stop point added at ${fmtTime(t)}`);
+        toast(here >= 0 ? 'Stop point removed' : `Stop point added at ${relTime(t)}`);
     });
     stopBanner.querySelector('.rv-stop-go').addEventListener('click', () => { stopBanner.hidden = true; video.play(); });
     let lastT = 0;
@@ -1762,28 +2190,77 @@ function createVideoAnnotator(item) {
                 return;
             }
         }
+        if (+clip.end > 0 && t >= trimEnd() - 0.02) {
+            video.pause();
+            video.currentTime = trimEnd();
+            lastT = trimEnd();
+            return;
+        }
         lastT = t;
         if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(watchStops);
     }
-    video.addEventListener('play', () => { stopBanner.hidden = true; lastT = video.currentTime; if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(watchStops); });
-    video.addEventListener('timeupdate', () => { if (!video.requestVideoFrameCallback) watchStops(); });
+    video.addEventListener('play', () => {
+        // Play from the trimmed start when outside the trimmed part (or at its end).
+        if (trimmed() && !applying && (video.currentTime < trimStart() - 0.05 || video.currentTime >= trimEnd() - 0.05)) video.currentTime = trimStart();
+        stopBanner.hidden = true;
+        lastT = video.currentTime;
+        if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(watchStops);
+    });
+    video.addEventListener('timeupdate', () => {
+        if (!video.requestVideoFrameCallback) watchStops();
+        // The end of a trimmed clip is also checked here (frame callbacks pause in background tabs).
+        else if (+clip.end > 0 && !video.paused && video.currentTime >= trimEnd() - 0.02) { video.pause(); video.currentTime = trimEnd(); }
+    });
+    // A jump outside the trimmed part (e.g. from a live session) lands on its nearest end instead.
+    video.addEventListener('seeked', () => {
+        if (!video.duration || isPicture(clip)) return;
+        if (+clip.end > 0 && video.currentTime > trimEnd() + 0.01) video.currentTime = trimEnd();
+        else if (trimStart() && video.currentTime < trimStart() - 0.01) video.currentTime = trimStart();
+    });
     video.addEventListener('seeked', () => { if (video.paused) lastT = video.currentTime; syncStopUI(); });
 
     // Clips -------------------------------------------------------------------------------------------
     const clipsEl = root.querySelector('.rv-clips');
+    const clipsToggle = root.querySelector('.rv-clips-toggle');
+    function syncClipsToggle() {
+        if (!clipsToggle) return;
+        root.classList.toggle('has-clips', clipsShown);
+        clipsEl.hidden = !clipsShown;
+        clipsToggle.classList.toggle('active', clipsShown);
+        clipsToggle.setAttribute('aria-expanded', String(clipsShown));
+        const n = clips.indexOf(clip) + 1;
+        clipsToggle.querySelector('span').textContent = clipsShown ? `Hide clips` : `Clip ${n} of ${clips.length}${clip.label && !/^\d/.test(clip.label) ? ': ' + clip.label : ''}`;
+        clipsToggle.title = clipsShown ? 'Hide the list of clips' : `Showing ${clip.label}. Click to choose another clip`;
+    }
+    clipsToggle?.addEventListener('click', () => {
+        clipsShown = !clipsShown;
+        try { localStorage.setItem(CLIPS_KEY, clipsShown ? '1' : '0'); } catch { /* storage off */ }
+        syncClipsToggle();
+        if (clipsShown) clipsEl.querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    syncClipsToggle();
     function setClip(id, silent = false) {
         const next = clips.find(c => c.id === id);
         if (!next || next === clip) return Promise.resolve();
         clip = next;
         selected = null;
         rangeIn = null;
+        zoomRegion = null;
         stopReverse();
         clearGhosts();
         stopBanner.hidden = true;
-        video.src = clip.src;
-        if (clip.poster) video.poster = clip.poster; else video.removeAttribute('poster');
+        remoteRotate = null;
+        loadMedia();
         clipsEl?.querySelectorAll('[data-clip]').forEach(b => b.classList.toggle('active', b.dataset.clip === clip.id));
+        syncClipsToggle();
         if (!silent) emitChange();
+        if (isPicture(clip)) {
+            return new Promise(resolve => {
+                const done = () => { layout(); renderTimeline(); syncStopUI(); draw(); resolve(); };
+                if (picture.complete && picture.naturalWidth) done();
+                else { picture.addEventListener('load', done, { once: true }); picture.addEventListener('error', done, { once: true }); }
+            });
+        }
         return new Promise(resolve => video.addEventListener('loadedmetadata', () => { renderTimeline(); syncStopUI(); draw(); resolve(); }, { once: true }));
     }
     clipsEl?.querySelectorAll('[data-clip]').forEach(b => {
@@ -1791,14 +2268,19 @@ function createVideoAnnotator(item) {
         b.addEventListener('click', () => { emitNav(); setClip(b.dataset.clip); });
     });
     function layout() {
-        const boxW = video.clientWidth || frameEl.clientWidth;
-        const boxH = video.clientHeight || frameEl.clientHeight;
-        const aspect = (video.videoWidth && video.videoHeight) ? video.videoWidth / video.videoHeight : 16 / 9;
+        applyRotation();
+        // The picture's box on screen, after any quarter turn (marks are stored relative to it).
+        const boxW = frameEl.clientWidth;
+        const boxH = frameEl.clientHeight;
+        const raw = isPicture(clip)
+            ? (picture.naturalWidth && picture.naturalHeight ? picture.naturalWidth / picture.naturalHeight : 4 / 3)
+            : (video.videoWidth && video.videoHeight) ? video.videoWidth / video.videoHeight : 16 / 9;
+        const aspect = sideways() ? 1 / raw : raw;
         let w = boxW;
         let h = boxW / aspect;
         if (h > boxH) { h = boxH; w = boxH * aspect; }
-        content.left = video.offsetLeft + (boxW - w) / 2;
-        content.top = video.offsetTop + (boxH - h) / 2;
+        content.left = (boxW - w) / 2;
+        content.top = (boxH - h) / 2;
         content.width = Math.max(w, 1);
         content.height = Math.max(h, 1);
         [canvas, ghostCanvas, labelsEl].forEach(node => {
@@ -1807,16 +2289,54 @@ function createVideoAnnotator(item) {
             node.style.width = content.width + 'px';
             node.style.height = content.height + 'px';
         });
+        applyZoom(boxW, boxH);
         const dpr = Math.min(window.devicePixelRatio, 2);
-        canvas.width = Math.round(content.width * dpr);
-        canvas.height = Math.round(content.height * dpr);
+        const res = Math.min(dpr * zs, 4096 / Math.max(content.width, content.height));
+        canvas.width = Math.round(content.width * res);
+        canvas.height = Math.round(content.height * res);
         ghostCanvas.width = canvas.width;
         ghostCanvas.height = canvas.height;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.setTransform(res, 0, 0, res, 0, 0);
         draw();
     }
+    function applyZoom(W = frameEl.clientWidth, H = frameEl.clientHeight) {
+        if (!zoomRegion) {
+            zs = 1;
+            zoomLayer.style.transform = '';
+            zoomLayer.style.removeProperty('--unzoom');
+            zoomReset.hidden = true;
+            frameEl.classList.remove('is-zoomed');
+            return;
+        }
+        const [x0, y0, x1, y1] = zoomRegion;
+        const cw = content.width, ch = content.height;
+        zs = Math.max(1, Math.min(8, W / ((x1 - x0) * cw), H / ((y1 - y0) * ch)));
+        // Centre the box, then keep the picture's edges from coming inside the frame.
+        const fit = (size, offset, frame, centre) => {
+            const scaled = zs * size;
+            if (scaled <= frame) return (frame - scaled) / 2 - zs * offset;
+            const t = frame / 2 - zs * (offset + centre * size);
+            return Math.min(-zs * offset, Math.max(frame - scaled - zs * offset, t));
+        };
+        const tx = fit(cw, content.left, W, (x0 + x1) / 2);
+        const ty = fit(ch, content.top, H, (y0 + y1) / 2);
+        zoomLayer.style.transform = `translate(${tx}px, ${ty}px) scale(${zs})`;
+        zoomLayer.style.setProperty('--unzoom', String(1 / zs));
+        zoomReset.hidden = false;
+        zoomReset.querySelector('span').textContent = `${zs.toFixed(1)}× · Reset zoom`;
+        frameEl.classList.add('is-zoomed');
+    }
+    function setZoom(region) {
+        zoomRegion = region;
+        layout();
+    }
+    zoomReset.addEventListener('click', () => { emitNav(); setZoom(null); });
+    canvas.addEventListener('dblclick', () => { if (zoomRegion && !tool) setZoom(null); });
     new ResizeObserver(layout).observe(frameEl);
-    video.addEventListener('loadedmetadata', () => { layout(); renderTimeline(); updateTime(); });
+    video.addEventListener('loadedmetadata', () => {
+        if (trimStart() && video.currentTime < trimStart() - 0.01) video.currentTime = trimStart();
+        layout(); renderTimeline(); updateTime();
+    });
 
     // Drawing ------------------------------------------------------------------------------------
     const shownAt = (m, t) => t >= m.t - 0.12 && t <= (m.t2 !== undefined ? m.t2 + 0.12 : m.t + (m.hold || 1.6));
@@ -1828,18 +2348,18 @@ function createVideoAnnotator(item) {
     function drawShape(shape, color, active) {
         color = shape.color || color;
         const width = shape.width || 2.5;
-        ctx.lineWidth = active ? width + 1 : width;
+        ctx.lineWidth = (active ? LINE_WIDTH + 0.5 : LINE_WIDTH) / zs;
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         if (shape.type === 'text' && shape.pts.length) {
             const [x, y] = px(shape.pts[0]);
-            ctx.font = `700 ${Math.round(13 + width * 2)}px Inter, system-ui, sans-serif`;
+            ctx.font = `700 ${(13 + width * 2) / zs}px Inter, system-ui, sans-serif`;
             ctx.textBaseline = 'middle';
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 4 / zs;
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
             ctx.strokeText(shape.text || '', x, y);
             ctx.fillText(shape.text || '', x, y);
-            if (active) { const w = ctx.measureText(shape.text || '').width; ctx.lineWidth = 1.5; ctx.strokeStyle = color; ctx.strokeRect(x - 4, y - 14, w + 8, 28); }
+            if (active) { const w = ctx.measureText(shape.text || '').width; ctx.lineWidth = 1.5 / zs; ctx.strokeStyle = color; ctx.strokeRect(x - 4 / zs, y - 14 / zs, w + 8 / zs, 28 / zs); }
             return;
         }
         ctx.lineJoin = 'round';
@@ -1848,14 +2368,14 @@ function createVideoAnnotator(item) {
         const pts = shape.pts.map(px);
         if (shape.type === 'rect' && pts.length >= 2) {
             const [a, b] = pts;
-            ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4;
+            ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 2;
             ctx.strokeRect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
             ctx.shadowBlur = 0;
         } else if (shape.type === 'arrow' && pts.length >= 2) {
             const [a, b] = pts;
             const angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
             const size = 14;
-            ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4;
+            ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 2;
             ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
             ctx.beginPath();
             ctx.moveTo(b[0], b[1]);
@@ -1864,7 +2384,7 @@ function createVideoAnnotator(item) {
             ctx.closePath(); ctx.fill();
             ctx.shadowBlur = 0;
         } else if (shape.type === 'pen' && pts.length) {
-            ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4;
+            ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 2;
             ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
             pts.slice(1).forEach(p => ctx.lineTo(p[0], p[1]));
             ctx.stroke();
@@ -1884,14 +2404,11 @@ function createVideoAnnotator(item) {
             const active = mark.id === selected;
             const color = active ? '#ff3fa4' : '#ff6fbd';
             mark.shapes.forEach(shape => drawShape(shape, color, active));
-            const anchor = mark.shapes[0]?.pts?.[0] || [0.04, 0.1];
-            const [x, y] = px(anchor);
             const index = all.indexOf(mark) + 1;
             const label = el('button', 'rv-mark-label' + (active ? ' active' : ''), `<span class="rv-anno-num">${index}</span><span>${escapeHTML(mark.label || 'Mark ' + index)}</span>`);
             label.type = 'button';
-            label.style.left = Math.min(Math.max(x, 8), content.width - 30) + 'px';
-            label.style.top = Math.max(y, 28) + 'px';
-            label.addEventListener('click', () => { select(mark.id); root.dispatchEvent(new CustomEvent('rv-focus-annotation', { detail: mark.id, bubbles: true })); });
+            label.title = 'Click to select · drag to move this label';
+            placeLabel(label, mark, mark.shapes[0]?.pts?.[0] || [0.04, 0.1], () => { select(mark.id); root.dispatchEvent(new CustomEvent('rv-focus-annotation', { detail: mark.id, bubbles: true })); });
             labelsEl.append(label);
         });
         // Marks broadcast by a live-session presenter, in gold.
@@ -1899,26 +2416,64 @@ function createVideoAnnotator(item) {
         // Everyone else's marks in a live session, in their own colours with their names.
         othersMarks.filter(m => shownAt(m, t)).forEach(mark => {
             (mark.shapes || []).forEach(shape => drawShape(shape, mark.who?.color || '#7fd0ff', false));
-            const anchor = mark.shapes?.[0]?.pts?.[0] || [0.04, 0.3];
-            const [x, y] = px(anchor);
             const label = el('span', 'rv-mark-label remote', `<span>${escapeHTML(mark.who?.name || 'Guest')}${mark.label ? ': ' + escapeHTML(mark.label) : ''}</span>`);
-            label.style.left = Math.min(Math.max(x, 8), content.width - 30) + 'px';
-            label.style.top = Math.max(y, 28) + 'px';
+            label.title = 'Drag to move this label out of the way (only on your screen)';
+            placeLabel(label, mark, mark.shapes?.[0]?.pts?.[0] || [0.04, 0.3], null);
             label.style.borderColor = mark.who?.color || '#7fd0ff';
             labelsEl.append(label);
         });
         remoteMarks.filter(m => shownAt(m, t)).forEach((mark, index) => {
             (mark.shapes || []).forEach(shape => drawShape(shape, '#e0a020', false));
-            const anchor = mark.shapes?.[0]?.pts?.[0] || [0.04, 0.2];
-            const [x, y] = px(anchor);
             const label = el('span', 'rv-mark-label remote', `<span class="rv-anno-num">${index + 1}</span><span>${escapeHTML(remoteName)}: ${escapeHTML(mark.label || 'Mark ' + (index + 1))}</span>`);
-            label.style.left = Math.min(Math.max(x, 8), content.width - 30) + 'px';
-            label.style.top = Math.max(y, 28) + 'px';
+            label.title = 'Drag to move this label out of the way (only on your screen)';
+            placeLabel(label, mark, mark.shapes?.[0]?.pts?.[0] || [0.04, 0.2], null);
             label.style.borderColor = '#a86e00';
             label.style.color = '#5c3d00';
             labelsEl.append(label);
         });
         if (drawing) drawShape(drawing, '#ff3fa4', true);
+    }
+    // Mark labels can be dragged off whatever they cover. Your own label's spot is saved with the mark
+    // ("labelAt", 0-1 across the picture) so everyone sees it there; other people's labels move only on
+    // your screen. Labels are rebuilt on every draw, so the drag listens on the window.
+    const labelSpots = new Map();   // mark id -> [x, y]: while dragging, and for other people's labels
+    const clamp01 = v => Math.min(Math.max(v, 0), 1);
+    function labelPoint(mark, fallback) { return labelSpots.get(mark.id) || mark.labelAt || fallback; }
+    function placeLabel(label, mark, fallback, onTap) {
+        const [x, y] = px(labelPoint(mark, fallback));
+        label.style.left = Math.min(Math.max(x, 8), content.width - 30) + 'px';
+        label.style.top = Math.max(y, 28) + 'px';
+        label.classList.add('draggable');
+        label.addEventListener('pointerdown', event => dragLabel(event, mark, fallback, onTap));
+    }
+    function dragLabel(event, mark, fallback, onTap) {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = canvas.getBoundingClientRect();
+        const start = labelPoint(mark, fallback);
+        const x0 = event.clientX, y0 = event.clientY;
+        let moved = false;
+        const move = ev => {
+            if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
+            moved = true;
+            labelSpots.set(mark.id, [clamp01(start[0] + (ev.clientX - x0) / rect.width), clamp01(start[1] + (ev.clientY - y0) / rect.height)]);
+            draw();
+        };
+        const up = () => {
+            removeEventListener('pointermove', move);
+            removeEventListener('pointerup', up);
+            removeEventListener('pointercancel', up);
+            if (!moved) { onTap?.(); return; }
+            if (!onTap) return;   // someone else's label: keep the spot for this session only
+            const at = labelSpots.get(mark.id).map(v => +v.toFixed(4));
+            labelSpots.delete(mark.id);
+            store.update(item.id, entry => { const target = entry.annotations.find(a => a.id === mark.id); if (target) target.labelAt = at; });
+            emitChange();
+        };
+        addEventListener('pointermove', move);
+        addEventListener('pointerup', up);
+        addEventListener('pointercancel', up);
     }
     let remoteMarks = [];
     let remoteName = 'Presenter';
@@ -1942,21 +2497,51 @@ function createVideoAnnotator(item) {
         if (event.button !== 0) return;
         if (!tool) { tapAt = { x: event.clientX, y: event.clientY }; return; }
         event.preventDefault();
+        if (tool === 'zoom') { startZoomBox(event); return; }
         video.pause();
         try { canvas.setPointerCapture(event.pointerId); } catch { /* pointer already released */ }
         const p = normalized(event);
+        if (tool === 'erase') { erasing = p; eraseAt(p, p); return; }
         if (tool === 'text') { openTextInput(p); return; }
         drawing = { type: tool, pts: tool === 'point' ? [p] : [p, p], color: penColor, width: penWidth };
         draw();
     });
+    function startZoomBox(event) {
+        const frame = frameEl.getBoundingClientRect();
+        const x0 = event.clientX, y0 = event.clientY;
+        const a = normalized(event);
+        const show = ev => {
+            const left = Math.min(x0, ev.clientX) - frame.left, top = Math.min(y0, ev.clientY) - frame.top;
+            Object.assign(zoomBox.style, { left: left + 'px', top: top + 'px', width: Math.abs(ev.clientX - x0) + 'px', height: Math.abs(ev.clientY - y0) + 'px' });
+            zoomBox.hidden = false;
+        };
+        const move = ev => show(ev);
+        const up = ev => {
+            removeEventListener('pointermove', move);
+            removeEventListener('pointerup', up);
+            removeEventListener('pointercancel', up);
+            zoomBox.hidden = true;
+            if (ev.type === 'pointercancel' || Math.abs(ev.clientX - x0) < 10 || Math.abs(ev.clientY - y0) < 10) return;
+            const b = normalized(ev);
+            const x = [Math.min(a[0], b[0]), Math.max(a[0], b[0])], y = [Math.min(a[1], b[1]), Math.max(a[1], b[1])];
+            if (x[1] - x[0] < 0.01 || y[1] - y[0] < 0.01) return;
+            emitNav();
+            setTool('zoom');   // the tool turns off; clicks play and pause again
+            setZoom([x[0], y[0], x[1], y[1]]);
+        };
+        addEventListener('pointermove', move);
+        addEventListener('pointerup', up);
+        addEventListener('pointercancel', up);
+    }
     const textInput = root.querySelector('.rv-text-input');
     let textAt = null;
     function openTextInput(p) {
         textAt = p;
         textInput.hidden = false;
         textInput.value = '';
-        textInput.style.left = (content.left + p[0] * content.width) + 'px';
-        textInput.style.top = (content.top + p[1] * content.height - 14) + 'px';
+        const box = canvas.getBoundingClientRect(), frame = frameEl.getBoundingClientRect();
+        textInput.style.left = (box.left - frame.left + p[0] * box.width) + 'px';
+        textInput.style.top = (box.top - frame.top + p[1] * box.height - 14) + 'px';
         textInput.style.color = penColor;
         textInput.focus();
     }
@@ -1977,13 +2562,6 @@ function createVideoAnnotator(item) {
         penColor = swatch.dataset.color;
         toolsEl.querySelectorAll('[data-color]').forEach(b => b.classList.toggle('active', b === swatch));
     }));
-    const widthBtn = toolsEl.querySelector('[data-action="width"]');
-    widthBtn.addEventListener('click', () => {
-        penWidth = penWidth > 3 ? 2.5 : 5;
-        widthBtn.innerHTML = icon(penWidth > 3 ? 'equal' : 'minus');
-        widthBtn.classList.toggle('active', penWidth > 3);
-        refreshIcons();
-    });
     // The overlay sits above the video, so a plain click on the picture toggles playback here.
     canvas.addEventListener('pointerup', event => {
         if (!tapAt || event.button !== 0) return;
@@ -1992,6 +2570,7 @@ function createVideoAnnotator(item) {
         if (moved <= 5 && !tool && !locked) togglePlay();
     });
     canvas.addEventListener('pointermove', event => {
+        if (erasing) { const p = normalized(event); eraseAt(erasing, p); erasing = p; return; }
         if (!drawing) return;
         const p = normalized(event);
         if (drawing.type === 'pen') {
@@ -2011,7 +2590,57 @@ function createVideoAnnotator(item) {
         commitShape(shape);
     }
     canvas.addEventListener('pointerup', finishDrawing);
-    canvas.addEventListener('pointercancel', () => { drawing = null; draw(); });
+    canvas.addEventListener('pointercancel', () => { drawing = null; erasing = false; draw(); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => canvas.addEventListener(type, () => { erasing = false; }));
+    // Eraser: removes any of your own drawings within a few pixels of the pointer.
+    let erasing = false;
+    function shapeDistance(shape, x, y) {
+        const pts = (shape.pts || []).map(px);
+        if (!pts.length) return Infinity;
+        if (shape.type === 'text') {
+            ctx.font = `700 ${(13 + (shape.width || 2.5) * 2) / zs}px Inter, system-ui, sans-serif`;
+            const w = ctx.measureText(shape.text || '').width;
+            const [tx, ty] = pts[0];
+            const dx = Math.max(tx - x, 0, x - (tx + w));
+            const dy = Math.max(ty - 12 / zs - y, 0, y - (ty + 12 / zs));
+            return Math.hypot(dx, dy);
+        }
+        if (shape.type === 'rect' && pts.length >= 2) {
+            const [a, b] = pts;
+            const c = [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]], [a[0], a[1]]];
+            return Math.min(...c.slice(1).map((q, i) => segDistance(c[i], q, x, y)));
+        }
+        if (pts.length === 1) return Math.hypot(pts[0][0] - x, pts[0][1] - y) - 9;
+        return Math.min(...pts.slice(1).map((q, i) => segDistance(pts[i], q, x, y)));
+    }
+    function segDistance(a, b, x, y) {
+        const vx = b[0] - a[0], vy = b[1] - a[1];
+        const len = vx * vx + vy * vy;
+        const t = len ? Math.max(0, Math.min(1, ((x - a[0]) * vx + (y - a[1]) * vy) / len)) : 0;
+        return Math.hypot(a[0] + t * vx - x, a[1] + t * vy - y);
+    }
+    // Erases along the pointer's path from a to b, so a quick swipe catches everything it crosses.
+    function eraseAt(a, b) {
+        const [ax, ay] = px(a), [bx, by] = px(b);
+        const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / (4 / zs)));
+        const samples = Array.from({ length: steps + 1 }, (_, i) => [ax + (bx - ax) * i / steps, ay + (by - ay) * i / steps]);
+        const hits = [];
+        visibleMarks().forEach(mark => mark.shapes.forEach((shape, i) => { if (samples.some(([x, y]) => shapeDistance(shape, x, y) <= 12 / zs)) hits.push([mark.id, i]); }));
+        if (!hits.length) return;
+        store.update(item.id, entry => {
+            hits.sort((a, b) => b[1] - a[1]).forEach(([id, i]) => {
+                const mark = entry.annotations.find(a => a.id === id);
+                if (mark) mark.shapes.splice(i, 1);
+            });
+            // A mark with nothing left on it and no words goes too.
+            new Set(hits.map(h => h[0])).forEach(id => {
+                const index = entry.annotations.findIndex(a => a.id === id);
+                const mark = entry.annotations[index];
+                if (mark && !mark.shapes.length && !mark.label && !mark.note && mark.t2 === undefined) entry.annotations.splice(index, 1);
+            });
+        });
+        draw();
+    }
     function commitShape(shape) {
         const t = +video.currentTime.toFixed(2);
         const existing = marks().find(m => m.id === selected && Math.abs(m.t - t) < 0.05);
@@ -2020,6 +2649,7 @@ function createVideoAnnotator(item) {
         } else {
             const mark = { id: uid(), kind: 'mark', ...markMeta(), t, label: '', note: '', shapes: [shape] };
             store.update(item.id, entry => entry.annotations.push(mark));
+            guide.done('draw');
             selected = mark.id;
             root.dispatchEvent(new CustomEvent('rv-focus-annotation', { detail: mark.id, bubbles: true }));
         }
@@ -2028,12 +2658,22 @@ function createVideoAnnotator(item) {
     function setTool(next) {
         tool = tool === next ? null : next;
         toolsEl.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
-        frameEl.classList.toggle('mode-draw', !!tool);
+        frameEl.classList.toggle('mode-draw', !!tool && tool !== 'erase' && tool !== 'zoom');
+        frameEl.classList.toggle('mode-erase', tool === 'erase');
+        frameEl.classList.toggle('mode-zoom', tool === 'zoom');
         hintEl.hidden = !tool;
-        hintEl.textContent = { rect: 'Drag a box over what you see', arrow: 'Drag an arrow to point at it', pen: 'Draw on the frame', point: 'Click to drop a point', text: 'Click where the note should go, type, then Enter' }[tool] || '';
-        if (tool) video.pause();
+        hintEl.textContent = { pen: 'Draw on the frame', text: 'Click where the note should go, type, then Enter', erase: 'Drag over a drawing to erase it', zoom: 'Drag a box over the part to zoom into' }[tool] || '';
+        if (tool && tool !== 'zoom') video.pause();
     }
     toolsEl.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => setTool(button.dataset.tool)));
+    // Small screens show only the pencil until it is tapped, so the tools do not cover the picture.
+    const toolsToggle = toolsEl.querySelector('.rv-tools-toggle');
+    toolsToggle.addEventListener('click', () => {
+        const open = !toolsEl.classList.contains('open');
+        toolsEl.classList.toggle('open', open);
+        toolsToggle.setAttribute('aria-expanded', String(open));
+        if (!open && tool) setTool(tool);   // folding the tools away stops drawing
+    });
     toolsEl.querySelector('[data-action="undo"]').addEventListener('click', () => {
         const mark = marks().find(m => m.id === selected) || visibleMarks().slice(-1)[0];
         if (!mark) return;
@@ -2054,9 +2694,9 @@ function createVideoAnnotator(item) {
     // Transport ----------------------------------------------------------------------------------
     function updateTime() {
         const duration = video.duration || 0;
-        timeEl.innerHTML = `${fmtTime(video.currentTime)} <small>/ ${fmtTime(duration)}</small>`;
+        timeEl.innerHTML = `${relTime(video.currentTime)} <small>/ ${fmtTime(duration ? trimSpan() : 0)}</small>`;
         frameEl2.textContent = `f ${Math.round(video.currentTime * fps())}`;
-        const fraction = duration ? video.currentTime / duration : 0;
+        const fraction = duration ? Math.min(1, Math.max(0, trimFrac(video.currentTime))) : 0;
         fill.style.width = (fraction * 100) + '%';
         head.style.left = (fraction * 100) + '%';
     }
@@ -2064,31 +2704,34 @@ function createVideoAnnotator(item) {
         track.querySelectorAll('.rv-timeline-marker, .rv-timeline-stop, .rv-timeline-range, .rv-timeline-in').forEach(m => m.remove());
         const duration = video.duration || 0;
         if (!duration) return;
-        stops().forEach(at => {
+        const inside = t => t >= trimStart() - 0.01 && t <= trimEnd() + 0.01;
+        const pos = t => (Math.min(1, Math.max(0, trimFrac(t))) * 100) + '%';
+        stops().filter(inside).forEach(at => {
             const stopEl = el('button', 'rv-timeline-stop');
             stopEl.type = 'button';
-            stopEl.title = `Stop point at ${fmtTime(at)}`;
-            stopEl.style.left = (at / duration * 100) + '%';
+            stopEl.title = `Stop point at ${relTime(at)}`;
+            stopEl.style.left = pos(at);
             stopEl.addEventListener('click', event => { event.stopPropagation(); emitNav(); video.pause(); video.currentTime = at; lastT = at; showStopBanner(at); });
             track.append(stopEl);
         });
-        marks().filter(m => m.t2 !== undefined).forEach(mark => {
+        marks().filter(m => m.t2 !== undefined && m.t2 >= trimStart() && m.t <= trimEnd()).forEach(mark => {
             const bar = el('span', 'rv-timeline-range' + (mark.id === selected ? ' active' : ''));
-            bar.style.left = (mark.t / duration * 100) + '%';
-            bar.style.width = (Math.max(mark.t2 - mark.t, 0.05) / duration * 100) + '%';
+            bar.style.left = pos(mark.t);
+            bar.style.width = (Math.max(Math.min(mark.t2, trimEnd()) - Math.max(mark.t, trimStart()), 0.05) / trimSpan() * 100) + '%';
             track.append(bar);
         });
         if (rangeIn !== null) {
             const pending = el('span', 'rv-timeline-in');
-            pending.style.left = (rangeIn / duration * 100) + '%';
-            pending.title = `Range starts at ${fmtTime(rangeIn)}. Press Out to finish it.`;
+            pending.style.left = pos(rangeIn);
+            pending.title = `Range starts at ${relTime(rangeIn)}. Press Out to finish it.`;
             track.append(pending);
         }
         marks().forEach((mark, index) => {
+            if (!inside(mark.t)) return;
             const marker = el('button', 'rv-timeline-marker' + (mark.id === selected ? ' active' : ''), String(index + 1));
             marker.type = 'button';
-            marker.title = `${mark.label || 'Mark ' + (index + 1)} at ${fmtTime(mark.t)}`;
-            marker.style.left = (mark.t / duration * 100) + '%';
+            marker.title = `${mark.label || 'Mark ' + (index + 1)} at ${relTime(mark.t)}`;
+            marker.style.left = pos(mark.t);
             marker.addEventListener('click', event => { event.stopPropagation(); jumpTo(mark.id); root.dispatchEvent(new CustomEvent('rv-focus-annotation', { detail: mark.id, bubbles: true })); });
             track.append(marker);
         });
@@ -2096,25 +2739,25 @@ function createVideoAnnotator(item) {
     function seekFraction(event) {
         const rect = track.getBoundingClientRect();
         const fraction = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
-        if (video.duration) video.currentTime = fraction * video.duration;
+        if (video.duration) video.currentTime = trimStart() + fraction * trimSpan();
     }
     let scrubbing = false;
     track.addEventListener('pointerdown', event => { if (event.target.closest('.rv-timeline-marker, .rv-timeline-stop')) return; scrubbing = true; track.setPointerCapture(event.pointerId); video.pause(); seekFraction(event); });
     track.addEventListener('pointermove', event => { if (scrubbing) seekFraction(event); });
     track.addEventListener('pointerup', () => { scrubbing = false; });
-    function togglePlay() { if (video.paused) video.play(); else video.pause(); }
+    function togglePlay() { if (isPicture(clip)) return; if (video.paused) video.play(); else video.pause(); }
     playBtn.addEventListener('click', () => { stopReverse(); togglePlay(); });
-    video.addEventListener('play', () => { playBtn.innerHTML = icon('pause'); refreshIcons(); if (tool) setTool(tool); tick(); });
+    video.addEventListener('play', () => { guide.done('play'); playBtn.innerHTML = icon('pause'); refreshIcons(); if (tool) setTool(tool); tick(); });
     video.addEventListener('pause', () => { playBtn.innerHTML = icon('play'); refreshIcons(); updateTime(); draw(); });
     video.addEventListener('seeked', () => { updateTime(); draw(); });
     ['play', 'pause', 'seeked', 'ratechange'].forEach(type => video.addEventListener(type, emitChange));
     video.addEventListener('timeupdate', () => { if (!video.paused) emitChange(); });
     video.addEventListener('timeupdate', () => { if (video.paused) { updateTime(); draw(); } });
-    function step(frames) { stopReverse(); video.pause(); video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + frames / fps())); }
+    function step(frames) { if (isPicture(clip)) return; stopReverse(); video.pause(); video.currentTime = Math.max(trimStart(), Math.min(trimEnd(), video.currentTime + frames / fps())); }
 
     // Ranges and looping ---------------------------------------------------------------------------
     const loopBtn = root.querySelector('[data-action="loop"]');
-    function setIn() { rangeIn = +video.currentTime.toFixed(2); renderTimeline(); toast(`Range starts at ${fmtTime(rangeIn)}. Move on and press Out.`, 1800); }
+    function setIn() { rangeIn = +video.currentTime.toFixed(2); renderTimeline(); toast(`Range starts at ${relTime(rangeIn)}. Move on and press Out.`, 1800); }
     function setOut() {
         const t = +video.currentTime.toFixed(2);
         if (rangeIn === null) { toast('Press In at the start of the stretch first.', 1800); return; }
@@ -2124,6 +2767,7 @@ function createVideoAnnotator(item) {
         video.pause();
         const mark = { id: uid(), kind: 'mark', ...markMeta(), t: a, t2: b, label: '', note: '', shapes: [] };
         store.update(item.id, entry => entry.annotations.push(mark));
+        guide.done('range');
         selected = mark.id;
         root.dispatchEvent(new CustomEvent('rv-focus-annotation', { detail: mark.id, bubbles: true }));
     }
@@ -2144,7 +2788,7 @@ function createVideoAnnotator(item) {
     video.addEventListener('timeupdate', checkLoop);
 
     // Ghost frames: faint copies of the frames before (blue) and after (orange) the paused frame ------
-    const ghostBtn = root.querySelector('[data-action="ghost"]');
+    const ghostBtn = root.querySelector('[data-action="ghost"]');   // removed from the bar; kept for later
     const ghosts = [-1, 1].map(() => { const g = document.createElement('video'); g.muted = true; g.preload = 'auto'; g.playsInline = true; return g; });
     const ghostTmp = document.createElement('canvas');
     function ghostSources() { ghosts.forEach(g => { if (g.src !== video.currentSrc && video.currentSrc) g.src = video.currentSrc; }); }
@@ -2175,7 +2819,7 @@ function createVideoAnnotator(item) {
             if (g.readyState < 2) return;
             tctx.globalCompositeOperation = 'source-over';
             tctx.clearRect(0, 0, ghostTmp.width, ghostTmp.height);
-            tctx.drawImage(g, 0, 0, ghostTmp.width, ghostTmp.height);
+            drawRotated(tctx, g, ghostTmp.width, ghostTmp.height);
             tctx.globalCompositeOperation = 'source-atop';
             tctx.fillStyle = tints[i];
             tctx.fillRect(0, 0, ghostTmp.width, ghostTmp.height);
@@ -2184,7 +2828,7 @@ function createVideoAnnotator(item) {
             ghostCtx.globalAlpha = 1;
         });
     }
-    ghostBtn.addEventListener('click', () => {
+    ghostBtn?.addEventListener('click', () => {
         ghostStep = GHOST_STEPS[(GHOST_STEPS.indexOf(ghostStep) + 1) % GHOST_STEPS.length];
         ghostBtn.classList.toggle('active', ghostStep > 0);
         ghostBtn.querySelector('span').textContent = ghostStep ? `Ghost ±${ghostStep}f` : 'Ghost';
@@ -2212,15 +2856,25 @@ function createVideoAnnotator(item) {
         stopReverse();
         if (video.paused) { video.playbackRate = 1; video.play(); }
         else video.playbackRate = Math.min(video.playbackRate * 2, 4);
-        root.querySelector('.rv-speed').value = String(video.playbackRate);
     }
-    root.querySelector('[data-action="back"]').addEventListener('click', () => step(-1));
-    root.querySelector('[data-action="fwd"]').addEventListener('click', () => step(1));
-    root.querySelector('.rv-speed').addEventListener('change', event => { video.playbackRate = +event.target.value; });
+    // Arrow keys step one frame even when the video does not have focus (not while typing, and not
+    // when the 3D view or a slider has focus: those use the arrows themselves).
+    function onPageKey(event) {
+        if (!root.isConnected) { document.removeEventListener('keydown', onPageKey); return; }
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || root.contains(event.target)) return;
+        if (event.target.closest?.('input, textarea, select, [contenteditable="true"], .rv-viewer, .rv-sweep, [role="slider"], dialog')) return;
+        if (!root.offsetParent || locked || isPicture(clip)) return;
+        event.preventDefault();
+        emitNav();
+        step(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+    document.addEventListener('keydown', onPageKey);
     const muteBtn = root.querySelector('[data-action="mute"]');
     muteBtn.addEventListener('click', () => { video.muted = !video.muted; muteBtn.innerHTML = icon(video.muted ? 'volume-x' : 'volume-2'); refreshIcons(); });
     root.addEventListener('keydown', event => {
-        if (event.target.closest('input, textarea, select') || locked) return;
+        if (event.key === 'Escape' && zoomRegion && !event.target.closest('input, textarea, select')) { setZoom(null); event.preventDefault(); return; }
+        if (event.target.closest('input, textarea, select') || locked || isPicture(clip)) return;
         const key = event.key.toLowerCase();
         if (event.key === ' ') { stopReverse(); togglePlay(); event.preventDefault(); }
         else if (event.key === 'ArrowLeft' || event.key === ',') { step(-1); event.preventDefault(); }
@@ -2259,19 +2913,21 @@ function createVideoAnnotator(item) {
 
     function getState() {
         return {
-            t: +video.currentTime.toFixed(2), paused: video.paused, rate: video.playbackRate, clip: clip.id, stops: stops(),
-            annotations: marks().map(m => ({ id: m.id, kind: 'mark', ...markMeta(), t: m.t, ...(m.t2 !== undefined ? { t2: m.t2 } : {}), label: m.label, shapes: m.shapes })),
+            t: +video.currentTime.toFixed(2), paused: video.paused, rate: video.playbackRate, clip: clip.id, stops: stops(), rotate: rotation(),
+            annotations: marks().map(m => ({ id: m.id, kind: 'mark', ...markMeta(), t: m.t, ...(m.t2 !== undefined ? { t2: m.t2 } : {}), ...(m.labelAt ? { labelAt: m.labelAt } : {}), label: m.label, shapes: m.shapes })),
         };
     }
     async function applyState(state) {
         if (!state) return;
         if (state.clip !== undefined && state.clip !== clip.id) { applying = true; try { await setClip(state.clip, true); } finally { applying = false; } }
         if (Array.isArray(state.stops) && JSON.stringify(state.stops) !== JSON.stringify(remoteStops)) { remoteStops = state.stops; renderTimeline(); syncStopUI(); }
+        if (Number.isFinite(state.rotate) && state.rotate !== remoteRotate) { remoteRotate = state.rotate; layout(); }
+        if (isPicture(clip)) return;   // nothing to play or seek
         applying = true;
         try {
             if (state.paused && Number.isFinite(state.t) && stops().some(st => Math.abs(st - state.t) < 0.06)) showStopBanner(state.t);
             else if (!state.paused) stopBanner.hidden = true;
-            if (state.rate && video.playbackRate !== state.rate) { video.playbackRate = state.rate; root.querySelector('.rv-speed').value = String(state.rate); }
+            if (state.rate && video.playbackRate !== state.rate) video.playbackRate = state.rate;
             if (Number.isFinite(state.t) && Math.abs(video.currentTime - state.t) > 0.4) video.currentTime = state.t;
             if (state.paused && !video.paused) video.pause();
             else if (!state.paused && video.paused) {
@@ -2285,13 +2941,28 @@ function createVideoAnnotator(item) {
             }
         } finally { applying = false; }
     }
-    root.addEventListener('pointerdown', emitNav, { capture: true, passive: true });
-    root.addEventListener('keydown', emitNav, { capture: true });
+    // Only playback counts as looking on your own: drawing, colours and labels keep a follower in step.
+    root.addEventListener('pointerdown', event => { if (event.target.closest('.rv-video-bar, .rv-timeline, .rv-clips') && !event.target.closest('.rv-clips-toggle')) emitNav(); }, { capture: true, passive: true });
+    root.addEventListener('keydown', event => {
+        if (event.target.closest('input, textarea')) return;
+        if ([' ', 'k', 'j', 'l', 'arrowleft', 'arrowright', ',', '.', 'home', 'end'].includes(event.key.toLowerCase())) emitNav();
+    }, { capture: true });
+    const guide = createGuide({
+        host: frameEl, key: policy.isHost() ? 'video-host' : 'video', title: 'Video tools',
+        steps: [
+            { key: 'play', icon: 'play', title: 'Play and step', text: 'Click the picture or press <kbd>Space</kbd> to play or pause. <kbd>J</kbd> / <kbd>L</kbd> go back / forward, <kbd>,</kbd> and <kbd>.</kbd> step one frame, and the speed menu goes from 0.1× to 2×.', try: 'Play or pause the video' },
+            { key: 'draw', icon: 'pencil', title: 'Draw on the frame', text: 'Pick a shape at the top right (box, arrow, pen, point or text) and a colour, then drag on the picture. Everyone in a live session sees it in your colour.', try: 'Draw something on the picture' },
+            { key: 'range', icon: 'arrow-right-to-line', title: 'Mark a stretch', text: 'Press <b>In</b> (or <kbd>I</kbd>) where something starts and <b>Out</b> (<kbd>O</kbd>) where it ends. The stretch shows on the timeline and can loop.', try: 'Press In, play a little, press Out' },
+            ...(policy.isHost() ? [{ key: 'stop', icon: 'octagon-pause', title: 'Stop points (presenter)', text: 'Pause where the video should stop for discussion and press <b>Add stop</b>. Playback pauses there for everyone. Save them with "Download review file with my stop points" in the Live panel.', try: 'Add a stop point' }] : []),
+        ],
+    });
 
     return {
         root, item, jumpTo, select,
         mediaEl: frameEl,
         getState, applyState, setLocked, setRemote,
+        tutorials: () => [],          // the video tutorial is switched off for now
+        showTutorial: () => false,
         setOthers(list) {
             othersMarks = (list || []).filter(a => a.kind === 'mark' && (a.source || '') === sourceKey && (a.clip || '') === (clip.id || ''));
             draw();
@@ -2365,7 +3036,7 @@ function createNotesPanel(item, media) {
             if (!li) { li = row(annotation); rows.set(annotation.id, li); }
             if (listEl.children[index] !== li) listEl.insertBefore(li, listEl.children[index] || null);
             li.querySelector('.rv-anno-num').textContent = index + 1;
-            let where = annotation.kind === 'mark' ? clipLabel(item, annotation) + fmtTime(annotation.t) + (annotation.t2 !== undefined ? `–${fmtTime(annotation.t2)}` : '') : 'on model';
+            let where = annotation.kind === 'mark' ? markWhen(item, annotation) : 'on model';
             if (annotation.value !== undefined) where += ` · ${sweepUnitLabel(item, annotation.value)}`;
             li.querySelector('.rv-anno-where').textContent = where;
             const labelEl = li.querySelector('.rv-anno-label');
@@ -2521,7 +3192,12 @@ let guidedIndex = 0;
 function buildGuided() {
     const page = el('div', 'rv-guided');
     page.innerHTML = `
-        <div class="rv-guided-head"><span class="rv-guided-step"></span><div><h2></h2><p></p></div></div>
+        <div class="rv-guided-head"><span class="rv-guided-step"></span><div><h2></h2><p></p></div>
+            <div class="rv-screen-tools">
+                <button type="button" class="rv-btn rv-left-toggle" title="Show or hide the interface column" hidden>${icon('panel-left')} <span>Interface</span></button>
+                <button type="button" class="rv-btn rv-notes-toggle" title="Show or hide the notes column">${icon('panel-right')} <span>Notes</span></button>
+                <button type="button" class="rv-btn rv-full-toggle" title="Full screen (Esc to leave)">${icon('maximize')} <span>Full screen</span></button>
+            </div></div>
         <div class="rv-guided-slot"></div>
         <div class="rv-guided-foot"><button type="button" class="rv-btn rv-guided-back">${icon('chevron-left')} Back</button><div class="rv-guided-dots"></div><button type="button" class="rv-btn rv-primary rv-guided-next">Next ${icon('chevron-right')}</button></div>`;
     const slot = page.querySelector('.rv-guided-slot');
@@ -2534,11 +3210,104 @@ function buildGuided() {
         dot.addEventListener('click', () => show(i));
         dots.append(dot);
     }
+    // Notes column on or off (on unless you hid it; remembered in this browser).
+    const NOTES_KEY = 'gap-review-notes-hidden';
+    const notesBtn = page.querySelector('.rv-notes-toggle');
+    function setNotes(shown, remember = true) {
+        page.classList.toggle('notes-hidden', !shown);
+        notesBtn.classList.toggle('active', shown);
+        notesBtn.setAttribute('aria-pressed', String(shown));
+        notesBtn.innerHTML = `${icon(shown ? 'panel-right-close' : 'panel-right-open')} <span>${shown ? 'Hide notes' : 'Show notes'}</span>`;
+        refreshIcons();
+        if (remember) { try { localStorage.setItem(NOTES_KEY, shown ? '0' : '1'); } catch { /* storage off */ } }
+    }
+    const notesPreferred = () => { try { return localStorage.getItem(NOTES_KEY) !== '1'; } catch { return true; } };
+    const notesChosen = {};   // per screen that starts with notes hidden, this visit only
+    const currentItem = () => entries[guidedIndex]?.item;
+    function notesFor(item) { return item?.notesHidden ? (notesChosen[item.id] ?? false) : notesPreferred(); }
+    setNotes(notesPreferred(), false);
+    notesBtn.addEventListener('click', () => {
+        const shown = page.classList.contains('notes-hidden');
+        const item = currentItem();
+        if (item?.notesHidden) { notesChosen[item.id] = shown; setNotes(shown, false); } else setNotes(shown);
+    });
+    // Left column: tool panels from the viewer (the mechanical interface panel) sit here, like the notes on
+    // the right. They are moved in from their 3D view and back again when the screen changes.
+    const leftBtn = page.querySelector('.rv-left-toggle');
+    let left = null;
+    const docked = new Set();
+    const paneOpen = panel => !panel.rvPane || (!panel.rvPane.hidden && panel.rvPane.isConnected);
+    let leftState = '';
+    function syncLeft() {
+        if (!left) { leftState = ''; page.classList.remove('left-open'); leftBtn.hidden = true; return; }
+        // Participants without "Move the interface" do not get the column (the host can allow it live).
+        const allowed = !(document.body.dataset.hide || '').split(' ').includes('iface');
+        const usable = allowed ? [...docked].filter(paneOpen) : [];
+        docked.forEach(panel => { panel.style.display = paneOpen(panel) ? '' : 'none'; });
+        const open = usable.some(panel => !panel.hidden);
+        const state = `${usable.length}|${open}`;
+        if (state === leftState) return;
+        leftState = state;
+        page.classList.toggle('left-open', open);
+        leftBtn.hidden = !usable.length;
+        leftBtn.classList.toggle('active', open);
+        leftBtn.setAttribute('aria-pressed', String(open));
+        leftBtn.innerHTML = `${icon(open ? 'panel-left-close' : 'panel-left-open')} <span>${open ? 'Hide interface' : 'Interface'}</span>`;
+        refreshIcons();
+    }
+    function dockPanels(media) {
+        if (!left) return;
+        media.querySelectorAll('.rv-iface-panel:not(.is-docked)').forEach(panel => {
+            if (docked.has(panel)) return;
+            panel.rvPane = panel.parentElement?.closest('.rv-pane') || null;
+            panel.classList.add('is-docked');
+            left.append(panel);
+            docked.add(panel);
+        });
+        syncLeft();
+    }
+    function undockAll() {
+        docked.forEach(panel => { panel.classList.remove('is-docked'); panel.style.display = ''; panel.rvHome?.append(panel); });
+        docked.clear();
+    }
+    leftBtn.addEventListener('click', () => {
+        const open = !page.classList.contains('left-open');
+        [...docked].filter(paneOpen).forEach(panel => panel.rvSetOpen?.(open));
+        syncLeft();
+    });
+    let dockWatch = null;
+    new MutationObserver(() => syncLeft()).observe(document.body, { attributes: true, attributeFilter: ['data-hide'] });
+    // Full screen: the screen fills the window (and the display, where the browser allows it). Tabs,
+    // side by side, drawing, pins and Back / Next all keep working; Esc or the button leaves.
+    const fullBtn = page.querySelector('.rv-full-toggle');
+    let realFull = false;
+    function setFull(on) {
+        document.body.classList.toggle('rv-full', on);
+        fullBtn.classList.toggle('active', on);
+        fullBtn.innerHTML = `${icon(on ? 'minimize' : 'maximize')} <span>${on ? 'Exit full screen' : 'Full screen'}</span>`;
+        refreshIcons();
+        if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { /* the window still fills */ });
+        if (!on && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    }
+    fullBtn.addEventListener('click', () => setFull(!document.body.classList.contains('rv-full')));
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) realFull = true;
+        else if (realFull) { realFull = false; if (document.body.classList.contains('rv-full')) setFull(false); }
+    });
+    document.addEventListener('keydown', event => {
+        // Where the browser did not go full screen (e.g. inside another app), Esc still leaves.
+        if (event.key !== 'Escape' || !document.body.classList.contains('rv-full') || document.fullscreenElement) return;
+        if (event.defaultPrevented || event.target.closest?.('input, textarea, select, dialog') || document.querySelector('dialog[open]')) return;
+        setFull(false);
+    });
     page.querySelector('.rv-guided-back').addEventListener('click', () => show(guidedIndex - 1));
     page.querySelector('.rv-guided-next').addEventListener('click', () => show(guidedIndex + 1));
     let summaryPre = null;
     function show(index) {
         guidedIndex = Math.max(0, Math.min(total - 1, index));
+        dockWatch?.disconnect();
+        undockAll();
+        left = null;
         entries.forEach(e => { e.media.root.remove(); e.notes.root.remove(); });
         slot.replaceChildren();
         summaryPre = null;
@@ -2552,11 +3321,21 @@ function buildGuided() {
             p.textContent = entry.item.context || '';
             const body = el('div', 'rv-guided-body');
             const media = el('div', 'rv-media');
+            left = el('aside', 'rv-guided-left');
             media.append(entry.media.root);
-            body.append(media, entry.notes.root);
+            body.append(left, media, entry.notes.root);
             slot.append(body);
+            setNotes(notesFor(entry.item), false);
             entry.media.remount();
+            // Panels appear when their 3D view is built (first visit to a tab); tabs hide and show panes.
+            // (At most once a frame: the viewers change a lot of markup while they work.)
+            let queued = false;
+            dockWatch = new MutationObserver(() => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; dockPanels(media); }); });
+            dockWatch.observe(media, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+            new MutationObserver(() => syncLeft()).observe(left, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+            dockPanels(media);
         } else {
+            syncLeft();
             stepEl.textContent = 'Done';
             h2.textContent = 'Thank you. Here is everything you marked.';
             p.textContent = 'Copy the link to send it back, or download the file. You can go back and change anything.';
@@ -2813,7 +3592,9 @@ async function boot() {
         autoJoinCode: params.get('session'),
         autoPresent: params.has('present'),
         policy, tools: TOOL_KEYS,
-        onPolicy: () => entries.forEach(e => e.media.remount?.()),
+        // Only the screen on view needs laying out again; others lay out when they are shown.
+        onPolicy: () => entries[layout.getIndex()]?.media.remount?.(),
+        pickLabel: (entry, value) => sweepUnitLabel(entry.item, value),
         downloadHostFile: rawReview ? downloadHostReview : null,
     });
 }
@@ -2831,9 +3612,20 @@ function downloadHostReview() {
         if (source.kind === 'playlist') { const c = (source.clips || []).find((x, i) => (x.id || `clip-${i + 1}`) === clipId); if (c) { c.stops = list; merged++; } }
         else { source.stops = list; merged++; }
     });
+    let turned = 0;
+    Object.entries(data.rotations || {}).forEach(([key, deg]) => {
+        const [itemId, sourceKey, clipId] = key.split('|');
+        const source = copy.items?.find(it => it.id === itemId)?.sources?.[sourceKey];
+        if (!source) return;
+        const target = source.kind === 'playlist' ? (source.clips || []).find((x, i) => (x.id || `clip-${i + 1}`) === clipId) : source;
+        if (!target) return;
+        if (deg) target.rotate = deg; else delete target.rotate;
+        turned++;
+    });
     const name = (new URLSearchParams(location.search).get('review') || 'review.json').split('/').pop().replace(/^draft:|^drive:/, '') || 'review.json';
     download(name.endsWith('.json') ? name : name + '.json', new Blob([JSON.stringify(copy, null, 2) + '\n'], { type: 'application/json' }));
-    toast(merged ? `Review file downloaded with stop points for ${merged} video${merged === 1 ? '' : 's'}` : 'Review file downloaded (no stop points changed)');
+    const parts = [merged && `stop points for ${merged} video${merged === 1 ? '' : 's'}`, turned && `rotation for ${turned} video${turned === 1 ? '' : 's'}`].filter(Boolean);
+    toast(parts.length ? `Review file downloaded with ${parts.join(' and ')}` : 'Review file downloaded (no stop points or rotations changed)');
 }
 let liveSession = null;
 boot();

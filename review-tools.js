@@ -151,6 +151,79 @@ function closestOnTriangle(p, a, b, c, out) {
     return out.copy(a).addScaledVector(ab, vb * denom).addScaledVector(ac, vc * denom);
 }
 
+// ---- step-by-step tool guides ------------------------------------------------------------------------
+// A small card that walks through a tool one step at a time, like the camera tutorial: each step ticks
+// itself off ("You did it") when the person actually does it, then moves on. Opens by itself the first
+// time a tool is used in this browser, from a "?" button, or for everyone from the presenter's Live panel.
+export function createGuide({ host, key, title, steps }) {
+    const seenKey = 'gap-guide-seen:' + key;
+    const card = el('aside', 'rv-guide');
+    card.hidden = true;
+    card.setAttribute('aria-label', title);
+    host.append(card);
+    const done = new Set();
+    let index = 0;
+    let advanceTimer = 0;
+    const seen = () => { try { return localStorage.getItem(seenKey) === '1'; } catch { return false; } };
+    const markSeen = () => { try { localStorage.setItem(seenKey, '1'); } catch { /* storage off */ } };
+    function render() {
+        const step = steps[index];
+        const ok = done.has(step.key);
+        card.innerHTML = `
+            <div class="rv-guide-head">${icon(step.icon || 'sparkles')}<strong>${title}</strong><span>${index + 1} / ${steps.length}</span><button type="button" class="rv-guide-x" data-guide="close" title="Close the guide">${icon('x')}</button></div>
+            <h5>${step.title}</h5>
+            <p>${step.text}</p>
+            ${ok ? `<p class="rv-guide-ok">${icon('circle-check')} You did it</p>` : step.try ? `<p class="rv-guide-try">${icon('mouse-pointer-click')} ${step.try}</p>` : ''}
+            <div class="rv-guide-foot">
+                <div class="rv-guide-dots">${steps.map((s, i) => `<button type="button" data-guide-step="${i}" class="${i === index ? 'current' : ''}${done.has(s.key) ? ' done' : ''}" aria-label="${s.title}"></button>`).join('')}</div>
+                ${index > 0 ? '<button type="button" class="rv-btn rv-mini" data-guide="back">Back</button>' : ''}
+                <button type="button" class="rv-btn rv-mini rv-primary" data-guide="next">${index === steps.length - 1 ? 'Got it' : ok ? 'Next' : 'Skip'}</button>
+            </div>`;
+        card.classList.toggle('is-done', ok);
+        window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+    }
+    card.addEventListener('click', event => {
+        const step = event.target.closest('[data-guide-step]');
+        if (step) { show(+step.dataset.guideStep); return; }
+        const action = event.target.closest('[data-guide]')?.dataset.guide;
+        if (action === 'close') close();
+        else if (action === 'back') show(index - 1);
+        else if (action === 'next') { if (index === steps.length - 1) close(); else show(index + 1); }
+    });
+    // Clicks on the card must not paint, orbit or draw underneath it.
+    card.addEventListener('pointerdown', event => event.stopPropagation());
+    function show(i) {
+        clearTimeout(advanceTimer);
+        index = Math.max(0, Math.min(steps.length - 1, i));
+        render();
+    }
+    function open({ force = false } = {}) {
+        if (!force && seen()) return false;
+        done.clear();
+        card.hidden = false;
+        show(0);
+        return true;
+    }
+    function close() {
+        clearTimeout(advanceTimer);
+        card.hidden = true;
+        markSeen();
+    }
+    return {
+        open,
+        close,
+        isOpen: () => !card.hidden,
+        // Called by the tool when the person does a step; on the step being shown it moves on by itself.
+        done(stepKey) {
+            if (done.has(stepKey)) return;
+            done.add(stepKey);
+            if (card.hidden) return;
+            render();
+            if (steps[index].key === stepKey && index < steps.length - 1) advanceTimer = setTimeout(() => show(index + 1), 1500);
+        },
+    };
+}
+
 // ---- paint tool --------------------------------------------------------------------------------------
 
 export function createPaintTool(ctx, cfg) {
@@ -169,12 +242,23 @@ export function createPaintTool(ctx, cfg) {
             <button type="button" data-op="shrink" title="Make the surface smaller all round">${icon('minimize-2')} Shrink</button>
             <button type="button" data-op="reset" title="Go back to the original surface">${icon('rotate-ccw')}</button>
             <button type="button" data-op="stl" title="Download this surface as an STL for nTop">${icon('download')} STL</button>
+            <button type="button" data-op="guide" title="How to paint the surface">${icon('circle-help')}</button>
         </div>
         <p class="rv-paint-readout">Loading surface…</p>`;
     stage.append(panel);
     const sizeInput = panel.querySelector('input[type="range"]');
     const sizeOut = panel.querySelector('output');
     const readout = panel.querySelector('.rv-paint-readout');
+    const guide = createGuide({
+        host: stage, key: 'paint', title: 'Painting the surface',
+        steps: [
+            { key: 'paint', icon: 'paintbrush', title: 'Paint to add', text: 'Press <b>Paint</b>, then hold the left mouse button and drag over the body. Teal is the attachment surface.', try: 'Paint a stroke on the body' },
+            { key: 'turn', icon: 'rotate-3d', title: 'Turn the model while painting', text: 'With a brush on, left-drag always paints. <b>Right-drag</b> (or <kbd>Alt</kbd> + drag) turns the view; scroll to zoom.', try: 'Right-drag to turn the model' },
+            { key: 'erase', icon: 'eraser', title: 'Erase', text: 'Press <b>Erase</b> and drag to remove surface. The slider next to it sets the brush size.', try: 'Erase a little' },
+            { key: 'tidy', icon: 'waves', title: 'Tidy the edge', text: '<b>Smooth edge</b> cleans a ragged border. <b>Grow</b> and <b>Shrink</b> move the whole edge out or in. The dashed orange line is where the surface started; ↺ goes back to it.', try: 'Press Smooth edge, Grow or Shrink' },
+            { key: 'stl', icon: 'download', title: 'Keep the result', text: 'Your surface is saved with your notes and, in a live session, everyone sees it as you paint. <b>STL</b> downloads it for nTop.' },
+        ],
+    });
 
     let topo = null;
     let mask = null;
@@ -331,14 +415,17 @@ export function createPaintTool(ctx, cfg) {
         const hits = raycaster.intersectObject(topo.mesh, false).filter(h => planes.every(pl => pl.distanceToPoint(h.point) >= -1e-6));
         if (!hits.length) return null;
         const hit = hits[0];
-        const n = hit.face ? hit.face.normal.clone().transformDirection(topo.mesh.matrixWorld) : new THREE.Vector3(0, 0, 1);
-        if (n.dot(raycaster.ray.direction) > 0) n.negate();
-        return { point: hit.point, normal: n };
+        const raw = hit.face ? hit.face.normal.clone().transformDirection(topo.mesh.matrixWorld) : new THREE.Vector3(0, 0, 1);
+        // `normal` faces the camera (for the brush ring); `raw` keeps the mesh's own winding, which is what
+        // the per-face normals are compared with. Ollie's scan is wound inward, so comparing the
+        // camera-facing normal rejected every face and the brush painted nothing.
+        const n = raw.dot(raycaster.ray.direction) > 0 ? raw.clone().negate() : raw;
+        return { point: hit.point, normal: n, raw };
     }
     function stamp(hit) {
         const radius = +sizeInput.value;
         const value = brushMode === 'add' ? 1 : 0;
-        const nx = hit.normal.x, ny = hit.normal.y, nz = hit.normal.z;
+        const nx = hit.raw.x, ny = hit.raw.y, nz = hit.raw.z;
         facesNear(topo, hit.point, radius, f => {
             // Only the side of the body under the brush, not the far side of a thin part.
             if (topo.normal[f * 3] * nx + topo.normal[f * 3 + 1] * ny + topo.normal[f * 3 + 2] * nz > -0.2) mask[f] = value;
@@ -354,28 +441,33 @@ export function createPaintTool(ctx, cfg) {
         cursor.material.color.set(brushMode === 'erase' ? 0xb3261e : 0x0b4f47);
     }
     canvas.addEventListener('pointerdown', event => {
+        if (brushMode && !locked && (event.button === 2 || (event.button === 0 && event.altKey))) guide.done('turn');
         if (!brushMode || locked || event.button !== 0 || event.shiftKey || event.altKey) return;
-        const hit = hitAt(event);
-        if (!hit) return;
+        // With a brush on, a left-drag always paints (starting off the body no longer spins the view);
+        // right-drag or Alt+drag turns it.
         event.preventDefault();
         event.stopImmediatePropagation();
         painting = true;
         controls.enabled = false;
         try { canvas.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
         emitNav();
-        stamp(hit);
+        const hit = hitAt(event);
+        if (hit) stamp(hit);
     }, { capture: true });
     canvas.addEventListener('pointermove', event => {
         if (!brushMode) return;
         const hit = hitAt(event);
         placeCursor(hit);
-        if (painting && hit) stamp(hit);
+        if (painting && hit) { stamp(hit); stroked = true; }
     });
+    let stroked = false;
     const endStroke = () => {
         if (!painting) return;
         painting = false;
         controls.enabled = !locked;
         commit();
+        if (brushMode) guide.done(brushMode === 'add' ? 'paint' : 'erase');
+        stroked = false;
     };
     canvas.addEventListener('pointerup', endStroke);
     canvas.addEventListener('pointercancel', endStroke);
@@ -387,7 +479,8 @@ export function createPaintTool(ctx, cfg) {
         stage.classList.toggle('mode-paint', !!brushMode);
         if (!brushMode) cursor.visible = false;
     }
-    panel.querySelectorAll('[data-paint]').forEach(button => button.addEventListener('click', () => { emitNav(); setBrush(button.dataset.paint); }));
+    panel.querySelectorAll('[data-paint]').forEach(button => button.addEventListener('click', () => { emitNav(); setBrush(button.dataset.paint); if (brushMode) guide.open(); }));
+    panel.querySelector('[data-op="guide"]').addEventListener('click', () => guide.open({ force: true }));
     sizeInput.addEventListener('input', () => { sizeOut.textContent = `${sizeInput.value} mm`; });
     panel.querySelector('[data-op="smooth"]').addEventListener('click', () => {
         if (!topo) return;
@@ -396,9 +489,10 @@ export function createPaintTool(ctx, cfg) {
         dropSmallPieces(mask, 40);
         rebuild();
         commit('Edge smoothed');
+        guide.done('tidy');
     });
-    panel.querySelector('[data-op="grow"]').addEventListener('click', () => { if (!topo) return; emitNav(); ring(mask, true); rebuild(); commit(`Grown by about ${topo.meanEdge.toFixed(1)} mm`); });
-    panel.querySelector('[data-op="shrink"]').addEventListener('click', () => { if (!topo) return; emitNav(); ring(mask, false); rebuild(); commit(`Shrunk by about ${topo.meanEdge.toFixed(1)} mm`); });
+    panel.querySelector('[data-op="grow"]').addEventListener('click', () => { if (!topo) return; emitNav(); ring(mask, true); rebuild(); commit(`Grown by about ${topo.meanEdge.toFixed(1)} mm`); guide.done('tidy'); });
+    panel.querySelector('[data-op="shrink"]').addEventListener('click', () => { if (!topo) return; emitNav(); ring(mask, false); rebuild(); commit(`Shrunk by about ${topo.meanEdge.toFixed(1)} mm`); guide.done('tidy'); });
     panel.querySelector('[data-op="reset"]').addEventListener('click', () => {
         if (!topo || !confirm('Go back to the original attachment surface? Your painting on this surface will be lost.')) return;
         emitNav();
@@ -423,6 +517,7 @@ export function createPaintTool(ctx, cfg) {
         });
         download(`${cfg.fileName || 'proposed-attachment-surface'}.stl`, new Blob([buffer], { type: 'model/stl' }));
         toast('Surface saved as STL (millimetres, scan frame)');
+        guide.done('stl');
     });
     refreshIcons();
 
@@ -436,6 +531,7 @@ export function createPaintTool(ctx, cfg) {
             rebuild();
         },
         setLocked(value) { locked = !!value; if (locked) setBrush(null); panel.classList.toggle('is-locked', locked); },
+        showGuide() { return guide.open({ force: true }); },
         summary() { return topo ? { area: areaOf(mask), original: originalArea } : null; },
     };
 }
@@ -459,9 +555,49 @@ export function createLegTool(ctx, cfg) {
     const pipe = cfg.pipe || {};
     const radius = (pipe.od || 15.875) / 2;
     const interfaceBottom = cfg.interface?.bottom ?? -61;
+
+    // Interface placement ("place": { "contact": 0, "adjust": 50 }), after the walkthrough's step 3 (Interface
+    // Position, Lateral / Medial Angle, Interface Rotation, Interface X / Y / Z Adjust). The mechanical interface,
+    // pipe and paw move together. "contact" is the height in the interface's own file that sits on the
+    // Interface Position. Angles start from the fitted direction ("mount"), so 0 / 0 / 0 is how it was at the
+    // fitting: Lateral Angle tilts it about the mount's Y axis (the leg leans along X), Medial Angle tilts it
+    // about the mount's X axis (the leg leans along Y), Interface Rotation spins it about its own axis. (A turn
+    // about the fitted pipe axis, as the walkthrough's medial angle does, only duplicated the rotation here.)
+    // Adjust moves it in world X / Y / Z (mm), as in the walkthrough.
+    const placeCfg = cfg.place || null;
+    const contactZ = placeCfg?.contact ?? 0;
+    const adjustMax = placeCfg?.adjust ?? 50;
+    const fittedPoint = new THREE.Vector3().fromArray(mount.origin).addScaledVector(zAxis, contactZ - interfaceBottom);
+    const pose = { point: fittedPoint.clone(), lateral: 0, medial: 0, rotation: 0, adjust: [0, 0, 0] };
+    function loadPose(p) {
+        if (!p) return;
+        if (Array.isArray(p.point) && p.point.length === 3 && p.point.every(Number.isFinite)) pose.point.fromArray(p.point);
+        const pick = (...values) => values.find(Number.isFinite);
+        pose.lateral = pick(p.lateral, p.side, pose.lateral);
+        pose.medial = pick(p.medial, pose.medial);
+        pose.rotation = pick(p.rotation, p.twist, pose.rotation);
+        if (Array.isArray(p.adjust) && p.adjust.length === 3 && p.adjust.every(Number.isFinite)) pose.adjust = p.adjust.slice();
+    }
+    if (placeCfg) loadPose(store.item(itemId).iface);
+    const poseAxis = new THREE.Vector3();
+    const fittedQuaternion = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis));
+    function poseMatrix() {
+        const deg = THREE.MathUtils.degToRad;
+        const q = new THREE.Quaternion().setFromAxisAngle(xAxis, deg(pose.medial))
+            .multiply(new THREE.Quaternion().setFromAxisAngle(yAxis, deg(pose.lateral)))
+            .multiply(fittedQuaternion)
+            .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), deg(pose.rotation)));
+        poseAxis.set(0, 0, 1).applyQuaternion(q);
+        const position = pose.point.clone().add(new THREE.Vector3().fromArray(pose.adjust)).addScaledVector(poseAxis, -contactZ);
+        return new THREE.Matrix4().compose(position, q, new THREE.Vector3(1, 1, 1));
+    }
+    if (placeCfg) rig.matrix.copy(poseMatrix());
+    else poseAxis.copy(zAxis);
     const insertTop = pipe.insertInterface ?? 40;
-    const pawTop = cfg.paw?.top ?? 53;
-    const pawDepth = cfg.paw?.socketDepth ?? 21;
+    let pawTop = cfg.paw?.top ?? 53;
+    let pawDepth = cfg.paw?.socketDepth ?? 21;
+    let pawFile = cfg.paw?.file || null;   // can be swapped for another paw (setPaw)
+    let pawToken = 0;
     const lengthCfg = { min: 30, max: 300, step: 1, value: 120, ...(cfg.length || {}) };
     const saved = store.item(itemId).pipe;
     let length = Number.isFinite(saved) ? saved : lengthCfg.value;
@@ -488,6 +624,54 @@ export function createLegTool(ctx, cfg) {
     scene.add(floor);
 
     const bar = el('div', 'rv-leg');
+    let panel = null, panelOpen = null;
+    if (placeCfg) {
+        const row = (key, label, min, max, unit, title, value) => `
+            <label class="rv-iface-row" data-pose="${key}" title="${title}"><span>${label}</span>
+                <input type="range" min="${min}" max="${max}" step="1" value="${value}">
+                <input type="number" step="any" value="${value}"><small>${unit}</small></label>`;
+        panel = el('aside', 'rv-iface-panel');
+        panel.innerHTML = `
+            <div class="rv-iface-title">${icon('axis-3d')}<strong>Interface Position</strong><span>World Frame</span>
+                <button type="button" class="rv-iface-hide" title="Hide this panel" aria-label="Hide the interface panel">${icon('panel-left-close')}</button></div>
+            <div class="rv-iface-pos">
+                ${['X', 'Y', 'Z'].map((axis, i) => `<label><span>${axis}</span><input type="number" step="any" data-pos="${i}" aria-label="Interface position ${axis}"><small>mm</small></label>`).join('')}
+            </div>
+            <div class="rv-iface-actions">
+                <button type="button" data-place-click title="Then click the body where the interface should go">${icon('crosshair')} Place on the body</button>
+                <button type="button" data-place-reset title="Back to where it was on the fitted socket">${icon('rotate-ccw')} Fitted</button>
+            </div>
+            <div class="rv-iface-sub">${icon('rotate-3d')}<strong>Orient the interface</strong><span>Interface Cap</span></div>
+            <div class="rv-iface-rows">
+                ${row('lateral', 'Lateral Angle', -180, 180, 'deg', 'Tilts the interface about the Y axis (the leg leans along X)', pose.lateral)}
+                ${row('medial', 'Medial Angle', -180, 180, 'deg', 'Tilts the interface about the X axis (the leg leans along Y)', pose.medial)}
+                ${row('rotation', 'Interface Rotation', -180, 180, 'deg', 'Spins the interface about its own axis', pose.rotation)}
+                ${['X', 'Y', 'Z'].map((axis, i) => row('adjust' + i, `Interface ${axis} Adjust`, -adjustMax, adjustMax, 'mm', `Moves the interface along world ${axis}`, pose.adjust[i])).join('')}
+            </div>`;
+        const opener = el('button', 'rv-iface-open');
+        opener.type = 'button';
+        opener.title = 'Show the interface panel';
+        opener.innerHTML = `${icon('axis-3d')}<span>Interface</span>`;
+        (ctx.stage || root).append(panel, opener);
+        const KEY = 'gap-review-iface-panel';
+        const remembered = (() => { try { return localStorage.getItem(KEY); } catch { return null; } })();
+        panelOpen = open => {
+            panel.hidden = !open;
+            opener.hidden = open;
+            try { localStorage.setItem(KEY, open ? 'open' : 'closed'); } catch { /* private window */ }
+        };
+        panelOpen(remembered ? remembered === 'open' : !matchMedia('(max-width: 640px)').matches);
+        panel.rvSetOpen = panelOpen;
+        panel.rvHome = ctx.stage || root;
+        panel.rvOpener = opener;
+        panel.querySelector('.rv-iface-hide').addEventListener('click', () => panelOpen(false));
+        opener.addEventListener('click', () => panelOpen(true));
+        // Sit under the part chips (they can wrap to two rows).
+        const chips = ctx.stage?.querySelector('.rv-layers');
+        const fitTop = () => { const top = chips && !chips.hidden ? chips.offsetTop + chips.offsetHeight + 8 : 12; panel.style.top = opener.style.top = `${Math.max(12, top)}px`; };
+        if (chips) new ResizeObserver(fitTop).observe(chips);
+        fitTop();
+    }
     bar.innerHTML = `
         <label class="rv-leg-length"><span>Pipe length</span>
             <input type="range" min="${lengthCfg.min}" max="${lengthCfg.max}" step="${lengthCfg.step}" value="${length}">
@@ -496,8 +680,22 @@ export function createLegTool(ctx, cfg) {
         <label class="rv-leg-length rv-leg-yaw"><span>Paw rotation</span>
             <input type="range" min="-180" max="180" step="1" value="${yaw}">
             <input type="number" min="-180" max="180" step="1" value="${yaw}"> <small>°</small></label>
+        <button type="button" class="rv-btn rv-icon-btn" data-leg-guide title="How to set the leg">${icon('circle-help')}</button>
         <p class="rv-leg-readout"></p>`;
     root.append(bar);
+    const guide = createGuide({
+        host: ctx.stage, key: 'leg', title: 'Setting the leg',
+        steps: [
+            { key: 'length', icon: 'ruler', title: 'Pipe length', text: 'Drag <b>Pipe length</b> (or type a number). The pipe slides 40 mm into the socket and the paw moves with it.', try: 'Change the pipe length' },
+            { key: 'floor', icon: 'arrow-down-to-line', title: 'Find the floor', text: 'The green disc is the floor under his scan. <b>Touch the floor</b> picks the length that puts the paw on it; the line under the bar says how far off it is.', try: 'Press Touch the floor' },
+            { key: 'rotate', icon: 'rotate-cw', title: 'Turn the paw', text: '<b>Paw rotation</b> turns the paw around the pipe so the toes face forward.', try: 'Change the paw rotation' },
+            ...(placeCfg ? [
+                { key: 'place', icon: 'crosshair', title: 'Interface Position', text: 'In the panel on the left, press <b>Place on the body</b> and click the body (or type X, Y, Z): the mechanical interface, pipe and paw move there. <b>Fitted</b> puts it back where it was on the fitted socket.', try: 'Place the interface somewhere else' },
+                { key: 'angle', icon: 'rotate-3d', title: 'Orient the interface', text: '<b>Lateral Angle</b>, <b>Medial Angle</b> and <b>Interface Rotation</b> turn it (0 = the fitted direction); <b>Interface X / Y / Z Adjust</b> nudge it. The panel hides with the button at its top right.', try: 'Change the lateral angle' },
+            ] : []),
+        ],
+    });
+    bar.querySelector('[data-leg-guide]').addEventListener('click', () => guide.open({ force: true }));
     const range = bar.querySelector('.rv-leg-length:not(.rv-leg-yaw) input[type="range"]');
     const number = bar.querySelector('.rv-leg-length:not(.rv-leg-yaw) input[type="number"]');
     const yawRange = bar.querySelector('.rv-leg-yaw input[type="range"]');
@@ -508,6 +706,12 @@ export function createLegTool(ctx, cfg) {
     let locked = false;
 
     function place() {
+        if (placeCfg) {
+            rig.matrix.copy(poseMatrix());
+            posInputs.forEach((input, i) => { if (document.activeElement !== input) input.value = pose.point.getComponent(i).toFixed(2); });
+            poseInputs.forEach(({ key, range: r, number: n }) => { const v = poseValue(key); r.value = v; if (document.activeElement !== n) n.value = v; });
+            placeBtn?.classList.toggle('is-on', placing);
+        }
         const top = interfaceBottom + insertTop;      // top end of the pipe, inside the interface bore
         const bottom = top - length;                  // bottom end, inside the paw bore
         pipeMesh.scale.set(1, length, 1);
@@ -542,6 +746,7 @@ export function createLegTool(ctx, cfg) {
             emitNav();
             store.update(itemId, entry => { entry.pipe = length; const low = pawLowestZ(); entry.pipeFloorGap = low !== null && floorZ !== null ? Math.round(low - floorZ) : null; });
             emitChange('leg');
+            guide.done('length');
         }
     }
     function setYaw(value, fromUser) {
@@ -554,6 +759,7 @@ export function createLegTool(ctx, cfg) {
             emitNav();
             store.update(itemId, entry => { entry.pawYaw = yaw; });
             emitChange('leg');
+            guide.done('rotate');
         }
     }
     yawRange.addEventListener('input', () => setYaw(yawRange.value, true));
@@ -564,15 +770,94 @@ export function createLegTool(ctx, cfg) {
         const low = pawLowestZ();
         if (low === null || floorZ === null) return;
         // The paw moves along the pipe axis; its height changes by down.z per millimetre of pipe.
-        const perMm = -zAxis.z;
+        const perMm = -poseAxis.z;
         if (Math.abs(perMm) < 0.2) return;
         setLength(length + (low - floorZ) / -perMm, true);
+        guide.done('floor');
     });
+
+    // ---- interface placement controls ----
+    const posInputs = panel ? [...panel.querySelectorAll('[data-pos]')] : [];
+    const placeBtn = panel?.querySelector('[data-place-click]');
+    let placing = false;
+    const poseValue = key => key.startsWith('adjust') ? pose.adjust[+key.slice(6)] : pose[key];
+    const poseInputs = panel ? [...panel.querySelectorAll('[data-pose]')].map(label => ({ key: label.dataset.pose, range: label.querySelector('input[type="range"]'), number: label.querySelector('input[type="number"]') })) : [];
+    function savePose(guideKey) {
+        emitNav();
+        store.update(itemId, entry => { entry.iface = { point: pose.point.toArray().map(v => +v.toFixed(2)), lateral: pose.lateral, medial: pose.medial, rotation: pose.rotation, adjust: pose.adjust.slice() }; const low = pawLowestZ(); entry.pipeFloorGap = low !== null && floorZ !== null ? Math.round(low - floorZ) : null; });
+        emitChange('leg');
+        if (guideKey) guide.done(guideKey);
+    }
+    poseInputs.forEach(({ key, range: r, number: n }) => {
+        const limit = key.startsWith('adjust') ? adjustMax : 180;
+        const set = value => {
+            const v = Math.max(-limit, Math.min(limit, Math.round((+value || 0) * 10) / 10));
+            if (key.startsWith('adjust')) pose.adjust[+key.slice(6)] = v; else pose[key] = v;
+            place();
+            savePose('angle');
+        };
+        r.addEventListener('input', () => set(r.value));
+        n.addEventListener('change', () => set(n.value));
+    });
+    posInputs.forEach((input, i) => input.addEventListener('change', () => {
+        if (!Number.isFinite(+input.value) || input.value === '') { place(); return; }
+        pose.point.setComponent(i, +input.value);
+        place();
+        savePose('place');
+    }));
+    function setPlacing(on) {
+        placing = !!on && !locked;
+        placeBtn?.classList.toggle('is-on', placing);
+        if (ctx.canvas) ctx.canvas.style.cursor = placing ? 'crosshair' : '';
+        if (placing) ctx.toast?.('Click the body where the interface should go', 2200);
+    }
+    placeBtn?.addEventListener('click', () => setPlacing(!placing));
+    panel?.querySelector('[data-place-reset]').addEventListener('click', () => {
+        pose.point.copy(fittedPoint);
+        pose.lateral = pose.medial = pose.rotation = 0;
+        pose.adjust = [0, 0, 0];
+        setPlacing(false);
+        place();
+        savePose();
+    });
+    if (placeCfg && ctx.canvas && ctx.camera) {
+        // Click (not drag) on the body while placing: the contact point moves to the clicked spot. Runs in the
+        // capture phase so the click does not also select a layer chip.
+        const caster = new THREE.Raycaster();
+        let press = null;
+        ctx.canvas.addEventListener('pointerdown', event => { press = placing && event.button === 0 ? { x: event.clientX, y: event.clientY } : null; }, true);
+        ctx.canvas.addEventListener('pointerup', event => {
+            if (!placing || !press) return;
+            const moved = Math.hypot(event.clientX - press.x, event.clientY - press.y);
+            press = null;
+            if (moved > 5) return;
+            event.stopImmediatePropagation();
+            const rect = ctx.canvas.getBoundingClientRect();
+            caster.setFromCamera(new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1), ctx.camera);
+            const inRig = o => { for (let p = o; p; p = p.parent) if (p === rig) return true; return false; };
+            const targets = (ctx.pickMeshes?.() || []).filter(m => !inRig(m));
+            const cut = ctx.sectionCut?.();
+            const hit = caster.intersectObjects(targets, false).find(h => !cut || cut.distanceToPoint(h.point) >= -1e-6);
+            if (!hit) { ctx.toast?.('Click on the body itself', 1600); return; }
+            pose.point.copy(hit.point);
+            pose.adjust = [0, 0, 0];
+            setPlacing(false);
+            place();
+            savePose('place');
+        }, true);
+    }
 
     async function init() {
         const tasks = [];
-        if (cfg.interface?.file) tasks.push(loadMesh(cfg.interface.file).then(object => { object.traverse(o => { if (o.isMesh) { o.material = makeMaterial(cfg.interface.color || '#5d6b78', 1); o.userData.pickable = true; materials.add(o.material); } }); interfaceGroup.add(object); }));
-        if (cfg.paw?.file) tasks.push(loadMesh(cfg.paw.file).then(object => { object.traverse(o => { if (o.isMesh) { o.material = makeMaterial(cfg.paw.color || '#c9a76b', 1); o.userData.pickable = true; materials.add(o.material); } }); pawHolder.add(object); pawLoaded = true; }));
+        if (cfg.interface?.file) tasks.push(loadMesh(cfg.interface.file).then(object => { object.traverse(o => { if (o.isMesh) { if (!o.geometry.getAttribute('normal')) { if (o.geometry.index) o.geometry = o.geometry.toNonIndexed(); o.geometry.computeVertexNormals(); } o.material = makeMaterial(cfg.interface.color || '#5d6b78', 1); o.userData.pickable = true; materials.add(o.material); } });
+            if (cfg.interface.flip) {
+                // Half turn about the lateral (rig Y) axis, then back into the same bounding box.
+                const box = new THREE.Box3().setFromObject(object);
+                object.rotation.y = Math.PI;
+                object.position.set(box.min.x + box.max.x, 0, box.min.z + box.max.z);
+            }
+            interfaceGroup.add(object); }));
+        if (cfg.paw?.file) tasks.push(loadMesh(cfg.paw.file).then(object => { if (pawFile !== cfg.paw.file) return; object.traverse(o => { if (o.isMesh) { o.material = makeMaterial(cfg.paw.color || '#c9a76b', 1); o.userData.pickable = true; materials.add(o.material); } }); pawHolder.add(object); pawLoaded = true; }));
         await Promise.all(tasks);
         if (floorZ === null) floorZ = animalBounds()?.min.z ?? 0;
         const bounds = animalBounds();
@@ -586,11 +871,35 @@ export function createLegTool(ctx, cfg) {
     return {
         init,
         objects: [rig],
-        getState() { return { pipe: length, pawYaw: yaw }; },
+        getState() { return { pipe: length, pawYaw: yaw, ...(placeCfg ? { iface: { point: pose.point.toArray(), lateral: pose.lateral, medial: pose.medial, rotation: pose.rotation, adjust: pose.adjust.slice() } } : {}) }; },
         applyState(state) {
             if (Number.isFinite(state?.pipe) && state.pipe !== length) setLength(state.pipe, false);
             if (Number.isFinite(state?.pawYaw) && state.pawYaw !== yaw) setYaw(state.pawYaw, false);
+            if (placeCfg && state?.iface) { loadPose(state.iface); place(); }
         },
-        setLocked(value) { locked = !!value; bar.classList.toggle('is-locked', locked); },
+        setLocked(value) { locked = !!value; if (locked) setPlacing(false); bar.classList.toggle('is-locked', locked); panel?.classList.toggle('is-locked', locked); },
+        showGuide() { return guide.open({ force: true }); },
+        // Mount another paw: { file, top, socketDepth } (top = height of the paw's top in its own file,
+        // socketDepth = how far the pipe goes into it; 0 for a paw with a flat top).
+        async setPaw(spec) {
+            if (!spec?.file) return;
+            const fitChanged = (Number.isFinite(spec.top) && spec.top !== pawTop) || (Number.isFinite(spec.socketDepth) && spec.socketDepth !== pawDepth);
+            if (spec.file === pawFile && !fitChanged) return;
+            if (Number.isFinite(spec.top)) pawTop = spec.top;
+            if (Number.isFinite(spec.socketDepth)) pawDepth = spec.socketDepth;
+            if (spec.file === pawFile) { place(); return; }
+            pawFile = spec.file;
+            const token = ++pawToken;
+            const object = await loadMesh(spec.file);
+            if (token !== pawToken) return;
+            pawHolder.children.slice().forEach(child => {
+                pawHolder.remove(child);
+                child.traverse(o => { if (o.isMesh) { o.geometry.dispose(); materials.delete(o.material); o.material.dispose(); } });
+            });
+            object.traverse(o => { if (o.isMesh) { o.material = makeMaterial(cfg.paw?.color || '#c9a76b', 1); o.userData.pickable = true; materials.add(o.material); } });
+            pawHolder.add(object);
+            pawLoaded = true;
+            place();
+        },
     };
 }

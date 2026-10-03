@@ -203,7 +203,7 @@ kbd {
 
 /* ---- layout C: guided ------------------------------------------------------------------ */
 .rv-guided { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: calc(100dvh - var(--top-h, 63px)); min-height: 560px; max-width: 1400px; margin: 0 auto; padding: 14px 18px 16px; }
-.rv-guided-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
+.rv-guided-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
 .rv-guided-step { padding: 4px 9px; border-radius: 4px; background: var(--navy); color: #fff; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
 .rv-guided-head h2 { margin: 0; color: var(--navy); font-size: 1.15rem; }
 .rv-guided-head p { margin: 2px 0 0; color: var(--muted); font-size: 0.8rem; }
@@ -314,7 +314,7 @@ kbd {
 .rv-hint { display: none; }
 .view-cube-spin { display: none; }
 /* A follower locked to the presenter cannot move the view or the controls. */
-.rv-viewer.rv-locked .rv-sweep, .rv-viewer.rv-locked .rv-section, .rv-viewer.rv-locked .rv-layers, .rv-viewer.rv-locked .view-cube-wrap,
+.rv-viewer.rv-locked .rv-sweep .rv-segs, .rv-viewer.rv-locked .rv-section, .rv-viewer.rv-locked .rv-layers, .rv-viewer.rv-locked .view-cube-wrap,
 .rv-viewer.rv-locked .rv-toolbar [data-tool="section"], .rv-viewer.rv-locked .rv-toolbar [data-tool="fit"],
 .rv-video.rv-locked .rv-video-bar, .rv-video.rv-locked .rv-timeline { pointer-events: none; opacity: 0.55; }
 .rv-pin-label.remote { border-color: #a86e00; color: #5c3d00; }
@@ -378,9 +378,11 @@ kbd {
 /* ---- video annotator ------------------------------------------------------------------- */
 .rv-video { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-height: 0; background: #0f1418; }
 .rv-video-frame { position: relative; min-height: 0; display: grid; place-items: center; background: #0f1418; overflow: hidden; }
-.rv-video-frame video { display: block; width: 100%; height: 100%; max-height: 100%; object-fit: contain; background: #000; }
-.rv-scroll .rv-video-frame { max-height: 560px; }
-.rv-scroll .rv-video-frame video { height: auto; max-height: 560px; }
+/* The video fills its frame and letterboxes; its own size must not push the frame open, or the picture
+   is cropped and the drawing layer spills over the play bar on shorter screens. */
+.rv-video-frame { min-height: 160px; }
+.rv-video-frame video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.rv-scroll .rv-video-frame { aspect-ratio: 16 / 9; max-height: 560px; }
 .rv-draw { position: absolute; z-index: 3; touch-action: none; cursor: default; }
 .rv-video-frame.mode-draw .rv-draw { cursor: crosshair; }
 .rv-mark-labels { position: absolute; z-index: 4; pointer-events: none; }
@@ -442,7 +444,7 @@ kbd {
 .rv-pane .rv-layers { top: 46px; max-width: calc(100% - 70px); }
 .rv-compare[data-panes="1"] .rv-pane-tag { display: none; }
 .rv-compare[data-panes="1"] .rv-pane .rv-layers { top: 12px; }
-.rv-pane:has(.rv-clips) .rv-pane-tag { top: 82px; }
+.rv-pane:has(.rv-clips:not([hidden])) .rv-pane-tag { top: 82px; }
 .rv-pane[data-pane="video"] .rv-pane-tag { top: auto; bottom: 96px; }
 /* The views are linked, so a second pane keeps only the tools that act on a point. */
 .rv-pane.is-secondary { border-left: 2px solid #b6c0ca; }
@@ -761,3 +763,232 @@ body:not(.rv-host) .rv-toolbar hr, body:not(.rv-host) .rv-host-only { display: n
 @media (prefers-reduced-motion: reduce) {
     .ctl-art .ctl-mouse, .ctl-art .ctl-mouse-wheel, .ctl-art .ctl-pad-finger { animation: none; }
 }
+
+/* Live panel: each person's star on the current screen */
+.rv-live-pick { padding: 1px 7px; border-radius: 999px; background: #fff3cc; color: #6b4700; font: 700 0.66rem var(--font-mono); white-space: nowrap; }
+
+/* Step-by-step tool guides (paint, leg, video) */
+.rv-guide { position: absolute; z-index: 30; top: 54px; left: 50%; width: min(360px, calc(100% - 24px)); padding: 12px 14px 10px; border: 1px solid #b9cde3; border-radius: 10px; background: rgba(255, 255, 255, 0.97); color: var(--text); box-shadow: 0 12px 34px rgba(16, 34, 52, 0.28); transform: translateX(-50%); font-size: 0.8rem; line-height: 1.45; }
+.rv-guide.is-done { border-color: #7cc79a; }
+.rv-guide-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; color: var(--navy); }
+.rv-guide-head strong { flex: 1; font-size: 0.78rem; }
+.rv-guide-head span { color: var(--muted); font: 700 0.68rem var(--font-mono); }
+.rv-guide-head svg { width: 16px; height: 16px; }
+.rv-guide-x { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; }
+.rv-guide-x:hover { background: #eaf1f7; color: var(--navy); }
+.rv-guide h5 { margin: 2px 0 4px; color: var(--navy-ink); font-size: 0.92rem; }
+.rv-guide p { margin: 0 0 6px; }
+.rv-guide kbd { padding: 0 4px; border: 1px solid #b6c0ca; border-radius: 3px; background: #f3f6f9; font: 700 0.7rem var(--font-mono); }
+.rv-guide-try { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; background: #eef4fb; color: var(--navy-ink); font-weight: 700; }
+.rv-guide-ok { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; background: #e3f6ea; color: #1d6b3a; font-weight: 700; }
+.rv-guide-try svg, .rv-guide-ok svg { width: 15px; height: 15px; }
+.rv-guide-foot { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.rv-guide-dots { display: flex; flex: 1; gap: 5px; }
+.rv-guide-dots button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: #c9d3dc; cursor: pointer; }
+.rv-guide-dots button.current { background: var(--navy); }
+.rv-guide-dots button.done { background: #35a860; }
+.rv-video-frame .rv-guide { top: 56px; }
+.rv-leg .rv-icon-btn { width: 32px; padding: 0; justify-content: center; }
+
+/* Turned videos: the element is resized and rotated from code; thumbnails follow. */
+.rv-video-frame video { transform-origin: 50% 50%; }
+.rv-clips button { overflow: hidden; }
+.rv-clips button img { transition: transform 0.15s; }
+
+/* Panes never grow past their column: the video bar wraps instead of forcing the pane wider (it used to
+   slide under the notes column when the window was not wide enough for one row of controls). */
+.rv-pane, .rv-pane-body, .rv-pane-body > .rv-video, .rv-pane-body > .rv-viewer, .rv-video, .rv-viewer { min-width: 0; }
+.rv-video-bar { flex-wrap: wrap; row-gap: 6px; }
+.rv-clips { min-width: 0; }
+.rv-video-tools { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 20px); }
+
+/* Picture clips: shown in the video frame with the drawing tools, without the play bar. */
+.rv-video-frame img.rv-picture { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; background: #000; transform-origin: 50% 50%; user-select: none; -webkit-user-drag: none; }
+.rv-video.is-picture .rv-video-frame video, .rv-video.is-picture .rv-timeline, .rv-video.is-picture .rv-stop-banner { display: none !important; }
+.rv-video.is-picture .rv-video-bar > :not(.rv-rotate):not(.rv-clips-toggle) { display: none !important; }
+body:not(.rv-host) .rv-video.is-picture:not(:has(.rv-clips-toggle)) .rv-video-bar { display: none; }
+.rv-video.is-picture .rv-video-bar { justify-content: space-between; }
+
+/* 3D toolbar: pin, measure and section only (2026-10-02). The other tools still exist (F fits the view). */
+.rv-toolbar hr, .rv-toolbar [data-tool="grid"], .rv-toolbar [data-tool="cube"], .rv-toolbar [data-tool="snapshot"],
+.rv-toolbar [data-tool="fit"], .rv-toolbar [data-tool="help"] { display: none !important; }
+/* video eraser */
+.rv-video-frame.mode-erase .rv-draw { cursor: cell; }
+/* Side by side with linked views: the second model follows the first one's section cut, so one panel is enough.
+   Unlinked (e.g. paw shapes) keeps its own panel, since the cut starts on in every view. */
+.rv-pane.is-secondary.is-linked .rv-section { display: none !important; }
+.rv-mark-label.draggable { cursor: grab; touch-action: none; user-select: none; }
+.rv-mark-label.draggable:active { cursor: grabbing; }
+
+/* clip list toggle */
+.rv-clips[hidden] { display: none !important; }
+.rv-video-bar button.rv-clips-toggle { display: inline-flex; align-items: center; gap: 6px; width: auto; max-width: 260px; padding: 0 10px; font: 700 0.72rem var(--font-heading); }
+.rv-clips-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-clips-toggle.active { border-color: var(--navy) !important; background: #eaf1f7 !important; color: var(--navy) !important; }
+
+/* notes column and full screen (guided layout) */
+.rv-screen-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.rv-screen-tools .rv-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.rv-screen-tools .rv-btn.active { border-color: var(--navy); color: var(--navy); }
+.rv-guided.notes-hidden .rv-guided-body { grid-template-columns: minmax(0, 1fr); }
+.rv-guided.notes-hidden .rv-guided-body > .rv-notes { display: none; }
+body.rv-full .rv-top, body.rv-full .rv-banner { display: none !important; }
+body.rv-full .rv-guided { height: 100dvh; min-height: 0; max-width: none; padding: 8px 12px 10px; }
+body.rv-full .rv-guided-head p { display: none; }
+body.rv-full .rv-guided-head h2 { font-size: 1rem; }
+body.rv-full .rv-guided-slot { margin-top: 8px; }
+body.rv-full .rv-guided-foot { margin-top: 8px; }
+body.rv-full .rv-guided-body { border-radius: 8px; }
+@media (max-width: 760px) {
+    .rv-guided-head { grid-template-columns: auto minmax(0, 1fr); }
+    .rv-screen-tools { grid-column: 1 / -1; justify-content: flex-start; }
+    .rv-screen-tools .rv-btn span { display: none; }
+}
+/* Narrow side-by-side halves: the two-bar slider and its Pick pill shrink instead of widening the pane. */
+.rv-sweep { min-width: 0; }
+.rv-sweep-grid .rv-pick { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-stagev[data-panes="2"] .rv-sweep-axis { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.rv-sweep-grid .rv-pick strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* The part that was actually made, on a slider: dashed outline, and a button on two-bar sliders. */
+.rv-seg.is-original .rv-seg-bar { outline: 2px dashed #003262; outline-offset: 1px; }
+.rv-seg.is-original .rv-seg-label { color: var(--navy-ink); font-weight: 800; }
+.rv-sweep-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; min-width: 0; }
+.rv-sweep-actions .rv-pick { position: static; transform: none; transition: none; }
+.rv-sweep-actions .rv-pick::after { display: none; }
+.rv-orig { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border: 2px dashed var(--navy); border-radius: 14px; background: #fff; color: var(--navy); font: 700 0.72rem var(--font-heading); cursor: pointer; white-space: nowrap; }
+.rv-orig:hover, .rv-orig.active { background: var(--navy); color: #fff; border-style: solid; }
+.rv-orig svg { width: 14px; height: 14px; }
+/* Leg finder in a half-width pane: the length and rotation rows shrink and wrap instead of widening it. */
+.rv-leg { min-width: 0; }
+.rv-leg-length { flex-basis: 240px; flex-wrap: wrap; min-width: 0; row-gap: 4px; }
+.rv-leg-length input[type="range"] { min-width: 80px; }
+/* Side by side (e.g. leg finder + paw slider): one row per setting, so the 3D view keeps its height. */
+.rv-stagev[data-panes="2"] .rv-leg { gap: 6px 8px; padding: 8px 10px; }
+.rv-stagev[data-panes="2"] .rv-leg-length { flex: 1 1 100%; flex-wrap: nowrap; gap: 6px; font-size: 0.7rem; white-space: nowrap; }
+.rv-stagev[data-panes="2"] .rv-leg-length input[type="range"] { min-width: 40px; }
+.rv-stagev[data-panes="2"] .rv-leg-length input[type="number"] { width: 50px; padding: 3px 4px; }
+.rv-stagev[data-panes="2"] .rv-leg-length small { display: none; }
+.rv-stagev[data-panes="2"] .rv-leg .rv-btn { min-height: 28px; padding-block: 3px; }
+.rv-stagev[data-panes="2"] .rv-leg-readout { font-size: 0.68rem; }
+
+/* ---- phones and tablets -------------------------------------------------------------------------- */
+/* Split views stack (set from code below 880 px) */
+.rv-stagev[data-stacked="1"] .rv-compare-stage { grid-auto-flow: row; grid-auto-columns: auto; grid-auto-rows: minmax(380px, auto); }
+.rv-stagev[data-stacked="1"] .rv-pane.is-secondary { border-left: 0; border-top: 2px solid #b6c0ca; }
+.rv-guided-body > .rv-media > .rv-compare[data-stacked="1"] { height: auto; }
+.rv-tools-toggle { display: none !important; }
+@media (max-width: 900px) {
+    .rv-stage { min-height: 260px; }
+}
+@media (max-width: 640px) {
+    .rv-tools-toggle { display: grid !important; }
+    .rv-video-tools:not(.open) > :not(.rv-tools-toggle) { display: none !important; }
+    .rv-video-tools:not(.open) { padding: 4px; }
+    .rv-video-tools.open .rv-tools-toggle { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .rv-top-actions button { padding-inline: 10px; }
+}
+@media (max-width: 640px) {
+    /* The top bar scrolls away on phones instead of covering a quarter of the screen. */
+    .rv-top { position: static; }
+    /* Layer chips wrap clear of the (smaller) view cube. */
+    .rv-viewer .rv-layers { max-width: calc(100% - 106px) !important; }
+}
+/* Touch screens: a vertical swipe over a video or a slider bar scrolls the page (unless a drawing tool is on);
+   horizontal scrubbing and taps still reach the controls. 3D views keep every gesture for orbit / zoom. */
+@media (pointer: coarse) {
+    .rv-draw { touch-action: pan-y; }
+    .rv-video-frame.mode-draw .rv-draw, .rv-video-frame.mode-erase .rv-draw { touch-action: none; }
+    .rv-segs { touch-action: pan-y; }
+}
+/* Side by side: both views keep their view cube (and axis triad). */
+.rv-pane.is-secondary .view-cube-wrap { display: block; }
+
+/* One-bar slider: a flag under the stop that is the original part (click it to go there). */
+.rv-strip.has-orig { padding-bottom: 30px; }
+.rv-orig-flag { position: absolute; bottom: 0; left: 0; display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border: 1.5px dashed var(--navy); border-radius: 11px; background: #fff; color: var(--navy); font: 700 0.68rem var(--font-heading); white-space: nowrap; cursor: pointer; transform: translateX(-50%); }
+.rv-orig-flag::before { content: ''; position: absolute; top: -5px; left: var(--arrow, 50%); width: 7px; height: 7px; border-left: 1.5px dashed var(--navy); border-top: 1.5px dashed var(--navy); background: inherit; transform: translateX(-50%) rotate(45deg); }
+.rv-orig-flag:hover, .rv-orig-flag.active { background: var(--navy); color: #fff; border-style: solid; }
+.rv-orig-flag.active::before { border-style: solid; }
+.rv-orig-flag svg { width: 12px; height: 12px; }
+
+
+/* Mechanical interface panel (leg rig "place"): a walkthrough-style block on the left of the 3D view. */
+.rv-iface-panel { position: absolute; top: 56px; left: 12px; z-index: 4; display: grid; gap: 0; width: 330px; max-width: calc(100% - 90px); max-height: calc(100% - 70px); overflow: auto; border: 1px solid #3d4148; border-radius: 6px; background: #222428; color: #eceef0; box-shadow: 0 6px 16px rgba(19, 24, 29, 0.22); font-family: var(--font-heading); }
+.rv-iface-panel[hidden], .rv-iface-open[hidden] { display: none; }
+.rv-iface-panel svg { width: 16px; height: 16px; }
+.rv-iface-title, .rv-iface-sub { display: grid; grid-template-columns: 18px auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; padding: 4px 6px 4px 10px; border-bottom: 1px solid #4c5057; background: #35383d; }
+.rv-iface-sub { grid-template-columns: 18px auto minmax(0, 1fr); border-top: 1px solid #4c5057; }
+.rv-iface-title strong, .rv-iface-sub strong { color: #fff; font-size: 0.82rem; white-space: nowrap; }
+.rv-iface-title > span, .rv-iface-sub > span { overflow: hidden; color: #bfc6cd; font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
+.rv-iface-title > svg, .rv-iface-sub > svg { color: #df7544; }
+.rv-iface-hide { display: grid; width: 26px; height: 26px; place-items: center; padding: 0; border: 1px solid #555a61; border-radius: 4px; background: #2a2d31; color: #d8dde2; cursor: pointer; }
+.rv-iface-hide:hover { background: #3f444a; color: #fff; }
+.rv-iface-pos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px 10px 4px; }
+.rv-iface-pos label { display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: center; gap: 4px; color: #f1f3f4; font-size: 0.72rem; font-weight: 600; }
+.rv-iface-pos small { display: none; }
+.rv-iface-panel input[type="number"] { width: 100%; min-width: 0; height: 25px; box-sizing: border-box; padding: 0 5px; border: 1px solid #4a5056; border-radius: 3px; background: #181a1d; color: #fff; font: 0.72rem var(--font-mono); text-align: center; appearance: textfield; -moz-appearance: textfield; }
+.rv-iface-panel input[type="number"]::-webkit-inner-spin-button, .rv-iface-panel input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.rv-iface-panel input:focus-visible { outline: 2px solid #fdb515; outline-offset: -1px; }
+.rv-iface-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 10px 8px; }
+.rv-iface-actions button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid #555a61; border-radius: 4px; background: #2a2d31; color: #eceef0; font: 600 0.72rem var(--font-heading); cursor: pointer; }
+.rv-iface-actions button:hover { background: #3f444a; }
+.rv-iface-actions button.is-on { border-color: #df7544; background: #df7544; color: #1c1d20; }
+.rv-iface-rows { display: grid; gap: 2px; padding: 6px 10px 8px; }
+.rv-iface-row { display: grid; grid-template-columns: 122px minmax(40px, 1fr) 52px 24px; align-items: center; gap: 6px; min-height: 27px; }
+.rv-iface-row > span { overflow: hidden; color: #f1f3f4; font-size: 0.72rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.rv-iface-row input[type="range"] { width: 100%; min-width: 0; accent-color: #df7544; cursor: pointer; }
+.rv-iface-row small { color: #aeb5bd; font-size: 0.62rem; }
+.rv-iface-open { position: absolute; top: 56px; left: 12px; z-index: 4; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid #3d4148; border-radius: 6px; background: #222428; color: #fff; font: 700 0.74rem var(--font-heading); cursor: pointer; box-shadow: 0 4px 10px rgba(19, 24, 29, 0.2); }
+.rv-iface-open svg { width: 15px; height: 15px; color: #df7544; }
+.rv-iface-open:hover { background: #35383d; }
+.rv-iface-panel.is-locked { pointer-events: none; opacity: 0.6; }
+.rv-stagev[data-panes="2"] .rv-iface-panel { width: 286px; }
+.rv-stagev[data-panes="2"] .rv-iface-row { grid-template-columns: 116px minmax(30px, 1fr) 46px 22px; }
+@media (max-width: 640px) { .rv-iface-panel { width: auto; right: 64px; max-width: none; } }
+body[data-hide~="iface"] .rv-iface-panel, body[data-hide~="iface"] .rv-iface-open { display: none !important; }
+
+/* Guided layout: a left column for tool panels (the mechanical interface), like the notes on the right. */
+.rv-guided-left { display: none; min-height: 0; overflow-y: auto; border-right: 1px solid #3d4148; background: #222428; }
+.rv-guided.left-open .rv-guided-body { grid-template-columns: 330px minmax(0, 1fr) 360px; }
+.rv-guided.left-open.notes-hidden .rv-guided-body { grid-template-columns: 330px minmax(0, 1fr); }
+.rv-guided.left-open .rv-guided-left { display: block; }
+.rv-guided-left .rv-iface-panel { position: static; width: auto; max-width: none; max-height: none; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+.rv-guided-left .rv-iface-hide { display: none; }
+.rv-guided .rv-iface-open { display: none !important; }
+@media (max-width: 1180px) { .rv-guided.left-open .rv-guided-body { grid-template-columns: 300px minmax(0, 1fr) 300px; } .rv-guided.left-open.notes-hidden .rv-guided-body { grid-template-columns: 300px minmax(0, 1fr); } }
+@media (max-width: 900px) {
+    .rv-guided.left-open .rv-guided-body, .rv-guided.left-open.notes-hidden .rv-guided-body { grid-template-columns: minmax(0, 1fr); }
+    .rv-guided-left { border-right: 0; border-bottom: 1px solid #3d4148; }
+}
+
+/* Video zoom: the picture, drawings and labels zoom together inside the frame. */
+.rv-zoom-layer { position: absolute; inset: 0; z-index: 0; transform-origin: 0 0; transition: transform 0.18s ease-out; }
+.rv-zoom-layer .rv-mark-label { transform-origin: 0 0; transform: scale(var(--unzoom, 1)) translate(-4px, -120%); }
+.rv-video-frame.mode-zoom .rv-draw { cursor: zoom-in; touch-action: none; }
+.rv-zoom-box { position: absolute; z-index: 6; border: 2px dashed #fdb515; border-radius: 2px; background: rgba(253, 181, 21, 0.12); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45); pointer-events: none; }
+.rv-zoom-reset { position: absolute; z-index: 6; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid #b6c0ca; border-radius: 15px; background: rgba(255, 255, 255, 0.95); color: var(--navy-ink); font: 700 0.74rem var(--font-heading); cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+.rv-zoom-reset:hover { background: #fff; border-color: var(--navy); }
+.rv-zoom-reset svg { width: 15px; height: 15px; }
+.rv-zoom-reset[hidden], .rv-zoom-box[hidden] { display: none; }
+/* A long marker button on a narrow two-bar slider shortens instead of widening the pane. */
+.rv-sweep-actions .rv-orig { max-width: 100%; min-width: 0; }
+.rv-sweep-actions .rv-orig span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Slider demo: a button on the 3D view of every slider, and tips that point at each part of the slider. */
+.rv-demo-btn { position: absolute; z-index: 4; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid #b6c0ca; border-radius: 15px; background: rgba(255, 255, 255, 0.95); color: var(--navy-ink); font: 700 0.74rem var(--font-heading); cursor: pointer; box-shadow: 0 4px 12px rgba(24, 43, 62, 0.18); }
+.rv-demo-btn:hover { border-color: var(--navy); background: #fff; }
+.rv-demo-btn svg { width: 16px; height: 16px; color: #e0a100; }
+.rv-demoing .rv-demo-btn { border-color: var(--navy); background: var(--navy); color: #fff; }
+.rv-demoing .rv-demo-btn svg { color: #fdb515; }
+.rv-demo-tip { position: absolute; z-index: 20; width: min(320px, calc(100% - 16px)); padding: 10px 12px; border-radius: 8px; background: #0e2a47; color: #fff; font: 500 0.78rem/1.45 var(--font-body, Inter, system-ui, sans-serif); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3); pointer-events: none; animation: rv-demo-in 0.18s ease-out; }
+.rv-demo-tip p { margin: 0; }
+.rv-demo-tip b { color: #fdb515; }
+.rv-demo-tip kbd { padding: 0 4px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); font: 600 0.7rem var(--font-mono); }
+.rv-demo-tip::after { content: ''; position: absolute; left: var(--arrow, 50%); width: 10px; height: 10px; background: #0e2a47; transform: translateX(-50%) rotate(45deg); }
+.rv-demo-tip.above::after { bottom: -5px; }
+.rv-demo-tip.below::after { top: -5px; }
+.rv-demo-focus { outline: 2px solid #fdb515; outline-offset: 3px; border-radius: 6px; transition: outline-color 0.2s; }
+@keyframes rv-demo-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body[data-hide~="demo"] .rv-demo-btn { display: none !important; }
+@media (max-width: 640px) { .rv-demo-btn span { display: none; } .rv-demo-btn { padding: 0 8px; } }

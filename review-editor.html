@@ -10,12 +10,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="review-editor.css?v=5">
+    <link rel="stylesheet" href="review-editor.css?v=16">
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
     <header class="ed-top">
         <div class="ed-top-title">
+            <button type="button" class="ed-btn ed-icon" id="ed-toggle-outline" title="Show or hide the screen outline (Ctrl+\)" aria-pressed="true"><i data-lucide="panel-left"></i></button>
             <a class="ed-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw"></a>
             <div>
                 <span class="ed-eyebrow">Give a Paw · Presentation editor</span>
@@ -23,11 +24,16 @@
             </div>
             <span id="ed-status" class="ed-status">Loading…</span>
         </div>
+        <div class="ed-mode" role="group" aria-label="Mode">
+            <button type="button" data-mode="edit" class="active" title="Edit the presentation (Ctrl+E)"><i data-lucide="pencil"></i> Edit</button>
+            <button type="button" data-mode="present" title="Run the presentation, with your unsaved edits (Ctrl+P)"><i data-lucide="presentation"></i> Present</button>
+        </div>
         <div class="ed-top-actions">
             <button type="button" class="ed-btn ed-icon" id="ed-undo" title="Undo (Ctrl+Z)"><i data-lucide="undo-2"></i></button>
             <button type="button" class="ed-btn ed-icon" id="ed-redo" title="Redo (Ctrl+Y)"><i data-lucide="redo-2"></i></button>
+            <button type="button" class="ed-btn" id="ed-media" title="Media gallery: pictures and videos from the site, Google Drive and this computer"><i data-lucide="images"></i> Media</button>
             <button type="button" class="ed-btn" id="ed-toggle-preview" title="Show or hide the live preview"><i data-lucide="panel-right"></i> Preview</button>
-            <button type="button" class="ed-btn" id="ed-present" title="Open the presentation in a new tab, as presenter"><i data-lucide="presentation"></i> Present</button>
+            <button type="button" class="ed-btn ed-icon" id="ed-present" title="Open the saved presentation in a new tab, as presenter"><i data-lucide="external-link"></i></button>
             <button type="button" class="ed-btn" id="ed-download" title="Download the review file"><i data-lucide="download"></i></button>
             <button type="button" class="ed-btn" id="ed-save-as" title="Save as a new presentation file">Save as…</button>
             <button type="button" class="ed-btn ed-primary" id="ed-save" title="Save (Ctrl+S)"><i data-lucide="save"></i> Save</button>
@@ -46,11 +52,13 @@
             <ol id="ed-list" class="ed-list"></ol>
         </aside>
         <section id="ed-form" class="ed-form-col" aria-live="polite"></section>
+        <div class="ed-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the preview" tabindex="0" title="Drag to resize the preview (double-click to reset)"></div>
         <aside id="ed-preview" class="ed-preview">
             <div class="ed-preview-head">
-                <h2>Preview</h2>
-                <span class="ed-hint">Updates as you edit</span>
+                <h2 id="ed-preview-title">Preview</h2>
+                <span class="ed-hint" id="ed-preview-hint">Updates as you edit</span>
                 <button type="button" class="ed-btn ed-icon" id="ed-reload-preview" title="Reload the preview"><i data-lucide="refresh-cw"></i></button>
+                <button type="button" class="ed-btn ed-icon" id="ed-fullscreen" title="Full screen (Esc to leave)"><i data-lucide="maximize"></i></button>
             </div>
             <div class="ed-frame-box"><iframe id="ed-frame" title="Presentation preview"></iframe></div>
         </aside>
@@ -59,8 +67,9 @@
     <datalist id="dl-models"></datalist>
     <datalist id="dl-videos"></datalist>
     <datalist id="dl-images"></datalist>
+    <datalist id="dl-clips"></datalist>
     <div id="ed-toast" class="ed-toast" role="status" hidden></div>
 
-    <script type="module" src="review-editor.js?v=5"></script>
+    <script type="module" src="review-editor.js?v=29"></script>
 </body>
 </html>

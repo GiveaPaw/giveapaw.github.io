@@ -35,6 +35,8 @@ function colorFor(uid) { let h = 0; for (const c of String(uid)) h = (h * 31 + c
 // Codes are the only thing that lets someone into a session, so they are random and long enough
 // (32^6, about a billion) that nobody can guess one. Look-alike characters (0/O, 1/I) are left out.
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const TUTORIAL_NAMES = { camera: 'Camera tutorial', paint: 'Paint tutorial', leg: 'Leg tutorial', video: 'Video tutorial' };
+const TUTORIAL_ICONS = { camera: 'rotate-3d', paint: 'paintbrush', leg: 'ruler', video: 'film' };
 const makeCode = () => 'PAW-' + [...crypto.getRandomValues(new Uint8Array(6))].map(b => CODE_CHARS[b % 32]).join('');
 const CODE_PATTERN = /^PAW-[A-Z0-9]{4,12}$/;
 const MAX_NAME = 60;
@@ -147,11 +149,11 @@ class FirebaseTransport {
 
 // ---- session -----------------------------------------------------------------------------------
 
-export function createLiveSession({ entries, layout, store, button, toast, getName, getReviewId, getReviewTitle, autoJoinCode, autoPresent = false, policy = null, tools = [], onPolicy = () => {}, downloadHostFile = null }) {
+export function createLiveSession({ entries, layout, store, button, toast, getName, getReviewId, getReviewTitle, autoJoinCode, autoPresent = false, policy = null, tools = [], onPolicy = () => {}, downloadHostFile = null, pickLabel = null }) {
     const configured = !!firebaseConfig.databaseURL;
     const S = {
         transport: null, code: null, uid: null, name: '', role: null, following: true, meta: null, shareCamera: true,
-        members: {}, pointers: {}, strokes: {}, notes: {}, remoteState: null, highlight: false, locked: false, unsubs: [], loopId: 0, lastSummon: undefined,
+        members: {}, pointers: {}, strokes: {}, notes: {}, remoteState: null, highlight: false, locked: false, unsubs: [], loopId: 0, lastSummon: undefined, lastTutorial: undefined, membersSig: '',
     };
     let applyingRemote = false;
     const attached = new Map();
@@ -194,14 +196,24 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
                 <h4>${icon('sliders-horizontal')} Host controls</h4>
                 ${presenting ? `
                 <button type="button" class="rv-btn rv-primary" data-summon title="Everyone who wandered off snaps back to your view">${icon('scan-eye')} Bring everyone to my view</button>
+                ${tutorialButtons()}
                 <p class="rv-live-sub">What participants can use</p>
                 <div class="rv-live-tools">${tools.map(([key, label]) => `<label><input type="checkbox" data-tool-key="${key}"${allowed.has(key) ? ' checked' : ''}> ${escapeHTML(label)}</label>`).join('')}</div>
                 <div class="rv-live-presets"><button type="button" class="rv-btn rv-mini" data-preset="review">Reviewer default</button><button type="button" class="rv-btn rv-mini" data-preset="none">Watch only</button><button type="button" class="rv-btn rv-mini" data-preset="all">Everything</button></div>` : `<p class="rv-live-sub">Start a session to control what participants see and use.</p>`}
                 ${downloadHostFile ? `<button type="button" class="rv-btn" data-host-download title="Save the review file with the stop points you added">${icon('file-down')} Download review file with my stop points</button>` : ''}
             </div>`;
     }
+    function tutorialButtons() {
+        const kinds = entries[layout.getIndex()]?.media.tutorials?.() || [];
+        if (!kinds.length) return '<p class="rv-live-sub">Tutorials: open a screen with a 3D model or video to show one to everyone.</p>';
+        return `<p class="rv-live-sub">Show a tutorial on everyone's screen</p><div class="rv-live-presets">${kinds.map(kind => `<button type="button" class="rv-btn rv-mini" data-tutorial="${escapeHTML(kind)}">${icon(TUTORIAL_ICONS[kind] || 'circle-help')} ${escapeHTML(TUTORIAL_NAMES[kind] || kind)}</button>`).join('')}</div>`;
+    }
     function wireHostSection() {
         panel.querySelector('[data-summon]')?.addEventListener('click', () => { S.transport.update('meta', { summon: Date.now() }); toast('Everyone is back on your view'); });
+        panel.querySelectorAll('[data-tutorial]').forEach(button => button.addEventListener('click', () => {
+            S.transport.update('meta', { tutorial: `${Date.now()}:${button.dataset.tutorial}` });
+            toast(`${TUTORIAL_NAMES[button.dataset.tutorial] || 'Tutorial'} shown on everyone's screen`);
+        }));
         const setTools = list => S.transport.update('meta', { tools: list.join(' ') });
         panel.querySelectorAll('[data-tool-key]').forEach(box => box.addEventListener('change', () => {
             setTools([...panel.querySelectorAll('[data-tool-key]')].filter(b => b.checked).map(b => b.dataset.toolKey));
@@ -212,10 +224,16 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
         }));
         panel.querySelector('[data-host-download]')?.addEventListener('click', () => downloadHostFile());
     }
+    let policySig = null;
     function applyPolicy() {
         if (!policy) return;
         policy.liveHost = !!S.transport && S.role === 'leader';
         policy.allowed = new Set(S.transport && S.meta?.tools !== undefined ? String(S.meta.tools).split(' ').filter(Boolean) : policy.defaults);
+        // Meta also carries summon, lock, tutorial and presenter changes; only a real change in what
+        // people may use should touch the page (re-laying out viewers on every meta write froze it).
+        const sig = `${policy.liveHost}|${[...policy.allowed].sort().join(' ')}`;
+        if (sig === policySig) return;
+        policySig = sig;
         policy.apply();
         onPolicy();
     }
@@ -244,6 +262,12 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
                 ? `You are presenting · ${watching} ${watching === 1 ? 'person' : 'people'} watching${S.locked ? ' · viewers locked to your view' : ''}`
                 : leaderOnline() ? (S.locked ? `Locked to ${escapeHTML(leaderName())}'s view` : S.following ? `Following ${escapeHTML(leaderName())}` : `Not following ${escapeHTML(leaderName())}`) : `${escapeHTML(leaderName())} is offline`;
             const me = S.members[S.uid] || {};
+            const current = entries[layout.getIndex()];
+            const starOf = id => {
+                const pick = current ? S.notes[id]?.items?.[current.item.id]?.pick : null;
+                if (pick === null || pick === undefined) return '';
+                return `<span class="rv-live-pick" title="Their star on this screen">★ ${escapeHTML(pickLabel ? pickLabel(current, pick) : String(pick))}</span>`;
+            };
             panel.innerHTML = `
                 <div class="rv-live-code"><span>Session</span><strong>${escapeHTML(S.code)}</strong><button type="button" class="rv-btn" data-copy>${icon('link')} Copy invite link</button></div>
                 <p class="rv-live-role">${roleLine}</p>
@@ -262,6 +286,8 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
                             <span class="rv-live-member-name">${escapeHTML(member.name || 'Guest')}${id === S.uid ? ' (you)' : ''}</span>
                             ${id === S.meta?.leaderUid ? '<span class="rv-live-badge">Presenter</span>' : member.following === false ? '<span class="rv-live-badge off">Own view</span>' : ''}
                             ${member.hand ? '<span class="rv-live-hand" title="Hand raised">✋</span>' : ''}
+                            ${starOf(id)}
+                            ${isLeader && id !== S.uid && member.view ? `<button type="button" class="rv-btn rv-mini" data-snap="${escapeHTML(id)}" title="Jump to what they are looking at (everyone following you comes along)">${icon('eye')} View</button>` : ''}
                             <span class="rv-live-notes">${noteCount(id)} note${noteCount(id) === 1 ? '' : 's'}</span>
                             ${id !== S.uid && noteCount(id) ? `<button type="button" class="rv-btn rv-mini" data-merge="${escapeHTML(id)}" title="Copy their pins and notes into yours">Merge</button>` : ''}
                             ${isLeader && id !== S.uid ? `<button type="button" class="rv-btn rv-mini" data-promote="${escapeHTML(id)}" title="Hand presenting over">Present</button>` : ''}
@@ -280,6 +306,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
             panel.querySelector('[data-lock]')?.addEventListener('click', () => S.transport.update('meta', { locked: !S.locked }));
             panel.querySelector('[data-leave]').addEventListener('click', leave);
             panel.querySelectorAll('[data-merge]').forEach(b => b.addEventListener('click', () => mergeNotes(b.dataset.merge)));
+            panel.querySelectorAll('[data-snap]').forEach(b => b.addEventListener('click', () => snapTo(b.dataset.snap)));
             panel.querySelectorAll('[data-promote]').forEach(b => b.addEventListener('click', () => S.transport.update('meta', { leaderUid: b.dataset.promote, leaderName: S.members[b.dataset.promote]?.name || 'Presenter' })));
         }
         refreshIcons();
@@ -382,6 +409,8 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
                 }
             }
             S.lastSummon = meta?.summon ?? null;
+            if (S.role === 'follower' && meta?.tutorial && meta.tutorial !== S.lastTutorial && S.lastTutorial !== undefined) showTutorial(String(meta.tutorial).split(':')[1] || 'camera');
+            S.lastTutorial = meta?.tutorial ?? null;
             applyPolicy();
             render();
             updateButton();
@@ -394,6 +423,11 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
             const previous = S.members;
             S.members = members || {};
             if (S.role === 'leader') Object.entries(S.members).forEach(([id, m]) => { if (m.hand && !previous[id]?.hand && id !== S.uid) toast(`${m.name} raised a hand`); });
+            // Followers looking around share their view a few times a second; only re-draw the panel
+            // when something it shows changed, or its buttons would be rebuilt under the mouse.
+            const sig = JSON.stringify(Object.entries(S.members).map(([id, m]) => [id, m.name, m.following, m.hand, !!m.view]));
+            if (sig === S.membersSig) return;
+            S.membersSig = sig;
             render();
             updateButton();
         }));
@@ -409,7 +443,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
         t.remove(`members/${S.uid}`);
         t.remove(`pointers/${S.uid}`);
         t.disconnect();
-        Object.assign(S, { transport: null, code: null, uid: null, role: null, following: true, meta: null, members: {}, pointers: {}, strokes: {}, notes: {}, remoteState: null, locked: false, lastSummon: undefined });
+        Object.assign(S, { transport: null, code: null, uid: null, role: null, following: true, meta: null, members: {}, pointers: {}, strokes: {}, notes: {}, remoteState: null, locked: false, lastSummon: undefined, lastTutorial: undefined, membersSig: '' });
         applyPolicy();
         entries.forEach(e => { e.media.setRemote?.(null); e.media.setOthers?.([]); e.media.setLocked?.(false); });
         setHighlight(false);
@@ -443,7 +477,31 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
             if (S.locked) applyRemote(S.remoteState);
             else if (S.following) setFollowing(false);
         }
+        if (S.role === 'follower' && !S.following) publishMyView();
+        render();
     });
+    // A follower looking around on their own shares what they see, so the presenter can jump to it.
+    const publishMyView = throttle(() => {
+        if (!S.transport || S.role !== 'follower' || S.following) return;
+        const index = layout.getIndex();
+        const entry = entries[index];
+        S.transport.update(`members/${S.uid}`, { view: { index, itemId: entry?.item.id || null, media: sanitize(entry?.media.getState?.() || null), at: Date.now() } });
+    }, 500);
+    function snapTo(id) {
+        const member = S.members[id];
+        const view = member?.view;
+        if (!view) return;
+        let index = view.index;
+        if (view.itemId) { const found = entries.findIndex(e => e.item.id === view.itemId); if (found >= 0) index = found; }
+        if (layout.getIndex() !== index) layout.show(index);
+        if (view.media) entries[index]?.media.applyState?.(view.media);
+        publishState();
+        toast(`Showing ${member.name || 'their'} view`);
+    }
+    function showTutorial(kind) {
+        const shown = entries[layout.getIndex()]?.media.showTutorial?.(kind);
+        if (shown) toast(`${leaderName()} opened the ${(TUTORIAL_NAMES[kind] || 'tutorial').toLowerCase()}`);
+    }
     function applyRemote(state) {
         applyingRemote = true;
         try {
@@ -461,7 +519,8 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
         if (!value && S.locked && S.role === 'follower') { if (S.remoteState) applyRemote(S.remoteState); return; }
         S.following = value;
         if (!value) entries.forEach(e => e.media.setRemote?.(null));
-        S.transport?.update(`members/${S.uid}`, { following: value });
+        S.transport?.update(`members/${S.uid}`, value ? { following: true, view: null } : { following: false });
+        if (!value) publishMyView();
         returnBtn.hidden = value || S.role !== 'follower';
         if (value && S.remoteState) applyRemote(S.remoteState);
         render();
@@ -560,7 +619,11 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
         };
         layer.addEventListener('pointerup', finish);
         layer.addEventListener('pointercancel', finish);
-        entry.media.onChange?.(() => { if (S.role === 'leader' && entries[layout.getIndex()] === entry) publishState(); });
+        entry.media.onChange?.(() => {
+            if (entries[layout.getIndex()] !== entry) return;
+            if (S.role === 'leader') publishState();
+            else if (S.role === 'follower' && !S.following) publishMyView();
+        });
         entry.media.onUserNav?.(() => { if (!applyingRemote && S.role === 'follower' && S.following) setFollowing(false); });
     }
     function renderPointers() {

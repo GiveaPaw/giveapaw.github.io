@@ -12,7 +12,8 @@
     "layers",
     "alpha",
     "tabs",
-    "draw"
+    "draw",
+    "demo"
   ],
   "library": [
     {
@@ -39,41 +40,11 @@
   ],
   "items": [
     {
-      "id": "ollie-current",
+      "id": "fitting-videos",
       "kind": "stage",
-      "title": "The socket Ollie wore",
-      "context": "Ollie is a partial forelimb amputee. This is his 3D scan with the socket we printed and fitted. In use, the leg did not point where we wanted, it crossed over, and it dragged on the floor.",
+      "title": "Ollie's Prosthetic Fitting Session",
+      "context": "",
       "sources": {
-        "model": {
-          "kind": "assembly",
-          "label": "Current socket",
-          "caption": "the socket Ollie wore",
-          "layers": [
-            {
-              "key": "animal",
-              "label": "Solid animal",
-              "file": "ollie-solid-animal.glb",
-              "color": "#496b94",
-              "opacity": 0.38
-            },
-            {
-              "key": "socket",
-              "label": "Socket",
-              "file": "ollie-socket.glb",
-              "color": "#b9c2cc",
-              "opacity": 1
-            },
-            {
-              "key": "attach",
-              "label": "Attachment surface",
-              "file": "ollie-attachment-surface.glb",
-              "color": "#169c8c",
-              "opacity": 0.9,
-              "visible": false,
-              "decal": true
-            }
-          ]
-        },
         "videos": {
           "kind": "playlist",
           "label": "Fitting videos",
@@ -81,73 +52,62 @@
           "clips": [
             {
               "id": "img_3890",
-              "label": "1 · 1:47",
               "src": "media/ollie-fitting/IMG_3890.mp4",
               "poster": "media/ollie-fitting/IMG_3890.jpg",
-              "stops": []
+              "stops": [],
+              "label": "Hall Running"
             },
             {
               "id": "img_3893",
-              "label": "2 · 0:56",
+              "label": "Severe trip on carpet",
               "src": "media/ollie-fitting/IMG_3893.mp4",
               "poster": "media/ollie-fitting/IMG_3893.jpg",
               "stops": []
             },
             {
               "id": "img_3894",
-              "label": "3 · 0:37",
+              "label": "Carpet w/o rubber pad",
               "src": "media/ollie-fitting/IMG_3894.mp4",
               "poster": "media/ollie-fitting/IMG_3894.jpg",
               "stops": []
             },
             {
-              "id": "img_3895",
-              "label": "4 · 1:04",
-              "src": "media/ollie-fitting/IMG_3895.mp4",
-              "poster": "media/ollie-fitting/IMG_3895.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3896",
-              "label": "5 · 0:36",
-              "src": "media/ollie-fitting/IMG_3896.mp4",
-              "poster": "media/ollie-fitting/IMG_3896.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3897",
-              "label": "6 · 0:48",
-              "src": "media/ollie-fitting/IMG_3897.mp4",
-              "poster": "media/ollie-fitting/IMG_3897.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3898",
-              "label": "7 · 0:54",
-              "src": "media/ollie-fitting/IMG_3898.mp4",
-              "poster": "media/ollie-fitting/IMG_3898.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3899",
-              "label": "8 · 0:01",
-              "src": "media/ollie-fitting/IMG_3899.mp4",
-              "poster": "media/ollie-fitting/IMG_3899.jpg",
-              "stops": []
-            },
-            {
               "id": "img_3900",
-              "label": "9 · 0:29",
               "src": "media/ollie-fitting/IMG_3900.mp4",
               "poster": "media/ollie-fitting/IMG_3900.jpg",
-              "stops": []
+              "stops": [],
+              "label": "Adjusting socket"
+            }
+          ],
+          "tone": "proposed"
+        },
+        "socket": {
+          "kind": "assembly",
+          "label": "Socket used at the fitting",
+          "caption": "the socket Ollie wore",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
             },
             {
-              "id": "img_3903",
-              "label": "10 · 0:18",
-              "src": "media/ollie-fitting/IMG_3903.mp4",
-              "poster": "media/ollie-fitting/IMG_3903.jpg",
-              "stops": []
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
             }
           ]
         }
@@ -155,368 +115,232 @@
       "views": [
         {
           "key": "videos",
-          "label": "Fitting videos",
+          "label": "Videos",
           "icon": "film",
           "panes": [
             "videos"
           ]
         },
         {
-          "key": "both",
-          "label": "Video + model",
+          "key": "socket",
+          "label": "Socket",
+          "icon": "box",
+          "panes": [
+            "socket"
+          ]
+        },
+        {
+          "key": "split",
+          "label": "Videos + socket",
           "icon": "columns-2",
           "panes": [
             "videos",
-            "model"
-          ]
-        },
-        {
-          "key": "model",
-          "label": "3D model",
-          "icon": "box",
-          "panes": [
-            "model"
+            "socket"
           ]
         }
       ]
     },
     {
-      "id": "ollie-a-tighter-fit",
-      "kind": "compare",
-      "title": "A · Tighter fit: shrink the scan 2 to 5%",
-      "context": "We built the socket on the raw scan and did not account for Ollie's fur.",
-      "problem": "The socket was generated directly on the scan, fur included, so it may sit loose on his body and rotate.",
-      "proposal": "Shrink the scan by 2 to 5% before generating the socket so it grips him more tightly. Drag the bar under the right-hand view to see each amount against his real size.",
-      "ask": "Is a loose fit the likely reason the leg does not track? How much would you take off for a coat like his?",
-      "current": {
-        "kind": "assembly",
-        "caption": "socket on the raw scan",
-        "layers": [
-          {
-            "key": "animal",
-            "label": "Solid animal",
-            "file": "ollie-solid-animal.glb",
-            "color": "#496b94",
-            "opacity": 0.38
-          },
-          {
-            "key": "socket",
-            "label": "Socket",
-            "file": "ollie-socket.glb",
-            "color": "#b9c2cc",
-            "opacity": 1
-          }
-        ]
-      },
-      "proposed": {
-        "kind": "sweep",
-        "caption": "preview: current socket scaled down",
-        "param": "Scan shrink",
-        "unit": "%",
-        "values": [
-          2,
-          3,
-          4,
-          5
-        ],
-        "defaultValue": 3,
-        "source": "ollie-socket.glb",
-        "color": "#e0a100",
-        "animal": {
-          "file": "ollie-solid-animal.glb",
-          "label": "Solid animal",
-          "color": "#496b94",
-          "opacity": 0.38,
-          "visible": true
-        }
-      }
-    },
-    {
-      "id": "ollie-b-third-strap",
+      "id": "scaling",
       "kind": "stage",
-      "title": "B · Add a third strap",
-      "context": "The socket is held on with two velcro straps.",
-      "problem": "With only two straps the socket can shift and rotate on his chest as he moves.",
-      "proposal": "Add a third strap so the socket is held at three points and stays put.",
-      "ask": "Where would you place a third strap? Would you change the strap material? We used velcro.",
-      "sources": {
-        "video": {
-          "kind": "playlist",
-          "label": "Video",
-          "caption": "straps in use",
-          "clips": [
-            {
-              "id": "img_3890",
-              "label": "1 · 1:47",
-              "src": "media/ollie-fitting/IMG_3890.mp4",
-              "poster": "media/ollie-fitting/IMG_3890.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3893",
-              "label": "2 · 0:56",
-              "src": "media/ollie-fitting/IMG_3893.mp4",
-              "poster": "media/ollie-fitting/IMG_3893.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3894",
-              "label": "3 · 0:37",
-              "src": "media/ollie-fitting/IMG_3894.mp4",
-              "poster": "media/ollie-fitting/IMG_3894.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3895",
-              "label": "4 · 1:04",
-              "src": "media/ollie-fitting/IMG_3895.mp4",
-              "poster": "media/ollie-fitting/IMG_3895.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3896",
-              "label": "5 · 0:36",
-              "src": "media/ollie-fitting/IMG_3896.mp4",
-              "poster": "media/ollie-fitting/IMG_3896.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3897",
-              "label": "6 · 0:48",
-              "src": "media/ollie-fitting/IMG_3897.mp4",
-              "poster": "media/ollie-fitting/IMG_3897.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3898",
-              "label": "7 · 0:54",
-              "src": "media/ollie-fitting/IMG_3898.mp4",
-              "poster": "media/ollie-fitting/IMG_3898.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3899",
-              "label": "8 · 0:01",
-              "src": "media/ollie-fitting/IMG_3899.mp4",
-              "poster": "media/ollie-fitting/IMG_3899.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3900",
-              "label": "9 · 0:29",
-              "src": "media/ollie-fitting/IMG_3900.mp4",
-              "poster": "media/ollie-fitting/IMG_3900.jpg",
-              "stops": []
-            },
-            {
-              "id": "img_3903",
-              "label": "10 · 0:18",
-              "src": "media/ollie-fitting/IMG_3903.mp4",
-              "poster": "media/ollie-fitting/IMG_3903.jpg",
-              "stops": []
-            }
-          ]
-        },
-        "model": {
-          "kind": "assembly",
-          "label": "Current socket",
-          "caption": "two straps",
-          "layers": [
-            {
-              "key": "animal",
-              "label": "Solid animal",
-              "file": "ollie-solid-animal.glb",
-              "color": "#496b94",
-              "opacity": 0.38
-            },
-            {
-              "key": "socket",
-              "label": "Socket",
-              "file": "ollie-socket.glb",
-              "color": "#b9c2cc",
-              "opacity": 1
-            },
-            {
-              "key": "attach",
-              "label": "Attachment surface",
-              "file": "ollie-attachment-surface.glb",
-              "color": "#169c8c",
-              "opacity": 0.9,
-              "visible": false,
-              "decal": true
-            }
-          ]
-        }
-      },
-      "views": [
-        {
-          "key": "video",
-          "label": "Video",
-          "icon": "film",
-          "panes": [
-            "video"
-          ]
-        },
-        {
-          "key": "both",
-          "label": "Video + 3D",
-          "icon": "columns-2",
-          "panes": [
-            "video",
-            "model"
-          ]
-        },
-        {
-          "key": "model",
-          "label": "3D model",
-          "icon": "box",
-          "panes": [
-            "model"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "ollie-c-extend-chest",
-      "kind": "stage",
-      "title": "C · Extend further down the chest",
-      "context": "We stopped just past the apex of his chest to stay clear of the 13th rib.",
-      "problem": "We did not want the socket past his 13th rib where it could press on his organs, so we went only a little past the apex of his chest. That may leave too little socket to hold it steady.",
-      "proposal": "Extend the socket an extra inch or two down his chest, still well clear of the 13th rib. Click the animal and press T to make it solid or see-through.",
-      "ask": "How far down can we safely go, and which landmark would you use to set that limit?",
-      "sources": {
-        "gif": {
-          "kind": "pending",
-          "label": "Animation",
-          "expects": "ollie-chest-extension.gif",
-          "note": "Drop the GIF in the site folder. It is converted to a video so it gets stop points, frame stepping and drawing."
-        },
-        "current": {
-          "kind": "assembly",
-          "label": "Current",
-          "caption": "stops just past the chest apex",
-          "layers": [
-            {
-              "key": "animal",
-              "label": "Solid animal",
-              "file": "ollie-solid-animal.glb",
-              "color": "#496b94",
-              "opacity": 0.38
-            },
-            {
-              "key": "socket",
-              "label": "Socket",
-              "file": "ollie-socket.glb",
-              "color": "#b9c2cc",
-              "opacity": 1
-            },
-            {
-              "key": "attach",
-              "label": "Attachment surface",
-              "file": "ollie-attachment-surface.glb",
-              "color": "#169c8c",
-              "opacity": 0.9,
-              "visible": false,
-              "decal": true
-            }
-          ]
-        },
-        "proposed": {
-          "kind": "pending",
-          "label": "Proposed",
-          "tone": "proposed",
-          "caption": "1 to 2 inches longer",
-          "expects": "ollie-socket-extend-25mm.glb, ollie-socket-extend-50mm.glb",
-          "note": "Export one socket per extra length from nTop. Two or more files become a slider."
-        },
-        "paint": {
-          "kind": "assembly",
-          "label": "Draw the extension",
-          "tone": "proposed",
-          "caption": "paint where the socket should reach",
-          "layers": [
-            {
-              "key": "animal",
-              "label": "Solid animal",
-              "file": "ollie-solid-animal.glb",
-              "color": "#496b94",
-              "opacity": 1
-            },
-            {
-              "key": "socket",
-              "label": "Socket",
-              "file": "ollie-socket.glb",
-              "color": "#b9c2cc",
-              "opacity": 0.5,
-              "visible": false
-            }
-          ],
-          "paint": {
-            "layer": "animal",
-            "surface": "ollie-attachment-surface.glb",
-            "color": "#169c8c",
-            "brush": 10,
-            "tolerance": 3,
-            "fileName": "ollie-chest-extension-surface"
-          }
-        }
-      },
-      "views": [
-        {
-          "key": "gif",
-          "label": "Animation",
-          "icon": "film",
-          "panes": [
-            "gif"
-          ]
-        },
-        {
-          "key": "gif-model",
-          "label": "Animation + 3D",
-          "icon": "columns-2",
-          "panes": [
-            "gif",
-            "current"
-          ]
-        },
-        {
-          "key": "compare",
-          "label": "Current vs proposed",
-          "icon": "columns-2",
-          "panes": [
-            "current",
-            "proposed"
-          ]
-        },
-        {
-          "key": "paint",
-          "label": "Draw the extension",
-          "icon": "paintbrush",
-          "panes": [
-            "paint"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "ollie-d-leg-cutout",
-      "kind": "stage",
-      "title": "D · Attachment surface and leg cutout",
-      "context": "We cut a generous opening so the socket would not limit his leg.",
-      "problem": "We were liberal with the hole for his leg. Less socket touching his body may be letting it slip.",
-      "proposal": "Redraw the attachment surface together: paint to add, erase to remove, smooth the edge, then grow or shrink it. The proposed surface downloads as an STL for nTop.",
-      "ask": "Where should the attachment surface end, around the leg and down the chest?",
+      "title": "Scaling down the socket",
+      "context": "",
       "sources": {
         "original": {
           "kind": "assembly",
-          "label": "Original surface",
-          "caption": "what the socket was built on",
+          "label": "Original socket",
+          "caption": "as fitted",
           "layers": [
             {
               "key": "animal",
               "label": "Solid animal",
               "file": "ollie-solid-animal.glb",
               "color": "#496b94",
+              "opacity": 0.35
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            }
+          ]
+        },
+        "scaled": {
+          "kind": "sweep",
+          "label": "Scaled-down socket",
+          "tone": "proposed",
+          "caption": "preview: original socket scaled down",
+          "param": "Scale down",
+          "unit": "%",
+          "values": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20
+          ],
+          "defaultValue": 5,
+          "source": "ollie-socket.glb",
+          "original": {
+            "at": 0,
+            "label": "Original socket"
+          },
+          "color": "#e0a100",
+          "animal": {
+            "file": "ollie-solid-animal.glb",
+            "label": "Solid animal",
+            "color": "#496b94",
+            "opacity": 0.35,
+            "visible": true
+          },
+          "opacity": 1
+        },
+        "clips": {
+          "kind": "playlist",
+          "label": "Videos & pictures",
+          "caption": "",
+          "clips": [
+            {
+              "id": "img-3900",
+              "label": "IMG_3900",
+              "src": "media/ollie-fit-2026-10/IMG_3900.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3900.jpg",
+              "stops": []
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "clips",
+          "label": "Adjusting Socket Video",
+          "icon": "film",
+          "panes": [
+            "clips"
+          ]
+        },
+        {
+          "key": "split",
+          "label": "Original vs scaled",
+          "icon": "columns-2",
+          "panes": [
+            "original",
+            "scaled"
+          ]
+        },
+        {
+          "key": "scaled",
+          "label": "Scaled-down socket",
+          "icon": "sliders-horizontal",
+          "panes": [
+            "scaled"
+          ]
+        },
+        {
+          "key": "original-socket",
+          "label": "Original socket",
+          "icon": "box",
+          "panes": [
+            "original"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "over-the-back-chihuahua",
+      "kind": "stage",
+      "title": "How far over the back (Chihuahua example)",
+      "context": "Tried on the Chihuahua first: the socket's top edge moved over the back. Ollie's version will be the third bar on the attachment surface slider.",
+      "sources": {
+        "over": {
+          "kind": "sweep",
+          "label": "Over the back",
+          "tone": "proposed",
+          "caption": "Chihuahua: reach 15.5 mm, leg hole 87.5 mm held",
+          "param": "How far over the back",
+          "unit": "mm",
+          "defaultValue": 0.6,
+          "original": {
+            "at": 0.6,
+            "label": "the painted Normal surface"
+          },
+          "color": "#e0a100",
+          "animal": {
+            "file": "chihuahua-solid.glb",
+            "label": "Solid animal",
+            "color": "#496b94",
+            "opacity": 1,
+            "visible": true
+          },
+          "files": {
+            "29": "chi-top-p290.glb",
+            "-16.5": "chi-top-m165.glb",
+            "-14.6": "chi-top-m146.glb",
+            "-12.7": "chi-top-m127.glb",
+            "-10.8": "chi-top-m108.glb",
+            "-8.9": "chi-top-m089.glb",
+            "-7": "chi-top-m070.glb",
+            "-5.1": "chi-top-m051.glb",
+            "-3.2": "chi-top-m032.glb",
+            "-1.3": "chi-top-m013.glb",
+            "0.6": "chi-top-p006.glb",
+            "2.5": "chi-top-p025.glb",
+            "4.4": "chi-top-p044.glb",
+            "6.3": "chi-top-p063.glb",
+            "8.2": "chi-top-p082.glb",
+            "10.1": "chi-top-p101.glb",
+            "11.9": "chi-top-p119.glb",
+            "13.8": "chi-top-p138.glb",
+            "15.7": "chi-top-p157.glb",
+            "17.6": "chi-top-p176.glb",
+            "19.5": "chi-top-p195.glb",
+            "21.4": "chi-top-p214.glb",
+            "23.3": "chi-top-p233.glb",
+            "25.2": "chi-top-p252.glb",
+            "27.1": "chi-top-p271.glb",
+            "30.9": "chi-top-p309.glb",
+            "32.8": "chi-top-p328.glb",
+            "34.7": "chi-top-p347.glb",
+            "36.6": "chi-top-p366.glb",
+            "38.5": "chi-top-p385.glb"
+          },
+          "opacity": 1
+        },
+        "model": {
+          "kind": "assembly",
+          "label": "3D model",
+          "caption": "",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
               "opacity": 1
             },
             {
@@ -525,16 +349,571 @@
               "file": "ollie-attachment-surface.glb",
               "color": "#169c8c",
               "opacity": 1,
-              "visible": true,
+              "visible": false,
               "decal": true
             }
           ]
         },
-        "proposed": {
-          "kind": "assembly",
-          "label": "Proposed surface",
+        "clips": {
+          "kind": "playlist",
+          "label": "Videos & pictures",
+          "caption": "",
+          "clips": [
+            {
+              "id": "anatomy-considerations",
+              "label": "Anatomy Considerations",
+              "src": "media/ollie-fit-2026-10/Anatomy-Considerations.mp4",
+              "poster": "media/ollie-fit-2026-10/Anatomy-Considerations.jpg",
+              "stops": []
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "videos-pictures",
+          "label": "Videos & pictures",
+          "icon": "film",
+          "panes": [
+            "clips"
+          ]
+        },
+        {
+          "key": "side-by-side",
+          "label": "Side by side",
+          "icon": "columns-2",
+          "panes": [
+            "clips",
+            "model"
+          ]
+        },
+        {
+          "key": "model",
+          "label": "3D model",
+          "icon": "box",
+          "panes": [
+            "model"
+          ]
+        },
+        {
+          "key": "over",
+          "label": "Over the back",
+          "icon": "sliders-horizontal",
+          "panes": [
+            "over"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attachment-surface",
+      "kind": "stage",
+      "title": "Changing the socket attachment surface",
+      "context": "",
+      "sources": {
+        "media": {
+          "kind": "playlist",
+          "label": "Pictures and videos",
+          "caption": "",
+          "clips": [
+            {
+              "id": "anatomy-considerations",
+              "label": "Anatomy",
+              "src": "media/ollie-fit-2026-10/Anatomy-Considerations.mp4",
+              "poster": "media/ollie-fit-2026-10/Anatomy-Considerations.jpg",
+              "stops": []
+            },
+            {
+              "id": "clip",
+              "label": "Leg Hole",
+              "src": "media/ollie-fit-2026-10/IMG_3903.mp4",
+              "stops": [],
+              "poster": "media/ollie-fit-2026-10/IMG_3903.jpg"
+            }
+          ]
+        },
+        "sweep": {
+          "kind": "sweep",
+          "label": "How far down and leg hole",
           "tone": "proposed",
-          "caption": "drawn in this session",
+          "caption": "nTop attachment sweep",
+          "axes": [
+            {
+              "param": "How far down the chest",
+              "short": "Reach",
+              "unit": "mm",
+              "values": [
+                -24,
+                -21,
+                -18,
+                -15,
+                -12,
+                -9,
+                -6,
+                -3,
+                0,
+                3,
+                6,
+                9,
+                12,
+                15,
+                18,
+                21,
+                24,
+                27,
+                30,
+                33
+              ]
+            },
+            {
+              "param": "Leg hole size",
+              "short": "Leg hole",
+              "unit": "mm",
+              "values": [
+                62.5,
+                67.5,
+                72.5,
+                77.5,
+                82.5,
+                87.5,
+                92.5,
+                97.5,
+                102.5,
+                107.5,
+                112.5,
+                117.5,
+                122.5,
+                127.5,
+                132.5,
+                137.5,
+                142.5,
+                147.5,
+                152.5,
+                157.5
+              ]
+            }
+          ],
+          "defaultValue": "0|147.5",
+          "color": "#e0a100",
+          "animal": {
+            "file": "ollie-solid-animal.glb",
+            "label": "Solid animal",
+            "color": "#496b94",
+            "opacity": 1,
+            "visible": true
+          },
+          "files": {
+            "-24|62.5": "ollie-attach-rm24-h0625.glb",
+            "-24|67.5": "ollie-attach-rm24-h0675.glb",
+            "-24|72.5": "ollie-attach-rm24-h0725.glb",
+            "-24|77.5": "ollie-attach-rm24-h0775.glb",
+            "-24|82.5": "ollie-attach-rm24-h0825.glb",
+            "-24|87.5": "ollie-attach-rm24-h0875.glb",
+            "-24|92.5": "ollie-attach-rm24-h0925.glb",
+            "-24|97.5": "ollie-attach-rm24-h0975.glb",
+            "-24|102.5": "ollie-attach-rm24-h1025.glb",
+            "-24|107.5": "ollie-attach-rm24-h1075.glb",
+            "-24|112.5": "ollie-attach-rm24-h1125.glb",
+            "-24|117.5": "ollie-attach-rm24-h1175.glb",
+            "-24|122.5": "ollie-attach-rm24-h1225.glb",
+            "-24|127.5": "ollie-attach-rm24-h1275.glb",
+            "-24|132.5": "ollie-attach-rm24-h1325.glb",
+            "-24|137.5": "ollie-attach-rm24-h1375.glb",
+            "-24|142.5": "ollie-attach-rm24-h1425.glb",
+            "-24|147.5": "ollie-attach-rm24-h1475.glb",
+            "-24|152.5": "ollie-attach-rm24-h1525.glb",
+            "-24|157.5": "ollie-attach-rm24-h1575.glb",
+            "-21|62.5": "ollie-attach-rm21-h0625.glb",
+            "-21|67.5": "ollie-attach-rm21-h0675.glb",
+            "-21|72.5": "ollie-attach-rm21-h0725.glb",
+            "-21|77.5": "ollie-attach-rm21-h0775.glb",
+            "-21|82.5": "ollie-attach-rm21-h0825.glb",
+            "-21|87.5": "ollie-attach-rm21-h0875.glb",
+            "-21|92.5": "ollie-attach-rm21-h0925.glb",
+            "-21|97.5": "ollie-attach-rm21-h0975.glb",
+            "-21|102.5": "ollie-attach-rm21-h1025.glb",
+            "-21|107.5": "ollie-attach-rm21-h1075.glb",
+            "-21|112.5": "ollie-attach-rm21-h1125.glb",
+            "-21|117.5": "ollie-attach-rm21-h1175.glb",
+            "-21|122.5": "ollie-attach-rm21-h1225.glb",
+            "-21|127.5": "ollie-attach-rm21-h1275.glb",
+            "-21|132.5": "ollie-attach-rm21-h1325.glb",
+            "-21|137.5": "ollie-attach-rm21-h1375.glb",
+            "-21|142.5": "ollie-attach-rm21-h1425.glb",
+            "-21|147.5": "ollie-attach-rm21-h1475.glb",
+            "-21|152.5": "ollie-attach-rm21-h1525.glb",
+            "-21|157.5": "ollie-attach-rm21-h1575.glb",
+            "-18|62.5": "ollie-attach-rm18-h0625.glb",
+            "-18|67.5": "ollie-attach-rm18-h0675.glb",
+            "-18|72.5": "ollie-attach-rm18-h0725.glb",
+            "-18|77.5": "ollie-attach-rm18-h0775.glb",
+            "-18|82.5": "ollie-attach-rm18-h0825.glb",
+            "-18|87.5": "ollie-attach-rm18-h0875.glb",
+            "-18|92.5": "ollie-attach-rm18-h0925.glb",
+            "-18|97.5": "ollie-attach-rm18-h0975.glb",
+            "-18|102.5": "ollie-attach-rm18-h1025.glb",
+            "-18|107.5": "ollie-attach-rm18-h1075.glb",
+            "-18|112.5": "ollie-attach-rm18-h1125.glb",
+            "-18|117.5": "ollie-attach-rm18-h1175.glb",
+            "-18|122.5": "ollie-attach-rm18-h1225.glb",
+            "-18|127.5": "ollie-attach-rm18-h1275.glb",
+            "-18|132.5": "ollie-attach-rm18-h1325.glb",
+            "-18|137.5": "ollie-attach-rm18-h1375.glb",
+            "-18|142.5": "ollie-attach-rm18-h1425.glb",
+            "-18|147.5": "ollie-attach-rm18-h1475.glb",
+            "-18|152.5": "ollie-attach-rm18-h1525.glb",
+            "-18|157.5": "ollie-attach-rm18-h1575.glb",
+            "-15|62.5": "ollie-attach-rm15-h0625.glb",
+            "-15|67.5": "ollie-attach-rm15-h0675.glb",
+            "-15|72.5": "ollie-attach-rm15-h0725.glb",
+            "-15|77.5": "ollie-attach-rm15-h0775.glb",
+            "-15|82.5": "ollie-attach-rm15-h0825.glb",
+            "-15|87.5": "ollie-attach-rm15-h0875.glb",
+            "-15|92.5": "ollie-attach-rm15-h0925.glb",
+            "-15|97.5": "ollie-attach-rm15-h0975.glb",
+            "-15|102.5": "ollie-attach-rm15-h1025.glb",
+            "-15|107.5": "ollie-attach-rm15-h1075.glb",
+            "-15|112.5": "ollie-attach-rm15-h1125.glb",
+            "-15|117.5": "ollie-attach-rm15-h1175.glb",
+            "-15|122.5": "ollie-attach-rm15-h1225.glb",
+            "-15|127.5": "ollie-attach-rm15-h1275.glb",
+            "-15|132.5": "ollie-attach-rm15-h1325.glb",
+            "-15|137.5": "ollie-attach-rm15-h1375.glb",
+            "-15|142.5": "ollie-attach-rm15-h1425.glb",
+            "-15|147.5": "ollie-attach-rm15-h1475.glb",
+            "-15|152.5": "ollie-attach-rm15-h1525.glb",
+            "-15|157.5": "ollie-attach-rm15-h1575.glb",
+            "-12|62.5": "ollie-attach-rm12-h0625.glb",
+            "-12|67.5": "ollie-attach-rm12-h0675.glb",
+            "-12|72.5": "ollie-attach-rm12-h0725.glb",
+            "-12|77.5": "ollie-attach-rm12-h0775.glb",
+            "-12|82.5": "ollie-attach-rm12-h0825.glb",
+            "-12|87.5": "ollie-attach-rm12-h0875.glb",
+            "-12|92.5": "ollie-attach-rm12-h0925.glb",
+            "-12|97.5": "ollie-attach-rm12-h0975.glb",
+            "-12|102.5": "ollie-attach-rm12-h1025.glb",
+            "-12|107.5": "ollie-attach-rm12-h1075.glb",
+            "-12|112.5": "ollie-attach-rm12-h1125.glb",
+            "-12|117.5": "ollie-attach-rm12-h1175.glb",
+            "-12|122.5": "ollie-attach-rm12-h1225.glb",
+            "-12|127.5": "ollie-attach-rm12-h1275.glb",
+            "-12|132.5": "ollie-attach-rm12-h1325.glb",
+            "-12|137.5": "ollie-attach-rm12-h1375.glb",
+            "-12|142.5": "ollie-attach-rm12-h1425.glb",
+            "-12|147.5": "ollie-attach-rm12-h1475.glb",
+            "-12|152.5": "ollie-attach-rm12-h1525.glb",
+            "-12|157.5": "ollie-attach-rm12-h1575.glb",
+            "-9|62.5": "ollie-attach-rm9-h0625.glb",
+            "-9|67.5": "ollie-attach-rm9-h0675.glb",
+            "-9|72.5": "ollie-attach-rm9-h0725.glb",
+            "-9|77.5": "ollie-attach-rm9-h0775.glb",
+            "-9|82.5": "ollie-attach-rm9-h0825.glb",
+            "-9|87.5": "ollie-attach-rm9-h0875.glb",
+            "-9|92.5": "ollie-attach-rm9-h0925.glb",
+            "-9|97.5": "ollie-attach-rm9-h0975.glb",
+            "-9|102.5": "ollie-attach-rm9-h1025.glb",
+            "-9|107.5": "ollie-attach-rm9-h1075.glb",
+            "-9|112.5": "ollie-attach-rm9-h1125.glb",
+            "-9|117.5": "ollie-attach-rm9-h1175.glb",
+            "-9|122.5": "ollie-attach-rm9-h1225.glb",
+            "-9|127.5": "ollie-attach-rm9-h1275.glb",
+            "-9|132.5": "ollie-attach-rm9-h1325.glb",
+            "-9|137.5": "ollie-attach-rm9-h1375.glb",
+            "-9|142.5": "ollie-attach-rm9-h1425.glb",
+            "-9|147.5": "ollie-attach-rm9-h1475.glb",
+            "-9|152.5": "ollie-attach-rm9-h1525.glb",
+            "-9|157.5": "ollie-attach-rm9-h1575.glb",
+            "-6|62.5": "ollie-attach-rm6-h0625.glb",
+            "-6|67.5": "ollie-attach-rm6-h0675.glb",
+            "-6|72.5": "ollie-attach-rm6-h0725.glb",
+            "-6|77.5": "ollie-attach-rm6-h0775.glb",
+            "-6|82.5": "ollie-attach-rm6-h0825.glb",
+            "-6|87.5": "ollie-attach-rm6-h0875.glb",
+            "-6|92.5": "ollie-attach-rm6-h0925.glb",
+            "-6|97.5": "ollie-attach-rm6-h0975.glb",
+            "-6|102.5": "ollie-attach-rm6-h1025.glb",
+            "-6|107.5": "ollie-attach-rm6-h1075.glb",
+            "-6|112.5": "ollie-attach-rm6-h1125.glb",
+            "-6|117.5": "ollie-attach-rm6-h1175.glb",
+            "-6|122.5": "ollie-attach-rm6-h1225.glb",
+            "-6|127.5": "ollie-attach-rm6-h1275.glb",
+            "-6|132.5": "ollie-attach-rm6-h1325.glb",
+            "-6|137.5": "ollie-attach-rm6-h1375.glb",
+            "-6|142.5": "ollie-attach-rm6-h1425.glb",
+            "-6|147.5": "ollie-attach-rm6-h1475.glb",
+            "-6|152.5": "ollie-attach-rm6-h1525.glb",
+            "-6|157.5": "ollie-attach-rm6-h1575.glb",
+            "-3|62.5": "ollie-attach-rm3-h0625.glb",
+            "-3|67.5": "ollie-attach-rm3-h0675.glb",
+            "-3|72.5": "ollie-attach-rm3-h0725.glb",
+            "-3|77.5": "ollie-attach-rm3-h0775.glb",
+            "-3|82.5": "ollie-attach-rm3-h0825.glb",
+            "-3|87.5": "ollie-attach-rm3-h0875.glb",
+            "-3|92.5": "ollie-attach-rm3-h0925.glb",
+            "-3|97.5": "ollie-attach-rm3-h0975.glb",
+            "-3|102.5": "ollie-attach-rm3-h1025.glb",
+            "-3|107.5": "ollie-attach-rm3-h1075.glb",
+            "-3|112.5": "ollie-attach-rm3-h1125.glb",
+            "-3|117.5": "ollie-attach-rm3-h1175.glb",
+            "-3|122.5": "ollie-attach-rm3-h1225.glb",
+            "-3|127.5": "ollie-attach-rm3-h1275.glb",
+            "-3|132.5": "ollie-attach-rm3-h1325.glb",
+            "-3|137.5": "ollie-attach-rm3-h1375.glb",
+            "-3|142.5": "ollie-attach-rm3-h1425.glb",
+            "-3|147.5": "ollie-attach-rm3-h1475.glb",
+            "-3|152.5": "ollie-attach-rm3-h1525.glb",
+            "-3|157.5": "ollie-attach-rm3-h1575.glb",
+            "0|62.5": "ollie-attach-r0-h0625.glb",
+            "0|67.5": "ollie-attach-r0-h0675.glb",
+            "0|72.5": "ollie-attach-r0-h0725.glb",
+            "0|77.5": "ollie-attach-r0-h0775.glb",
+            "0|82.5": "ollie-attach-r0-h0825.glb",
+            "0|87.5": "ollie-attach-r0-h0875.glb",
+            "0|92.5": "ollie-attach-r0-h0925.glb",
+            "0|97.5": "ollie-attach-r0-h0975.glb",
+            "0|102.5": "ollie-attach-r0-h1025.glb",
+            "0|107.5": "ollie-attach-r0-h1075.glb",
+            "0|112.5": "ollie-attach-r0-h1125.glb",
+            "0|117.5": "ollie-attach-r0-h1175.glb",
+            "0|122.5": "ollie-attach-r0-h1225.glb",
+            "0|127.5": "ollie-attach-r0-h1275.glb",
+            "0|132.5": "ollie-attach-r0-h1325.glb",
+            "0|137.5": "ollie-attach-r0-h1375.glb",
+            "0|142.5": "ollie-attach-r0-h1425.glb",
+            "0|147.5": "ollie-attach-r0-h1475.glb",
+            "0|152.5": "ollie-attach-r0-h1525.glb",
+            "0|157.5": "ollie-attach-r0-h1575.glb",
+            "3|62.5": "ollie-attach-rp3-h0625.glb",
+            "3|67.5": "ollie-attach-rp3-h0675.glb",
+            "3|72.5": "ollie-attach-rp3-h0725.glb",
+            "3|77.5": "ollie-attach-rp3-h0775.glb",
+            "3|82.5": "ollie-attach-rp3-h0825.glb",
+            "3|87.5": "ollie-attach-rp3-h0875.glb",
+            "3|92.5": "ollie-attach-rp3-h0925.glb",
+            "3|97.5": "ollie-attach-rp3-h0975.glb",
+            "3|102.5": "ollie-attach-rp3-h1025.glb",
+            "3|107.5": "ollie-attach-rp3-h1075.glb",
+            "3|112.5": "ollie-attach-rp3-h1125.glb",
+            "3|117.5": "ollie-attach-rp3-h1175.glb",
+            "3|122.5": "ollie-attach-rp3-h1225.glb",
+            "3|127.5": "ollie-attach-rp3-h1275.glb",
+            "3|132.5": "ollie-attach-rp3-h1325.glb",
+            "3|137.5": "ollie-attach-rp3-h1375.glb",
+            "3|142.5": "ollie-attach-rp3-h1425.glb",
+            "3|147.5": "ollie-attach-rp3-h1475.glb",
+            "3|152.5": "ollie-attach-rp3-h1525.glb",
+            "3|157.5": "ollie-attach-rp3-h1575.glb",
+            "6|62.5": "ollie-attach-rp6-h0625.glb",
+            "6|67.5": "ollie-attach-rp6-h0675.glb",
+            "6|72.5": "ollie-attach-rp6-h0725.glb",
+            "6|77.5": "ollie-attach-rp6-h0775.glb",
+            "6|82.5": "ollie-attach-rp6-h0825.glb",
+            "6|87.5": "ollie-attach-rp6-h0875.glb",
+            "6|92.5": "ollie-attach-rp6-h0925.glb",
+            "6|97.5": "ollie-attach-rp6-h0975.glb",
+            "6|102.5": "ollie-attach-rp6-h1025.glb",
+            "6|107.5": "ollie-attach-rp6-h1075.glb",
+            "6|112.5": "ollie-attach-rp6-h1125.glb",
+            "6|117.5": "ollie-attach-rp6-h1175.glb",
+            "6|122.5": "ollie-attach-rp6-h1225.glb",
+            "6|127.5": "ollie-attach-rp6-h1275.glb",
+            "6|132.5": "ollie-attach-rp6-h1325.glb",
+            "6|137.5": "ollie-attach-rp6-h1375.glb",
+            "6|142.5": "ollie-attach-rp6-h1425.glb",
+            "6|147.5": "ollie-attach-rp6-h1475.glb",
+            "6|152.5": "ollie-attach-rp6-h1525.glb",
+            "6|157.5": "ollie-attach-rp6-h1575.glb",
+            "9|62.5": "ollie-attach-rp9-h0625.glb",
+            "9|67.5": "ollie-attach-rp9-h0675.glb",
+            "9|72.5": "ollie-attach-rp9-h0725.glb",
+            "9|77.5": "ollie-attach-rp9-h0775.glb",
+            "9|82.5": "ollie-attach-rp9-h0825.glb",
+            "9|87.5": "ollie-attach-rp9-h0875.glb",
+            "9|92.5": "ollie-attach-rp9-h0925.glb",
+            "9|97.5": "ollie-attach-rp9-h0975.glb",
+            "9|102.5": "ollie-attach-rp9-h1025.glb",
+            "9|107.5": "ollie-attach-rp9-h1075.glb",
+            "9|112.5": "ollie-attach-rp9-h1125.glb",
+            "9|117.5": "ollie-attach-rp9-h1175.glb",
+            "9|122.5": "ollie-attach-rp9-h1225.glb",
+            "9|127.5": "ollie-attach-rp9-h1275.glb",
+            "9|132.5": "ollie-attach-rp9-h1325.glb",
+            "9|137.5": "ollie-attach-rp9-h1375.glb",
+            "9|142.5": "ollie-attach-rp9-h1425.glb",
+            "9|147.5": "ollie-attach-rp9-h1475.glb",
+            "9|152.5": "ollie-attach-rp9-h1525.glb",
+            "9|157.5": "ollie-attach-rp9-h1575.glb",
+            "12|62.5": "ollie-attach-rp12-h0625.glb",
+            "12|67.5": "ollie-attach-rp12-h0675.glb",
+            "12|72.5": "ollie-attach-rp12-h0725.glb",
+            "12|77.5": "ollie-attach-rp12-h0775.glb",
+            "12|82.5": "ollie-attach-rp12-h0825.glb",
+            "12|87.5": "ollie-attach-rp12-h0875.glb",
+            "12|92.5": "ollie-attach-rp12-h0925.glb",
+            "12|97.5": "ollie-attach-rp12-h0975.glb",
+            "12|102.5": "ollie-attach-rp12-h1025.glb",
+            "12|107.5": "ollie-attach-rp12-h1075.glb",
+            "12|112.5": "ollie-attach-rp12-h1125.glb",
+            "12|117.5": "ollie-attach-rp12-h1175.glb",
+            "12|122.5": "ollie-attach-rp12-h1225.glb",
+            "12|127.5": "ollie-attach-rp12-h1275.glb",
+            "12|132.5": "ollie-attach-rp12-h1325.glb",
+            "12|137.5": "ollie-attach-rp12-h1375.glb",
+            "12|142.5": "ollie-attach-rp12-h1425.glb",
+            "12|147.5": "ollie-attach-rp12-h1475.glb",
+            "12|152.5": "ollie-attach-rp12-h1525.glb",
+            "12|157.5": "ollie-attach-rp12-h1575.glb",
+            "15|62.5": "ollie-attach-rp15-h0625.glb",
+            "15|67.5": "ollie-attach-rp15-h0675.glb",
+            "15|72.5": "ollie-attach-rp15-h0725.glb",
+            "15|77.5": "ollie-attach-rp15-h0775.glb",
+            "15|82.5": "ollie-attach-rp15-h0825.glb",
+            "15|87.5": "ollie-attach-rp15-h0875.glb",
+            "15|92.5": "ollie-attach-rp15-h0925.glb",
+            "15|97.5": "ollie-attach-rp15-h0975.glb",
+            "15|102.5": "ollie-attach-rp15-h1025.glb",
+            "15|107.5": "ollie-attach-rp15-h1075.glb",
+            "15|112.5": "ollie-attach-rp15-h1125.glb",
+            "15|117.5": "ollie-attach-rp15-h1175.glb",
+            "15|122.5": "ollie-attach-rp15-h1225.glb",
+            "15|127.5": "ollie-attach-rp15-h1275.glb",
+            "15|132.5": "ollie-attach-rp15-h1325.glb",
+            "15|137.5": "ollie-attach-rp15-h1375.glb",
+            "15|142.5": "ollie-attach-rp15-h1425.glb",
+            "15|147.5": "ollie-attach-rp15-h1475.glb",
+            "15|152.5": "ollie-attach-rp15-h1525.glb",
+            "15|157.5": "ollie-attach-rp15-h1575.glb",
+            "18|62.5": "ollie-attach-rp18-h0625.glb",
+            "18|67.5": "ollie-attach-rp18-h0675.glb",
+            "18|72.5": "ollie-attach-rp18-h0725.glb",
+            "18|77.5": "ollie-attach-rp18-h0775.glb",
+            "18|82.5": "ollie-attach-rp18-h0825.glb",
+            "18|87.5": "ollie-attach-rp18-h0875.glb",
+            "18|92.5": "ollie-attach-rp18-h0925.glb",
+            "18|97.5": "ollie-attach-rp18-h0975.glb",
+            "18|102.5": "ollie-attach-rp18-h1025.glb",
+            "18|107.5": "ollie-attach-rp18-h1075.glb",
+            "18|112.5": "ollie-attach-rp18-h1125.glb",
+            "18|117.5": "ollie-attach-rp18-h1175.glb",
+            "18|122.5": "ollie-attach-rp18-h1225.glb",
+            "18|127.5": "ollie-attach-rp18-h1275.glb",
+            "18|132.5": "ollie-attach-rp18-h1325.glb",
+            "18|137.5": "ollie-attach-rp18-h1375.glb",
+            "18|142.5": "ollie-attach-rp18-h1425.glb",
+            "18|147.5": "ollie-attach-rp18-h1475.glb",
+            "18|152.5": "ollie-attach-rp18-h1525.glb",
+            "18|157.5": "ollie-attach-rp18-h1575.glb",
+            "21|62.5": "ollie-attach-rp21-h0625.glb",
+            "21|67.5": "ollie-attach-rp21-h0675.glb",
+            "21|72.5": "ollie-attach-rp21-h0725.glb",
+            "21|77.5": "ollie-attach-rp21-h0775.glb",
+            "21|82.5": "ollie-attach-rp21-h0825.glb",
+            "21|87.5": "ollie-attach-rp21-h0875.glb",
+            "21|92.5": "ollie-attach-rp21-h0925.glb",
+            "21|97.5": "ollie-attach-rp21-h0975.glb",
+            "21|102.5": "ollie-attach-rp21-h1025.glb",
+            "21|107.5": "ollie-attach-rp21-h1075.glb",
+            "21|112.5": "ollie-attach-rp21-h1125.glb",
+            "21|117.5": "ollie-attach-rp21-h1175.glb",
+            "21|122.5": "ollie-attach-rp21-h1225.glb",
+            "21|127.5": "ollie-attach-rp21-h1275.glb",
+            "21|132.5": "ollie-attach-rp21-h1325.glb",
+            "21|137.5": "ollie-attach-rp21-h1375.glb",
+            "21|142.5": "ollie-attach-rp21-h1425.glb",
+            "21|147.5": "ollie-attach-rp21-h1475.glb",
+            "21|152.5": "ollie-attach-rp21-h1525.glb",
+            "21|157.5": "ollie-attach-rp21-h1575.glb",
+            "24|62.5": "ollie-attach-rp24-h0625.glb",
+            "24|67.5": "ollie-attach-rp24-h0675.glb",
+            "24|72.5": "ollie-attach-rp24-h0725.glb",
+            "24|77.5": "ollie-attach-rp24-h0775.glb",
+            "24|82.5": "ollie-attach-rp24-h0825.glb",
+            "24|87.5": "ollie-attach-rp24-h0875.glb",
+            "24|92.5": "ollie-attach-rp24-h0925.glb",
+            "24|97.5": "ollie-attach-rp24-h0975.glb",
+            "24|102.5": "ollie-attach-rp24-h1025.glb",
+            "24|107.5": "ollie-attach-rp24-h1075.glb",
+            "24|112.5": "ollie-attach-rp24-h1125.glb",
+            "24|117.5": "ollie-attach-rp24-h1175.glb",
+            "24|122.5": "ollie-attach-rp24-h1225.glb",
+            "24|127.5": "ollie-attach-rp24-h1275.glb",
+            "24|132.5": "ollie-attach-rp24-h1325.glb",
+            "24|137.5": "ollie-attach-rp24-h1375.glb",
+            "24|142.5": "ollie-attach-rp24-h1425.glb",
+            "24|147.5": "ollie-attach-rp24-h1475.glb",
+            "24|152.5": "ollie-attach-rp24-h1525.glb",
+            "24|157.5": "ollie-attach-rp24-h1575.glb",
+            "27|62.5": "ollie-attach-rp27-h0625.glb",
+            "27|67.5": "ollie-attach-rp27-h0675.glb",
+            "27|72.5": "ollie-attach-rp27-h0725.glb",
+            "27|77.5": "ollie-attach-rp27-h0775.glb",
+            "27|82.5": "ollie-attach-rp27-h0825.glb",
+            "27|87.5": "ollie-attach-rp27-h0875.glb",
+            "27|92.5": "ollie-attach-rp27-h0925.glb",
+            "27|97.5": "ollie-attach-rp27-h0975.glb",
+            "27|102.5": "ollie-attach-rp27-h1025.glb",
+            "27|107.5": "ollie-attach-rp27-h1075.glb",
+            "27|112.5": "ollie-attach-rp27-h1125.glb",
+            "27|117.5": "ollie-attach-rp27-h1175.glb",
+            "27|122.5": "ollie-attach-rp27-h1225.glb",
+            "27|127.5": "ollie-attach-rp27-h1275.glb",
+            "27|132.5": "ollie-attach-rp27-h1325.glb",
+            "27|137.5": "ollie-attach-rp27-h1375.glb",
+            "27|142.5": "ollie-attach-rp27-h1425.glb",
+            "27|147.5": "ollie-attach-rp27-h1475.glb",
+            "27|152.5": "ollie-attach-rp27-h1525.glb",
+            "27|157.5": "ollie-attach-rp27-h1575.glb",
+            "30|62.5": "ollie-attach-rp30-h0625.glb",
+            "30|67.5": "ollie-attach-rp30-h0675.glb",
+            "30|72.5": "ollie-attach-rp30-h0725.glb",
+            "30|77.5": "ollie-attach-rp30-h0775.glb",
+            "30|82.5": "ollie-attach-rp30-h0825.glb",
+            "30|87.5": "ollie-attach-rp30-h0875.glb",
+            "30|92.5": "ollie-attach-rp30-h0925.glb",
+            "30|97.5": "ollie-attach-rp30-h0975.glb",
+            "30|102.5": "ollie-attach-rp30-h1025.glb",
+            "30|107.5": "ollie-attach-rp30-h1075.glb",
+            "30|112.5": "ollie-attach-rp30-h1125.glb",
+            "30|117.5": "ollie-attach-rp30-h1175.glb",
+            "30|122.5": "ollie-attach-rp30-h1225.glb",
+            "30|127.5": "ollie-attach-rp30-h1275.glb",
+            "30|132.5": "ollie-attach-rp30-h1325.glb",
+            "30|137.5": "ollie-attach-rp30-h1375.glb",
+            "30|142.5": "ollie-attach-rp30-h1425.glb",
+            "30|147.5": "ollie-attach-rp30-h1475.glb",
+            "30|152.5": "ollie-attach-rp30-h1525.glb",
+            "30|157.5": "ollie-attach-rp30-h1575.glb",
+            "33|62.5": "ollie-attach-rp33-h0625.glb",
+            "33|67.5": "ollie-attach-rp33-h0675.glb",
+            "33|72.5": "ollie-attach-rp33-h0725.glb",
+            "33|77.5": "ollie-attach-rp33-h0775.glb",
+            "33|82.5": "ollie-attach-rp33-h0825.glb",
+            "33|87.5": "ollie-attach-rp33-h0875.glb",
+            "33|92.5": "ollie-attach-rp33-h0925.glb",
+            "33|97.5": "ollie-attach-rp33-h0975.glb",
+            "33|102.5": "ollie-attach-rp33-h1025.glb",
+            "33|107.5": "ollie-attach-rp33-h1075.glb",
+            "33|112.5": "ollie-attach-rp33-h1125.glb",
+            "33|117.5": "ollie-attach-rp33-h1175.glb",
+            "33|122.5": "ollie-attach-rp33-h1225.glb",
+            "33|127.5": "ollie-attach-rp33-h1275.glb",
+            "33|132.5": "ollie-attach-rp33-h1325.glb",
+            "33|137.5": "ollie-attach-rp33-h1375.glb",
+            "33|142.5": "ollie-attach-rp33-h1425.glb",
+            "33|147.5": "ollie-attach-rp33-h1475.glb",
+            "33|152.5": "ollie-attach-rp33-h1525.glb",
+            "33|157.5": "ollie-attach-rp33-h1575.glb"
+          },
+          "original": {
+            "file": "ollie-socket.glb",
+            "at": "0|147.5",
+            "label": "Original socket"
+          }
+        },
+        "model": {
+          "kind": "assembly",
+          "label": "3D model",
+          "caption": "",
           "layers": [
             {
               "key": "animal",
@@ -542,82 +921,103 @@
               "file": "ollie-solid-animal.glb",
               "color": "#496b94",
               "opacity": 1
-            }
-          ],
-          "paint": {
-            "layer": "animal",
-            "surface": "ollie-attachment-surface.glb",
-            "color": "#169c8c",
-            "brush": 10,
-            "tolerance": 3,
-            "fileName": "ollie-proposed-attachment-surface"
-          }
-        },
-        "anatomy": {
-          "kind": "image",
-          "label": "Anatomy",
-          "caption": "canine skeleton",
-          "images": [
-            {
-              "src": "media/pitch/anatomy-1.jpg",
-              "caption": "Canine skeleton with the joints labelled"
             },
             {
-              "src": "media/pitch/anatomy-2.jpg",
-              "caption": "Thoracic limb: shoulder to digits"
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
+            }
+          ]
+        },
+        "model-2": {
+          "kind": "assembly",
+          "label": "3D model",
+          "caption": "",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
             }
           ]
         }
       },
       "views": [
         {
-          "key": "original",
-          "label": "Original",
-          "icon": "box",
+          "key": "media",
+          "label": "Pictures & videos",
+          "icon": "image",
           "panes": [
-            "original"
+            "media"
+          ]
+        },
+        {
+          "key": "side-by-side",
+          "label": "Side by side",
+          "icon": "columns-2",
+          "panes": [
+            "media",
+            "model"
           ]
         },
         {
           "key": "split",
-          "label": "Original vs proposed",
+          "label": "Video + slider",
           "icon": "columns-2",
           "panes": [
-            "original",
-            "proposed"
+            "media",
+            "sweep"
           ]
         },
         {
-          "key": "proposed",
-          "label": "Proposed",
-          "icon": "paintbrush",
+          "key": "sweep",
+          "label": "Slider",
+          "icon": "sliders-horizontal",
           "panes": [
-            "proposed"
-          ]
-        },
-        {
-          "key": "anatomy",
-          "label": "Anatomy",
-          "icon": "image",
-          "panes": [
-            "anatomy"
+            "sweep"
           ]
         }
       ]
     },
     {
-      "id": "ollie-e-stiffer-ribs",
+      "id": "straps",
       "kind": "stage",
-      "title": "E · Stiffer where it pushes on the ribs",
-      "context": "The socket may be flexing instead of holding its position.",
-      "problem": "If the socket flexes, it cannot push against his ribs to keep the leg pointed the right way.",
-      "proposal": "Thicken the wall near the pelvic end. Two nTop inputs control it: pelvic thickness (how much thicker) and pelvic thicken distance (how far the thickening reaches). Use the two bars under the sweep model; every combination shown was generated in nTop. At 0 thickness the distance changes nothing.",
-      "ask": "Is stiffness the right thing to change here? Where on the socket would you add it?",
+      "title": "Attachment straps",
+      "context": "",
       "sources": {
-        "current": {
+        "socket": {
           "kind": "assembly",
-          "label": "Current",
-          "caption": "uniform wall",
+          "label": "Socket",
+          "caption": "straps go here",
           "layers": [
             {
               "key": "animal",
@@ -635,7 +1035,67 @@
             }
           ]
         },
-        "proposed": {
+        "clips": {
+          "kind": "playlist",
+          "label": "Videos & pictures",
+          "caption": "",
+          "clips": [
+            {
+              "id": "img-3900",
+              "label": "IMG_3900",
+              "src": "media/ollie-fit-2026-10/IMG_3900.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3900.jpg",
+              "stops": []
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "clips",
+          "label": "Videos & pictures",
+          "icon": "film",
+          "panes": [
+            "clips"
+          ]
+        },
+        {
+          "key": "split",
+          "label": "Picture + 3D model",
+          "icon": "columns-2",
+          "panes": [
+            "clips",
+            "socket"
+          ]
+        },
+        {
+          "key": "socket",
+          "label": "3D model",
+          "icon": "box",
+          "panes": [
+            "socket"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ribs",
+      "kind": "stage",
+      "title": "Bracing socket on Ollie's ribs",
+      "context": "",
+      "sources": {
+        "picture": {
+          "kind": "image",
+          "label": "Picture",
+          "caption": "",
+          "images": [
+            {
+              "src": "media/ollie-fit-2026-10/IMG_2195.png",
+              "caption": ""
+            }
+          ]
+        },
+        "pelvic": {
           "kind": "sweep",
           "label": "Pelvic thickening",
           "tone": "proposed",
@@ -647,10 +1107,20 @@
               "unit": "mm",
               "values": [
                 0,
+                2,
+                4,
                 6,
+                8,
+                10,
                 12,
+                14,
+                16,
                 18,
+                20,
+                22,
                 24,
+                26,
+                28,
                 30
               ]
             },
@@ -660,10 +1130,25 @@
               "unit": "mm",
               "values": [
                 0,
+                10,
+                20,
+                30,
                 40,
+                50,
+                60,
+                70,
                 80,
+                90,
+                100,
+                110,
                 120,
+                130,
+                140,
+                150,
                 160,
+                170,
+                180,
+                190,
                 200
               ],
               "idleWhen": {
@@ -675,40 +1160,340 @@
           ],
           "files": {
             "0|0": "ollie-v3-lattice-050.glb",
+            "0|10": "ollie-v3-pelvic-t00-d010.glb",
+            "0|20": "ollie-v3-pelvic-t00-d020.glb",
+            "0|30": "ollie-v3-pelvic-t00-d030.glb",
             "0|40": "ollie-v3-pelvic-t00-d040.glb",
+            "0|50": "ollie-v3-pelvic-t00-d050.glb",
+            "0|60": "ollie-v3-pelvic-t00-d060.glb",
+            "0|70": "ollie-v3-pelvic-t00-d070.glb",
             "0|80": "ollie-v3-pelvic-t00-d080.glb",
+            "0|90": "ollie-v3-pelvic-t00-d090.glb",
+            "0|100": "ollie-v3-pelvic-t00-d100.glb",
+            "0|110": "ollie-v3-pelvic-t00-d110.glb",
             "0|120": "ollie-v3-pelvic-t00-d120.glb",
+            "0|130": "ollie-v3-pelvic-t00-d130.glb",
+            "0|140": "ollie-v3-pelvic-t00-d140.glb",
+            "0|150": "ollie-v3-pelvic-t00-d150.glb",
             "0|160": "ollie-v3-pelvic-t00-d160.glb",
+            "0|170": "ollie-v3-pelvic-t00-d170.glb",
+            "0|180": "ollie-v3-pelvic-t00-d180.glb",
+            "0|190": "ollie-v3-pelvic-t00-d190.glb",
             "0|200": "ollie-v3-pelvic-t00-d200.glb",
+            "2|0": "ollie-v3-pelvic-t02-d000.glb",
+            "2|10": "ollie-v3-pelvic-t02-d010.glb",
+            "2|20": "ollie-v3-pelvic-t02-d020.glb",
+            "2|30": "ollie-v3-pelvic-t02-d030.glb",
+            "2|40": "ollie-v3-pelvic-t02-d040.glb",
+            "2|50": "ollie-v3-pelvic-t02-d050.glb",
+            "2|60": "ollie-v3-pelvic-t02-d060.glb",
+            "2|70": "ollie-v3-pelvic-t02-d070.glb",
+            "2|80": "ollie-v3-pelvic-t02-d080.glb",
+            "2|90": "ollie-v3-pelvic-t02-d090.glb",
+            "2|100": "ollie-v3-pelvic-t02-d100.glb",
+            "2|110": "ollie-v3-pelvic-t02-d110.glb",
+            "2|120": "ollie-v3-pelvic-t02-d120.glb",
+            "2|130": "ollie-v3-pelvic-t02-d130.glb",
+            "2|140": "ollie-v3-pelvic-t02-d140.glb",
+            "2|150": "ollie-v3-pelvic-t02-d150.glb",
+            "2|160": "ollie-v3-pelvic-t02-d160.glb",
+            "2|170": "ollie-v3-pelvic-t02-d170.glb",
+            "2|180": "ollie-v3-pelvic-t02-d180.glb",
+            "2|190": "ollie-v3-pelvic-t02-d190.glb",
+            "2|200": "ollie-v3-pelvic-t02-d200.glb",
+            "4|0": "ollie-v3-pelvic-t04-d000.glb",
+            "4|10": "ollie-v3-pelvic-t04-d010.glb",
+            "4|20": "ollie-v3-pelvic-t04-d020.glb",
+            "4|30": "ollie-v3-pelvic-t04-d030.glb",
+            "4|40": "ollie-v3-pelvic-t04-d040.glb",
+            "4|50": "ollie-v3-pelvic-t04-d050.glb",
+            "4|60": "ollie-v3-pelvic-t04-d060.glb",
+            "4|70": "ollie-v3-pelvic-t04-d070.glb",
+            "4|80": "ollie-v3-pelvic-t04-d080.glb",
+            "4|90": "ollie-v3-pelvic-t04-d090.glb",
+            "4|100": "ollie-v3-pelvic-t04-d100.glb",
+            "4|110": "ollie-v3-pelvic-t04-d110.glb",
+            "4|120": "ollie-v3-pelvic-t04-d120.glb",
+            "4|130": "ollie-v3-pelvic-t04-d130.glb",
+            "4|140": "ollie-v3-pelvic-t04-d140.glb",
+            "4|150": "ollie-v3-pelvic-t04-d150.glb",
+            "4|160": "ollie-v3-pelvic-t04-d160.glb",
+            "4|170": "ollie-v3-pelvic-t04-d170.glb",
+            "4|180": "ollie-v3-pelvic-t04-d180.glb",
+            "4|190": "ollie-v3-pelvic-t04-d190.glb",
+            "4|200": "ollie-v3-pelvic-t04-d200.glb",
             "6|0": "ollie-v3-pelvic-t06-d000.glb",
+            "6|10": "ollie-v3-pelvic-t06-d010.glb",
+            "6|20": "ollie-v3-pelvic-t06-d020.glb",
+            "6|30": "ollie-v3-pelvic-t06-d030.glb",
             "6|40": "ollie-v3-pelvic-t06-d040.glb",
+            "6|50": "ollie-v3-pelvic-t06-d050.glb",
+            "6|60": "ollie-v3-pelvic-t06-d060.glb",
+            "6|70": "ollie-v3-pelvic-t06-d070.glb",
             "6|80": "ollie-v3-pelvic-t06-d080.glb",
+            "6|90": "ollie-v3-pelvic-t06-d090.glb",
+            "6|100": "ollie-v3-pelvic-t06-d100.glb",
+            "6|110": "ollie-v3-pelvic-t06-d110.glb",
             "6|120": "ollie-v3-pelvic-t06-d120.glb",
+            "6|130": "ollie-v3-pelvic-t06-d130.glb",
+            "6|140": "ollie-v3-pelvic-t06-d140.glb",
+            "6|150": "ollie-v3-pelvic-t06-d150.glb",
             "6|160": "ollie-v3-pelvic-t06-d160.glb",
+            "6|170": "ollie-v3-pelvic-t06-d170.glb",
+            "6|180": "ollie-v3-pelvic-t06-d180.glb",
+            "6|190": "ollie-v3-pelvic-t06-d190.glb",
             "6|200": "ollie-v3-pelvic-t06-d200.glb",
+            "8|0": "ollie-v3-pelvic-t08-d000.glb",
+            "8|10": "ollie-v3-pelvic-t08-d010.glb",
+            "8|20": "ollie-v3-pelvic-t08-d020.glb",
+            "8|30": "ollie-v3-pelvic-t08-d030.glb",
+            "8|40": "ollie-v3-pelvic-t08-d040.glb",
+            "8|50": "ollie-v3-pelvic-t08-d050.glb",
+            "8|60": "ollie-v3-pelvic-t08-d060.glb",
+            "8|70": "ollie-v3-pelvic-t08-d070.glb",
+            "8|80": "ollie-v3-pelvic-t08-d080.glb",
+            "8|90": "ollie-v3-pelvic-t08-d090.glb",
+            "8|100": "ollie-v3-pelvic-t08-d100.glb",
+            "8|110": "ollie-v3-pelvic-t08-d110.glb",
+            "8|120": "ollie-v3-pelvic-t08-d120.glb",
+            "8|130": "ollie-v3-pelvic-t08-d130.glb",
+            "8|140": "ollie-v3-pelvic-t08-d140.glb",
+            "8|150": "ollie-v3-pelvic-t08-d150.glb",
+            "8|160": "ollie-v3-pelvic-t08-d160.glb",
+            "8|170": "ollie-v3-pelvic-t08-d170.glb",
+            "8|180": "ollie-v3-pelvic-t08-d180.glb",
+            "8|190": "ollie-v3-pelvic-t08-d190.glb",
+            "8|200": "ollie-v3-pelvic-t08-d200.glb",
+            "10|0": "ollie-v3-pelvic-t10-d000.glb",
+            "10|10": "ollie-v3-pelvic-t10-d010.glb",
+            "10|20": "ollie-v3-pelvic-t10-d020.glb",
+            "10|30": "ollie-v3-pelvic-t10-d030.glb",
+            "10|40": "ollie-v3-pelvic-t10-d040.glb",
+            "10|50": "ollie-v3-pelvic-t10-d050.glb",
+            "10|60": "ollie-v3-pelvic-t10-d060.glb",
+            "10|70": "ollie-v3-pelvic-t10-d070.glb",
+            "10|80": "ollie-v3-pelvic-t10-d080.glb",
+            "10|90": "ollie-v3-pelvic-t10-d090.glb",
+            "10|100": "ollie-v3-pelvic-t10-d100.glb",
+            "10|110": "ollie-v3-pelvic-t10-d110.glb",
+            "10|120": "ollie-v3-pelvic-t10-d120.glb",
+            "10|130": "ollie-v3-pelvic-t10-d130.glb",
+            "10|140": "ollie-v3-pelvic-t10-d140.glb",
+            "10|150": "ollie-v3-pelvic-t10-d150.glb",
+            "10|160": "ollie-v3-pelvic-t10-d160.glb",
+            "10|170": "ollie-v3-pelvic-t10-d170.glb",
+            "10|180": "ollie-v3-pelvic-t10-d180.glb",
+            "10|190": "ollie-v3-pelvic-t10-d190.glb",
+            "10|200": "ollie-v3-pelvic-t10-d200.glb",
             "12|0": "ollie-v3-pelvic-t12-d000.glb",
+            "12|10": "ollie-v3-pelvic-t12-d010.glb",
+            "12|20": "ollie-v3-pelvic-t12-d020.glb",
+            "12|30": "ollie-v3-pelvic-t12-d030.glb",
             "12|40": "ollie-v3-pelvic-t12-d040.glb",
+            "12|50": "ollie-v3-pelvic-t12-d050.glb",
+            "12|60": "ollie-v3-pelvic-t12-d060.glb",
+            "12|70": "ollie-v3-pelvic-t12-d070.glb",
             "12|80": "ollie-v3-pelvic-t12-d080.glb",
+            "12|90": "ollie-v3-pelvic-t12-d090.glb",
+            "12|100": "ollie-v3-pelvic-t12-d100.glb",
+            "12|110": "ollie-v3-pelvic-t12-d110.glb",
             "12|120": "ollie-v3-pelvic-t12-d120.glb",
+            "12|130": "ollie-v3-pelvic-t12-d130.glb",
+            "12|140": "ollie-v3-pelvic-t12-d140.glb",
+            "12|150": "ollie-v3-pelvic-t12-d150.glb",
             "12|160": "ollie-v3-pelvic-t12-d160.glb",
+            "12|170": "ollie-v3-pelvic-t12-d170.glb",
+            "12|180": "ollie-v3-pelvic-t12-d180.glb",
+            "12|190": "ollie-v3-pelvic-t12-d190.glb",
             "12|200": "ollie-v3-pelvic-t12-d200.glb",
+            "14|0": "ollie-v3-pelvic-t14-d000.glb",
+            "14|10": "ollie-v3-pelvic-t14-d010.glb",
+            "14|20": "ollie-v3-pelvic-t14-d020.glb",
+            "14|30": "ollie-v3-pelvic-t14-d030.glb",
+            "14|40": "ollie-v3-pelvic-t14-d040.glb",
+            "14|50": "ollie-v3-pelvic-t14-d050.glb",
+            "14|60": "ollie-v3-pelvic-t14-d060.glb",
+            "14|70": "ollie-v3-pelvic-t14-d070.glb",
+            "14|80": "ollie-v3-pelvic-t14-d080.glb",
+            "14|90": "ollie-v3-pelvic-t14-d090.glb",
+            "14|100": "ollie-v3-pelvic-t14-d100.glb",
+            "14|110": "ollie-v3-pelvic-t14-d110.glb",
+            "14|120": "ollie-v3-pelvic-t14-d120.glb",
+            "14|130": "ollie-v3-pelvic-t14-d130.glb",
+            "14|140": "ollie-v3-pelvic-t14-d140.glb",
+            "14|150": "ollie-v3-pelvic-t14-d150.glb",
+            "14|160": "ollie-v3-pelvic-t14-d160.glb",
+            "14|170": "ollie-v3-pelvic-t14-d170.glb",
+            "14|180": "ollie-v3-pelvic-t14-d180.glb",
+            "14|190": "ollie-v3-pelvic-t14-d190.glb",
+            "14|200": "ollie-v3-pelvic-t14-d200.glb",
+            "16|0": "ollie-v3-pelvic-t16-d000.glb",
+            "16|10": "ollie-v3-pelvic-t16-d010.glb",
+            "16|20": "ollie-v3-pelvic-t16-d020.glb",
+            "16|30": "ollie-v3-pelvic-t16-d030.glb",
+            "16|40": "ollie-v3-pelvic-t16-d040.glb",
+            "16|50": "ollie-v3-pelvic-t16-d050.glb",
+            "16|60": "ollie-v3-pelvic-t16-d060.glb",
+            "16|70": "ollie-v3-pelvic-t16-d070.glb",
+            "16|80": "ollie-v3-pelvic-t16-d080.glb",
+            "16|90": "ollie-v3-pelvic-t16-d090.glb",
+            "16|100": "ollie-v3-pelvic-t16-d100.glb",
+            "16|110": "ollie-v3-pelvic-t16-d110.glb",
+            "16|120": "ollie-v3-pelvic-t16-d120.glb",
+            "16|130": "ollie-v3-pelvic-t16-d130.glb",
+            "16|140": "ollie-v3-pelvic-t16-d140.glb",
+            "16|150": "ollie-v3-pelvic-t16-d150.glb",
+            "16|160": "ollie-v3-pelvic-t16-d160.glb",
+            "16|170": "ollie-v3-pelvic-t16-d170.glb",
+            "16|180": "ollie-v3-pelvic-t16-d180.glb",
+            "16|190": "ollie-v3-pelvic-t16-d190.glb",
+            "16|200": "ollie-v3-pelvic-t16-d200.glb",
             "18|0": "ollie-v3-pelvic-t18-d000.glb",
+            "18|10": "ollie-v3-pelvic-t18-d010.glb",
+            "18|20": "ollie-v3-pelvic-t18-d020.glb",
+            "18|30": "ollie-v3-pelvic-t18-d030.glb",
             "18|40": "ollie-v3-pelvic-t18-d040.glb",
+            "18|50": "ollie-v3-pelvic-t18-d050.glb",
+            "18|60": "ollie-v3-pelvic-t18-d060.glb",
+            "18|70": "ollie-v3-pelvic-t18-d070.glb",
             "18|80": "ollie-v3-pelvic-t18-d080.glb",
+            "18|90": "ollie-v3-pelvic-t18-d090.glb",
+            "18|100": "ollie-v3-pelvic-t18-d100.glb",
+            "18|110": "ollie-v3-pelvic-t18-d110.glb",
             "18|120": "ollie-v3-pelvic-t18-d120.glb",
+            "18|130": "ollie-v3-pelvic-t18-d130.glb",
+            "18|140": "ollie-v3-pelvic-t18-d140.glb",
+            "18|150": "ollie-v3-pelvic-t18-d150.glb",
             "18|160": "ollie-v3-pelvic-t18-d160.glb",
+            "18|170": "ollie-v3-pelvic-t18-d170.glb",
+            "18|180": "ollie-v3-pelvic-t18-d180.glb",
+            "18|190": "ollie-v3-pelvic-t18-d190.glb",
             "18|200": "ollie-v3-pelvic-t18-d200.glb",
+            "20|0": "ollie-v3-pelvic-t20-d000.glb",
+            "20|10": "ollie-v3-pelvic-t20-d010.glb",
+            "20|20": "ollie-v3-pelvic-t20-d020.glb",
+            "20|30": "ollie-v3-pelvic-t20-d030.glb",
+            "20|40": "ollie-v3-pelvic-t20-d040.glb",
+            "20|50": "ollie-v3-pelvic-t20-d050.glb",
+            "20|60": "ollie-v3-pelvic-t20-d060.glb",
+            "20|70": "ollie-v3-pelvic-t20-d070.glb",
+            "20|80": "ollie-v3-pelvic-t20-d080.glb",
+            "20|90": "ollie-v3-pelvic-t20-d090.glb",
+            "20|100": "ollie-v3-pelvic-t20-d100.glb",
+            "20|110": "ollie-v3-pelvic-t20-d110.glb",
+            "20|120": "ollie-v3-pelvic-t20-d120.glb",
+            "20|130": "ollie-v3-pelvic-t20-d130.glb",
+            "20|140": "ollie-v3-pelvic-t20-d140.glb",
+            "20|150": "ollie-v3-pelvic-t20-d150.glb",
+            "20|160": "ollie-v3-pelvic-t20-d160.glb",
+            "20|170": "ollie-v3-pelvic-t20-d170.glb",
+            "20|180": "ollie-v3-pelvic-t20-d180.glb",
+            "20|190": "ollie-v3-pelvic-t20-d190.glb",
+            "20|200": "ollie-v3-pelvic-t20-d200.glb",
+            "22|0": "ollie-v3-pelvic-t22-d000.glb",
+            "22|10": "ollie-v3-pelvic-t22-d010.glb",
+            "22|20": "ollie-v3-pelvic-t22-d020.glb",
+            "22|30": "ollie-v3-pelvic-t22-d030.glb",
+            "22|40": "ollie-v3-pelvic-t22-d040.glb",
+            "22|50": "ollie-v3-pelvic-t22-d050.glb",
+            "22|60": "ollie-v3-pelvic-t22-d060.glb",
+            "22|70": "ollie-v3-pelvic-t22-d070.glb",
+            "22|80": "ollie-v3-pelvic-t22-d080.glb",
+            "22|90": "ollie-v3-pelvic-t22-d090.glb",
+            "22|100": "ollie-v3-pelvic-t22-d100.glb",
+            "22|110": "ollie-v3-pelvic-t22-d110.glb",
+            "22|120": "ollie-v3-pelvic-t22-d120.glb",
+            "22|130": "ollie-v3-pelvic-t22-d130.glb",
+            "22|140": "ollie-v3-pelvic-t22-d140.glb",
+            "22|150": "ollie-v3-pelvic-t22-d150.glb",
+            "22|160": "ollie-v3-pelvic-t22-d160.glb",
+            "22|170": "ollie-v3-pelvic-t22-d170.glb",
+            "22|180": "ollie-v3-pelvic-t22-d180.glb",
+            "22|190": "ollie-v3-pelvic-t22-d190.glb",
+            "22|200": "ollie-v3-pelvic-t22-d200.glb",
             "24|0": "ollie-v3-pelvic-t24-d000.glb",
+            "24|10": "ollie-v3-pelvic-t24-d010.glb",
+            "24|20": "ollie-v3-pelvic-t24-d020.glb",
+            "24|30": "ollie-v3-pelvic-t24-d030.glb",
             "24|40": "ollie-v3-pelvic-t24-d040.glb",
+            "24|50": "ollie-v3-pelvic-t24-d050.glb",
+            "24|60": "ollie-v3-pelvic-t24-d060.glb",
+            "24|70": "ollie-v3-pelvic-t24-d070.glb",
             "24|80": "ollie-v3-pelvic-t24-d080.glb",
+            "24|90": "ollie-v3-pelvic-t24-d090.glb",
+            "24|100": "ollie-v3-pelvic-t24-d100.glb",
+            "24|110": "ollie-v3-pelvic-t24-d110.glb",
             "24|120": "ollie-v3-pelvic-t24-d120.glb",
+            "24|130": "ollie-v3-pelvic-t24-d130.glb",
+            "24|140": "ollie-v3-pelvic-t24-d140.glb",
+            "24|150": "ollie-v3-pelvic-t24-d150.glb",
             "24|160": "ollie-v3-pelvic-t24-d160.glb",
+            "24|170": "ollie-v3-pelvic-t24-d170.glb",
+            "24|180": "ollie-v3-pelvic-t24-d180.glb",
+            "24|190": "ollie-v3-pelvic-t24-d190.glb",
             "24|200": "ollie-v3-pelvic-t24-d200.glb",
+            "26|0": "ollie-v3-pelvic-t26-d000.glb",
+            "26|10": "ollie-v3-pelvic-t26-d010.glb",
+            "26|20": "ollie-v3-pelvic-t26-d020.glb",
+            "26|30": "ollie-v3-pelvic-t26-d030.glb",
+            "26|40": "ollie-v3-pelvic-t26-d040.glb",
+            "26|50": "ollie-v3-pelvic-t26-d050.glb",
+            "26|60": "ollie-v3-pelvic-t26-d060.glb",
+            "26|70": "ollie-v3-pelvic-t26-d070.glb",
+            "26|80": "ollie-v3-pelvic-t26-d080.glb",
+            "26|90": "ollie-v3-pelvic-t26-d090.glb",
+            "26|100": "ollie-v3-pelvic-t26-d100.glb",
+            "26|110": "ollie-v3-pelvic-t26-d110.glb",
+            "26|120": "ollie-v3-pelvic-t26-d120.glb",
+            "26|130": "ollie-v3-pelvic-t26-d130.glb",
+            "26|140": "ollie-v3-pelvic-t26-d140.glb",
+            "26|150": "ollie-v3-pelvic-t26-d150.glb",
+            "26|160": "ollie-v3-pelvic-t26-d160.glb",
+            "26|170": "ollie-v3-pelvic-t26-d170.glb",
+            "26|180": "ollie-v3-pelvic-t26-d180.glb",
+            "26|190": "ollie-v3-pelvic-t26-d190.glb",
+            "26|200": "ollie-v3-pelvic-t26-d200.glb",
+            "28|0": "ollie-v3-pelvic-t28-d000.glb",
+            "28|10": "ollie-v3-pelvic-t28-d010.glb",
+            "28|20": "ollie-v3-pelvic-t28-d020.glb",
+            "28|30": "ollie-v3-pelvic-t28-d030.glb",
+            "28|40": "ollie-v3-pelvic-t28-d040.glb",
+            "28|50": "ollie-v3-pelvic-t28-d050.glb",
+            "28|60": "ollie-v3-pelvic-t28-d060.glb",
+            "28|70": "ollie-v3-pelvic-t28-d070.glb",
+            "28|80": "ollie-v3-pelvic-t28-d080.glb",
+            "28|90": "ollie-v3-pelvic-t28-d090.glb",
+            "28|100": "ollie-v3-pelvic-t28-d100.glb",
+            "28|110": "ollie-v3-pelvic-t28-d110.glb",
+            "28|120": "ollie-v3-pelvic-t28-d120.glb",
+            "28|130": "ollie-v3-pelvic-t28-d130.glb",
+            "28|140": "ollie-v3-pelvic-t28-d140.glb",
+            "28|150": "ollie-v3-pelvic-t28-d150.glb",
+            "28|160": "ollie-v3-pelvic-t28-d160.glb",
+            "28|170": "ollie-v3-pelvic-t28-d170.glb",
+            "28|180": "ollie-v3-pelvic-t28-d180.glb",
+            "28|190": "ollie-v3-pelvic-t28-d190.glb",
+            "28|200": "ollie-v3-pelvic-t28-d200.glb",
             "30|0": "ollie-v3-pelvic-t30-d000.glb",
+            "30|10": "ollie-v3-pelvic-t30-d010.glb",
+            "30|20": "ollie-v3-pelvic-t30-d020.glb",
+            "30|30": "ollie-v3-pelvic-t30-d030.glb",
             "30|40": "ollie-v3-pelvic-t30-d040.glb",
+            "30|50": "ollie-v3-pelvic-t30-d050.glb",
+            "30|60": "ollie-v3-pelvic-t30-d060.glb",
+            "30|70": "ollie-v3-pelvic-t30-d070.glb",
             "30|80": "ollie-v3-pelvic-t30-d080.glb",
+            "30|90": "ollie-v3-pelvic-t30-d090.glb",
+            "30|100": "ollie-v3-pelvic-t30-d100.glb",
+            "30|110": "ollie-v3-pelvic-t30-d110.glb",
             "30|120": "ollie-v3-pelvic-t30-d120.glb",
+            "30|130": "ollie-v3-pelvic-t30-d130.glb",
+            "30|140": "ollie-v3-pelvic-t30-d140.glb",
+            "30|150": "ollie-v3-pelvic-t30-d150.glb",
             "30|160": "ollie-v3-pelvic-t30-d160.glb",
+            "30|170": "ollie-v3-pelvic-t30-d170.glb",
+            "30|180": "ollie-v3-pelvic-t30-d180.glb",
+            "30|190": "ollie-v3-pelvic-t30-d190.glb",
             "30|200": "ollie-v3-pelvic-t30-d200.glb"
           },
           "defaultValue": "18|120",
@@ -719,81 +1504,104 @@
             "color": "#496b94",
             "opacity": 0.38,
             "visible": true
+          },
+          "original": {
+            "at": "0|0",
+            "label": "Proposed"
           }
         }
       },
       "views": [
         {
+          "key": "picture",
+          "label": "Picture",
+          "icon": "image",
+          "panes": [
+            "picture"
+          ]
+        },
+        {
           "key": "split",
-          "label": "Current vs sweep",
+          "label": "Picture + slider",
           "icon": "columns-2",
           "panes": [
-            "current",
-            "proposed"
+            "picture",
+            "pelvic"
           ]
         },
         {
-          "key": "sweep",
-          "label": "Pelvic sweep",
+          "key": "pelvic",
+          "label": "Slider",
           "icon": "sliders-horizontal",
           "panes": [
-            "proposed"
-          ]
-        },
-        {
-          "key": "current",
-          "label": "Current",
-          "icon": "box",
-          "panes": [
-            "current"
+            "pelvic"
           ]
         }
-      ],
-      "defaultView": "split"
+      ]
     },
     {
-      "id": "ollie-f-denser-lattice",
+      "id": "lattice",
       "kind": "stage",
-      "title": "F · Denser lattice",
-      "context": "The vet asked for ventilation, so we kept the lattice open.",
-      "problem": "The lattice may be too sparse to hold its shape under load.",
-      "proposal": "Increase the lattice density while keeping enough openings for airflow. Drag the bar under the sweep model from 5 to 250 lattice points; Ollie's socket used 50. Every step is a real nTop export.",
-      "ask": "How open does a socket need to be for a dog's skin and coat? Would you trade some ventilation for stiffness?",
+      "title": "Lattice Ventilation",
+      "context": "",
       "sources": {
-        "current": {
-          "kind": "assembly",
-          "label": "Current",
-          "caption": "sparse lattice",
-          "layers": [
-            {
-              "key": "animal",
-              "label": "Solid animal",
-              "file": "ollie-solid-animal.glb",
-              "color": "#496b94",
-              "opacity": 0.38
-            },
-            {
-              "key": "socket",
-              "label": "Socket",
-              "file": "ollie-socket.glb",
-              "color": "#b9c2cc",
-              "opacity": 1
-            }
-          ]
-        },
-        "proposed": {
+        "lattice": {
           "kind": "sweep",
-          "label": "Lattice point count",
+          "label": "Lattice point density",
           "tone": "proposed",
           "caption": "nTop v3 sweep (pelvic inputs at 0)",
           "param": "Lattice point count",
           "unit": "points",
           "files": {
             "5": "ollie-v3-lattice-005.glb",
+            "10": "ollie-v3-lattice-010.glb",
+            "15": "ollie-v3-lattice-015.glb",
+            "20": "ollie-v3-lattice-020.glb",
+            "25": "ollie-v3-lattice-025.glb",
+            "30": "ollie-v3-lattice-030.glb",
+            "35": "ollie-v3-lattice-035.glb",
+            "40": "ollie-v3-lattice-040.glb",
+            "45": "ollie-v3-lattice-045.glb",
             "50": "ollie-v3-lattice-050.glb",
+            "55": "ollie-v3-lattice-055.glb",
+            "60": "ollie-v3-lattice-060.glb",
+            "65": "ollie-v3-lattice-065.glb",
+            "70": "ollie-v3-lattice-070.glb",
+            "75": "ollie-v3-lattice-075.glb",
+            "80": "ollie-v3-lattice-080.glb",
+            "85": "ollie-v3-lattice-085.glb",
+            "90": "ollie-v3-lattice-090.glb",
+            "95": "ollie-v3-lattice-095.glb",
             "100": "ollie-v3-lattice-100.glb",
+            "105": "ollie-v3-lattice-105.glb",
+            "110": "ollie-v3-lattice-110.glb",
+            "115": "ollie-v3-lattice-115.glb",
+            "120": "ollie-v3-lattice-120.glb",
+            "125": "ollie-v3-lattice-125.glb",
+            "130": "ollie-v3-lattice-130.glb",
+            "135": "ollie-v3-lattice-135.glb",
+            "140": "ollie-v3-lattice-140.glb",
+            "145": "ollie-v3-lattice-145.glb",
             "150": "ollie-v3-lattice-150.glb",
+            "155": "ollie-v3-lattice-155.glb",
+            "160": "ollie-v3-lattice-160.glb",
+            "165": "ollie-v3-lattice-165.glb",
+            "170": "ollie-v3-lattice-170.glb",
+            "175": "ollie-v3-lattice-175.glb",
+            "180": "ollie-v3-lattice-180.glb",
+            "185": "ollie-v3-lattice-185.glb",
+            "190": "ollie-v3-lattice-190.glb",
+            "195": "ollie-v3-lattice-195.glb",
             "200": "ollie-v3-lattice-200.glb",
+            "205": "ollie-v3-lattice-205.glb",
+            "210": "ollie-v3-lattice-210.glb",
+            "215": "ollie-v3-lattice-215.glb",
+            "220": "ollie-v3-lattice-220.glb",
+            "225": "ollie-v3-lattice-225.glb",
+            "230": "ollie-v3-lattice-230.glb",
+            "235": "ollie-v3-lattice-235.glb",
+            "240": "ollie-v3-lattice-240.glb",
+            "245": "ollie-v3-lattice-245.glb",
             "250": "ollie-v3-lattice-250.glb"
           },
           "defaultValue": 50,
@@ -804,50 +1612,86 @@
             "color": "#496b94",
             "opacity": 0.38,
             "visible": true
+          },
+          "original": {
+            "at": 50,
+            "label": "Original socket"
           }
         }
       },
       "views": [
         {
-          "key": "split",
-          "label": "Current vs sweep",
-          "icon": "columns-2",
-          "panes": [
-            "current",
-            "proposed"
-          ]
-        },
-        {
-          "key": "sweep",
-          "label": "Lattice sweep",
+          "key": "lattice",
+          "label": "Point density",
           "icon": "sliders-horizontal",
           "panes": [
-            "proposed"
-          ]
-        },
-        {
-          "key": "current",
-          "label": "Current",
-          "icon": "box",
-          "panes": [
-            "current"
+            "lattice"
           ]
         }
-      ],
-      "defaultView": "split"
+      ]
     },
     {
-      "id": "ollie-g-leg-length",
+      "id": "leg-length",
       "kind": "stage",
-      "title": "G · How long should the leg be?",
-      "context": "The mechanical interface is built into the bottom of Ollie's socket. A 5/8 inch pipe slides 40 mm up into it, and the paw slides onto the other end.",
-      "problem": "A leg that is too long drags and pushes the socket around; too short and he will not load it.",
-      "proposal": "Set the pipe length and see where the paw lands. The green disc is the floor under his scan. Touch the floor picks the length that puts the paw on it.",
-      "ask": "How much clearance would you leave between the paw and the floor for a dog like Ollie?",
+      "title": "Leg Length",
+      "context": "",
+      "linkCameras": false,
       "sources": {
+        "paws": {
+          "kind": "sweep",
+          "label": "Paw shapes",
+          "tone": "proposed",
+          "caption": "nTop paw sweep",
+          "param": "Semi circle percent",
+          "unit": "%",
+          "files": {
+            "1": "ollie-paw-shape-001.glb",
+            "5": "ollie-paw-shape-005.glb",
+            "10": "ollie-paw-shape-010.glb",
+            "15": "ollie-paw-shape-015.glb",
+            "20": "ollie-paw-shape-020.glb",
+            "25": "ollie-paw-shape-025.glb",
+            "30": "ollie-paw-shape-030.glb",
+            "35": "ollie-paw-shape-035.glb",
+            "40": "ollie-paw-shape-040.glb",
+            "45": "ollie-paw-shape-045.glb",
+            "50": "ollie-paw-shape-050.glb",
+            "55": "ollie-paw-shape-055.glb",
+            "60": "ollie-paw-shape-060.glb",
+            "65": "ollie-paw-shape-065.glb",
+            "70": "ollie-paw-shape-070.glb",
+            "75": "ollie-paw-shape-075.glb",
+            "80": "ollie-paw-shape-080.glb",
+            "85": "ollie-paw-shape-085.glb",
+            "90": "ollie-paw-shape-090.glb",
+            "95": "ollie-paw-shape-095.glb",
+            "100": "ollie-paw-shape-100.glb"
+          },
+          "defaultValue": "original",
+          "color": "#e0a100",
+          "pawFit": {
+            "top": 30,
+            "socketDepth": 0
+          },
+          "original": {
+            "file": "ollie-paw-140.glb",
+            "label": "Paw used at the fitting",
+            "short": "Fitted",
+            "pawFit": {
+              "top": 53,
+              "socketDepth": 21
+            }
+          }
+        },
+        "picture": {
+          "kind": "image",
+          "label": "Picture",
+          "caption": "",
+          "images": []
+        },
         "leg": {
           "kind": "assembly",
-          "label": "Leg",
+          "label": "Leg length finder",
           "caption": "pipe and paw on the socket's built-in interface",
           "layers": [
             {
@@ -903,50 +1747,123 @@
               "max": 250,
               "step": 1,
               "value": 84
-            }
+            },
+            "followPaw": "paws"
           }
         }
       },
       "views": [
         {
-          "key": "leg",
-          "label": "Leg length",
-          "icon": "ruler",
+          "key": "paws",
+          "label": "Paw slider",
+          "icon": "sliders-horizontal",
           "panes": [
-            "leg"
+            "paws"
+          ]
+        },
+        {
+          "key": "picture",
+          "label": "Picture + paw slider",
+          "icon": "columns-2",
+          "panes": [
+            "picture",
+            "paws"
+          ]
+        },
+        {
+          "key": "leg",
+          "label": "Leg finder + paw slider",
+          "icon": "columns-2",
+          "panes": [
+            "leg",
+            "paws"
           ]
         }
       ]
     },
     {
-      "id": "ollie-h-paw",
+      "id": "interface-position",
       "kind": "stage",
-      "title": "H · Paw shape and traction",
-      "context": "The paw is a printed lattice so it can flex. We are considering new shapes and how to give it grip.",
-      "proposal": "Scrub through the paw shapes we are considering: the bar steps the nTop paw input \"Semi circle percent\" from 1 to 100%. The current paw is the 140-point lattice he wore.",
-      "ask": "Which paw shape would you choose, and how would you give it traction?",
-      "choices": {
-        "ask": "Traction",
-        "options": [
-          {
-            "key": "bumps",
-            "label": "Bumps printed into the paw",
-            "icon": "grip"
-          },
-          {
-            "key": "pad",
-            "label": "Rubber pad glued on",
-            "icon": "layers"
-          },
-          {
-            "key": "either",
-            "label": "Either / depends",
-            "icon": "circle-help"
-          }
-        ]
-      },
+      "title": "Positioning the Mechanical Interface",
+      "context": "",
+      "linkCameras": false,
       "sources": {
-        "shapes": {
+        "interface": {
+          "kind": "assembly",
+          "label": "Interface position",
+          "caption": "mechanical interface, pipe and paw; starts where the fitted socket had it",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 0.38
+            },
+            {
+              "key": "surface",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.35
+            },
+            {
+              "key": "socket",
+              "label": "Socket (no interface)",
+              "file": "ollie-socket-no-interface.glb",
+              "color": "#b9c2cc",
+              "opacity": 0.35
+            }
+          ],
+          "leg": {
+            "mount": {
+              "origin": [
+                -152.64,
+                156.47,
+                77.06
+              ],
+              "down": [
+                -0.031,
+                0.023,
+                -0.999
+              ],
+              "side": [
+                0.995,
+                0.098,
+                -0.029
+              ]
+            },
+            "interface": {
+              "file": "ollie-mechanical-interface.glb",
+              "bottom": -60.96,
+              "color": "#df7544",
+              "flip": true
+            },
+            "paw": {
+              "file": "ollie-paw-140.glb",
+              "top": 53,
+              "socketDepth": 21,
+              "yaw": 0,
+              "color": "#c9a76b"
+            },
+            "pipe": {
+              "od": 15.875,
+              "insertInterface": 40
+            },
+            "length": {
+              "min": 61,
+              "max": 250,
+              "step": 1,
+              "value": 84
+            },
+            "followPaw": "paws",
+            "place": {
+              "contact": 0,
+              "adjust": 50
+            }
+          }
+        },
+        "paws": {
           "kind": "sweep",
           "label": "Paw shapes",
           "tone": "proposed",
@@ -976,52 +1893,43 @@
             "95": "ollie-paw-shape-095.glb",
             "100": "ollie-paw-shape-100.glb"
           },
-          "defaultValue": 100,
-          "color": "#e0a100"
-        },
-        "current": {
-          "kind": "assembly",
-          "label": "Current paw",
-          "caption": "140-point lattice",
-          "layers": [
-            {
-              "key": "paw",
-              "label": "Paw",
-              "file": "ollie-paw-140.glb",
-              "color": "#c9a76b",
-              "opacity": 1
+          "defaultValue": "original",
+          "color": "#e0a100",
+          "pawFit": {
+            "top": 30,
+            "socketDepth": 0
+          },
+          "original": {
+            "file": "ollie-paw-140.glb",
+            "label": "Paw used at the fitting",
+            "short": "Fitted",
+            "pawFit": {
+              "top": 53,
+              "socketDepth": 21
             }
-          ]
+          }
         }
       },
       "views": [
         {
-          "key": "shapes",
-          "label": "Paw shapes",
-          "icon": "sliders-horizontal",
+          "key": "place",
+          "label": "Place the interface",
+          "icon": "move-3d",
           "panes": [
-            "shapes"
+            "interface"
           ]
         },
         {
-          "key": "current",
-          "label": "Current paw",
-          "icon": "box",
-          "panes": [
-            "current"
-          ]
-        },
-        {
-          "key": "both",
-          "label": "Side by side",
+          "key": "paws",
+          "label": "Interface + paw slider",
           "icon": "columns-2",
           "panes": [
-            "current",
-            "shapes"
+            "interface",
+            "paws"
           ]
         }
       ],
-      "linkCameras": false
+      "notesHidden": true
     }
   ]
 }
