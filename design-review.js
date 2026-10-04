@@ -3311,18 +3311,23 @@ function buildGuided() {
         syncLeft();
     });
     let dockWatch = null;
-    // "Edit": back to the presentation editor on this screen. Inside the editor's Present mode it tells the
-    // editor (same site); on this computer's preview server it opens the editor. Not on the public site.
+    // "Edit": back to the presentation editor on this screen (presenter link only, "&host"). Inside the
+    // editor's Present mode it tells the editor (same site). Anywhere else, including the public site, it
+    // opens the editor on this computer (the local preview server, localhost:8131) in a new tab, so a live
+    // session in this tab keeps running.
     const editBtn = page.querySelector('.rv-edit-toggle');
     const reviewRef = pageParams.get('review') || '';
     const inEditor = reviewRef.startsWith('draft:') && window.parent !== window;
-    const localFile = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && /^reviews\/[a-z0-9-]+\.json$/.test(reviewRef);
-    function syncEditBtn() { editBtn.hidden = !(policy.isHost() && (inEditor || localFile)); }
+    const fileRef = /^reviews\/[a-z0-9-]+\.json$/.test(reviewRef);
+    const onThisComputer = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    function syncEditBtn() { editBtn.hidden = !(policy.host && (inEditor || fileRef)); }
+    if (!inEditor && !onThisComputer) editBtn.title = 'Open this screen in the presentation editor on this computer (its local server must be running)';
     editBtn.addEventListener('click', () => {
         const id = entries[guidedIndex]?.item.id || '';
         if (document.body.classList.contains('rv-full')) setFull(false);
         if (inEditor) { try { window.parent.postMessage({ type: 'gap-edit-screen', id }, location.origin); return; } catch { /* fall through */ } }
-        location.href = `review-editor.html?file=${encodeURIComponent(reviewRef)}${id ? `&screen=${encodeURIComponent(id)}` : ''}`;
+        const base = onThisComputer ? new URL('review-editor.html', location.href).href : 'http://localhost:8131/review-editor.html';
+        window.open(`${base}?file=${encodeURIComponent(reviewRef)}${id ? `&screen=${encodeURIComponent(id)}` : ''}`, 'gap-review-editor');
     });
     syncEditBtn();
     // "How to move" (the 3D movement guide) shows when the tab on screen has a 3D view.
