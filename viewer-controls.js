@@ -444,7 +444,7 @@ export function createPaneView({ camera, controls, canvas, stage, cubeWrap, cube
     };
 }
 
-export function createViewerControls({ camera, controls, canvas, stage, cubeWrap, cubeCanvas, helpButton, axisColors, pickMeshes, isGizmoHovered, frameView }) {
+export function createViewerControls({ camera, controls, canvas, stage, cubeWrap, cubeCanvas, helpButton, axisColors, pickMeshes, isGizmoHovered, frameView, dismissible = false, collapseTarget = null }) {
     let coach = null;
     const pane = createPaneView({
         camera, controls, canvas, stage, cubeWrap, cubeCanvas, axisColors, pickMeshes, isGizmoHovered,
@@ -469,6 +469,7 @@ export function createViewerControls({ camera, controls, canvas, stage, cubeWrap
     coachEl.hidden = true;
     coachEl.setAttribute('aria-label', 'How to move the 3D view');
     coachEl.innerHTML = `
+        ${dismissible ? '<button type="button" class="controls-coach-close" title="Hide (the How to move button brings it back)" aria-label="Hide">&times;</button>' : ''}
         <div class="ctl-card" data-coach-card></div>
         <div class="controls-coach-foot">
             <div class="controls-coach-dots" role="group" aria-label="Choose a control">
@@ -548,7 +549,9 @@ export function createViewerControls({ camera, controls, canvas, stage, cubeWrap
             if (!collapse || reducedMotion.matches) { coachEl.hidden = true; return; }
             // Shrink the card into the controls button so the student knows where the intro lives.
             const card = coachEl.getBoundingClientRect();
-            const target = helpButton.getBoundingClientRect();
+            // The guide shrinks into the button that brings it back (a page can supply its own).
+            const into = collapseTarget?.() || helpButton;
+            const target = into.getBoundingClientRect();
             const dx = (target.left + target.width / 2) - (card.left + card.width / 2);
             const dy = (target.top + target.height / 2) - (card.top + card.height / 2);
             coachEl.classList.add('is-collapsing');
@@ -559,10 +562,10 @@ export function createViewerControls({ camera, controls, canvas, stage, cubeWrap
                 coachEl.hidden = true;
                 coachEl.classList.remove('is-collapsing');
                 coachEl.style.transform = '';
-                helpButton.classList.remove('is-pulsing');
-                void helpButton.offsetWidth;
-                helpButton.classList.add('is-pulsing');
-                setTimeout(() => helpButton.classList.remove('is-pulsing'), 2200);
+                into.classList.remove('is-pulsing');
+                void into.offsetWidth;
+                into.classList.add('is-pulsing');
+                setTimeout(() => into.classList.remove('is-pulsing'), 2200);
             };
             coachEl.addEventListener('transitionend', finish);
             setTimeout(() => { if (coachEl.classList.contains('is-collapsing')) finish(); }, 900);
@@ -601,6 +604,7 @@ export function createViewerControls({ camera, controls, canvas, stage, cubeWrap
         },
     };
     coachEl.querySelector('.controls-coach-done').addEventListener('click', () => coach.next());
+    coachEl.querySelector('.controls-coach-close')?.addEventListener('click', () => coach.close(true, { collapse: true }));
     coachEl.querySelectorAll('[data-coach-slide]').forEach(dot => {
         dot.addEventListener('click', () => coach.show(+dot.dataset.coachSlide));
     });

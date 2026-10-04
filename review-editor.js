@@ -213,7 +213,8 @@ async function loadReview() {
     S.fileSha = file.sha;
     S.doc.items ||= [];
     S.savedText = docText();
-    S.sel = S.doc.items[0] || 'settings';
+    const wanted = new URLSearchParams(location.search).get('screen');
+    S.sel = (wanted && S.doc.items.find(it => it.id === wanted)) || S.doc.items[0] || 'settings';
     const wip = (() => { try { return JSON.parse(store('get', wipKey())); } catch { return null; } })();
     if (wip?.text && wip.text !== S.savedText) {
         const banner = $('#ed-banner');
@@ -371,6 +372,14 @@ function setOutline(on) {
     saveLayout();
     layout();
 }
+// The presentation's Edit button (Present mode / full screen): back to editing, on the screen it showed.
+addEventListener('message', event => {
+    if (event.origin !== location.origin || event.source !== $('#ed-frame')?.contentWindow || event.data?.type !== 'gap-edit-screen') return;
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    setMode('edit');
+    const item = S.doc?.items.find(it => it.id === event.data.id);
+    if (item && item !== S.sel) select(item);
+});
 function setMode(mode) {
     if (mode === S.mode) return;
     S.mode = mode;
@@ -747,6 +756,7 @@ function screenForm(item) {
             h('button', { type: 'button', class: 'ed-btn ed-mini', onclick: () => duplicateScreen(item) }, ic('copy'), 'Duplicate'),
             h('button', { type: 'button', class: 'ed-btn ed-mini ed-danger', onclick: () => deleteScreen(item) }, ic('trash-2'), 'Delete'))));
 
+    wrap.append(presenterNotesCard(item));
     wrap.append(card({ title: 'Words on the screen', summary: item.title || '' }, 'type', null,
         field('Title', item, 'title', { placeholder: 'What this screen is about' }),
         field('Subtitle', item, 'context', { multiline: true, rows: 2, placeholder: 'One or two sentences under the title' }),
@@ -1258,6 +1268,68 @@ function originalMarker(src) {
                 values.map(v => h('option', { value: v, selected: at !== undefined && +at === v }, `${v}${src.unit ? ' ' + src.unit : ''}`)))),
         src.original ? field('Flag text', src.original, 'label', { placeholder: 'Original socket' }) : null);
 }
+// ---- presenter notes ------------------------------------------------------------------------------
+// Notes you place in the presentation (pins, video marks, the notes box) live only in that browser. Bringing
+// them in writes them into the file as "presenterNotes", so everyone sees them, on any device.
+const NOTES_PREFIX = 'gap-design-review:';
+async function readNotesSource(kind) {
+    if (kind === 'local') {
+        let raw = null;
+        try { raw = localStorage.getItem(NOTES_PREFIX + S.doc.id); } catch { /* storage off */ }
+        if (!raw) throw new Error('No notes for this presentation in this browser yet. Place them in Present (or the presentation on localhost) first.');
+        return JSON.parse(raw);
+    }
+    if (kind === 'file') {
+        const input = h('input', { type: 'file', accept: '.json,application/json' });
+        const file = await new Promise(resolve => { input.addEventListener('change', () => resolve(input.files[0])); input.click(); });
+        if (!file) return null;
+        return JSON.parse(await file.text());
+    }
+    const link = prompt('Paste the link from "Copy link with my notes" (it ends in #r=…):');
+    if (!link) return null;
+    const code = (link.split('#r=')[1] || '').trim();
+    if (!code) throw new Error('That link has no notes in it (no #r= part).');
+    const bytes = Uint8Array.from(atob(code.slice(1).replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((code.length + 2) % 4)), c => c.charCodeAt(0));
+    if (code[0] === 'j') return JSON.parse(new TextDecoder().decode(bytes));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return JSON.parse(await new Response(stream).text());
+}
+async function bringInNotes(items, kind) {
+    let data;
+    try { data = await readNotesSource(kind); } catch (error) { toast(error.message, { error: true, ms: 6000 }); return; }
+    if (!data?.items) { if (data !== null) toast('That does not look like presentation notes.', { error: true }); return; }
+    const by = prompt('Show these notes under which name?', data.reviewer && data.reviewer !== 'Derrick Campana' ? data.reviewer : 'Presenter');
+    if (by === null) return;
+    let screens = 0, marks = 0;
+    edit(() => items.forEach(item => {
+        const entry = data.items[item.id];
+        const annotations = (entry?.annotations || []).filter(a => a && (a.kind === 'pin' || a.kind === 'mark'));
+        const note = String(entry?.note || '').trim();
+        if (!annotations.length && !note) return;
+        item.presenterNotes = { by: by.trim() || 'Presenter', note, annotations };
+        screens++;
+        marks += annotations.length;
+    }), { structural: true });
+    toast(screens ? `Brought in notes for ${screens} screen${screens === 1 ? '' : 's'} (${marks} pin${marks === 1 ? '' : 's'} and marks). Save to keep them.` : 'No notes found for these screens.', { ms: 5000 });
+}
+function notesSourceMenu(items) {
+    return h('select', { class: 'ed-mini', title: 'Where your notes are', onchange: event => { const kind = event.target.value; event.target.value = ''; if (kind) bringInNotes(items, kind); } },
+        h('option', { value: '' }, items.length > 1 ? 'Bring in my notes for every screen…' : 'Bring in my notes…'),
+        h('option', { value: 'local' }, 'From this computer (notes placed on localhost)'),
+        h('option', { value: 'file' }, 'From a notes file (Summary → Download .json)'),
+        h('option', { value: 'link' }, 'From a link (Copy link with my notes)'));
+}
+function presenterNotesCard(item) {
+    const pn = item.presenterNotes;
+    const count = pn?.annotations?.length || 0;
+    return card({ title: 'Presenter notes', summary: pn ? `${count} pin${count === 1 ? '' : 's'} / marks${pn.note ? ' + note' : ''}, by ${pn.by || 'Presenter'}` : 'none' }, 'presentation', null,
+        h('p', { class: 'ed-note' }, 'Notes you place while presenting are kept only in that browser. Bring them in here and save: everyone then sees them (in gold, with your name) on every device.'),
+        h('div', { class: 'ed-actions' }, notesSourceMenu([item]),
+            pn ? h('button', { type: 'button', class: 'ed-btn ed-mini ed-danger', onclick: () => edit(() => { delete item.presenterNotes; }, { structural: true }) }, ic('trash-2'), 'Remove presenter notes') : null),
+        pn ? h('div', { class: 'ed-grid2' },
+            field('Shown as', pn, 'by', { placeholder: 'Presenter' }),
+            field('Note (shown above the reviewer\'s notes)', pn, 'note', { multiline: true, rows: 3 })) : null);
+}
 function sweepEditor(src) {
     if (Array.isArray(src.axes)) {
         // Two inputs swept together (e.g. pelvic thickness × thicken distance). Files are keyed "a|b".
@@ -1360,6 +1432,9 @@ function settingsForm() {
     sortableTable(tbody, doc.library);
     return h('div', {},
         h('div', { class: 'ed-form-head' }, h('div', {}, h('h2', {}, 'Presentation settings'), h('span', { class: 'ed-id', title: 'Reviewers\' notes are stored under this id' }, `id: ${doc.id || '(none)'}`))),
+        card({ title: 'Presenter notes', summary: `${doc.items.filter(i => i.presenterNotes).length} screen(s) have them` }, 'presentation', null,
+            h('p', { class: 'ed-note' }, 'Bring the notes you placed while presenting (pins, video marks, the notes box) into every screen at once. Save afterwards; everyone then sees them on any device.'),
+            h('div', { class: 'ed-actions' }, notesSourceMenu(doc.items))),
         card({ title: 'Title page', summary: doc.title || '' }, 'presentation', null,
             field('Title', doc, 'title'),
             field('Small line above the title', doc, 'subtitle', { placeholder: 'Give a Paw × Bionic Pets' }),

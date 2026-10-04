@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { createViewerControls } from './viewer-controls.js?v=4';
+import { createViewerControls } from './viewer-controls.js?v=8';
 import { review as builtinReview } from './design-review-content.js?v=1';
 import { driveConfig } from './drive-config.js?v=1';
 import { createLiveSession } from './live-session.js?v=8';
@@ -68,7 +68,7 @@ const pageParams = new URLSearchParams(location.search);
 const policy = {
     host: pageParams.has('host') || pageParams.has('dev'),
     liveHost: false,
-    defaults: ['pin', 'measure', 'section', 'layers', 'alpha', 'tabs', 'draw', 'demo'],
+    defaults: ['pin', 'measure', 'section', 'layers', 'alpha', 'tabs', 'draw', 'demo', 'help'],
     allowed: null,
     isHost() { return this.host || this.liveHost; },
     allows(key) { return this.isHost() || this.allowed.has(key); },
@@ -714,7 +714,7 @@ function createModelViewer(item) {
             }
             marker.mesh.position.fromArray(pin.pos);
             marker.mesh.scale.setScalar(sceneRadius * 0.012);
-            marker.label.innerHTML = `<span class="rv-anno-num">${index + 1}</span><span>${escapeHTML(name || 'Presenter')}: ${escapeHTML(pin.label || 'Pin ' + (index + 1))}</span>`;
+            marker.label.innerHTML = `<span class="rv-anno-num">${index + 1}</span><span>${escapeHTML(pin.by || name || 'Presenter')}: ${escapeHTML(pin.label || 'Pin ' + (index + 1))}</span>`;
         });
     }
     const projected = new THREE.Vector3();
@@ -817,11 +817,19 @@ function createModelViewer(item) {
         }, 'image/png');
     });
 
+    // "How to move": the movement guide shrinks into this button when it is put away; the button brings it back.
+    const moveHelp = el('button', 'rv-move-help', `${icon('move')} <span>How to move</span>`);
+    moveHelp.type = 'button';
+    moveHelp.title = 'Show how to turn, move and zoom the 3D view';
+    stage.append(moveHelp);
     const viewerControls = createViewerControls({
         camera, controls, canvas, stage,
         cubeWrap: root.querySelector('.view-cube-wrap'),
         cubeCanvas: root.querySelector('.view-cube'),
-        helpButton: toolButtons.help,
+        helpButton: moveHelp,
+        dismissible: true,
+        // In the guided layout the button sits in the screen's header, next to Hide notes.
+        collapseTarget: () => { const b = document.querySelector('.rv-guided .rv-move-toggle'); return b && !b.hidden && b.offsetParent ? b : null; },
         axisColors: NTOP_AXIS_COLORS,
         pickMeshes,
         isGizmoHovered: () => false,
@@ -1436,8 +1444,11 @@ function createModelViewer(item) {
         started = true;
         try {
             if (isSweep) {
-                await preloadSweep();
+                // The animal comes in right after the first part, not after every preloaded part (30 on
+                // some sliders), so it is there from the start on slow connections.
+                await ensureLoaded(item.values[sweep.index]);
                 if (item.animal) loadExtraLayer(item.animal);
+                await preloadSweep();
             } else {
                 await Promise.all(item.layers.map(async layer => {
                     const object = prepare(await loadMesh(layer.file), layer.color, layer.opacity ?? 1);
@@ -2424,7 +2435,7 @@ function createVideoAnnotator(item) {
         });
         remoteMarks.filter(m => shownAt(m, t)).forEach((mark, index) => {
             (mark.shapes || []).forEach(shape => drawShape(shape, '#e0a020', false));
-            const label = el('span', 'rv-mark-label remote', `<span class="rv-anno-num">${index + 1}</span><span>${escapeHTML(remoteName)}: ${escapeHTML(mark.label || 'Mark ' + (index + 1))}</span>`);
+            const label = el('span', 'rv-mark-label remote', `<span class="rv-anno-num">${index + 1}</span><span>${escapeHTML(mark.by || remoteName)}: ${escapeHTML(mark.label || 'Mark ' + (index + 1))}</span>`);
             label.title = 'Drag to move this label out of the way (only on your screen)';
             placeLabel(label, mark, mark.shapes?.[0]?.pts?.[0] || [0.04, 0.2], null);
             label.style.borderColor = '#a86e00';
@@ -2990,6 +3001,7 @@ function createNotesPanel(item, media) {
             <h4>${escapeHTML(item.choices.ask)}</h4>
             <div>${item.choices.options.map(o => `<button type="button" data-choice="${escapeHTML(o.key)}">${o.icon ? icon(o.icon) : ''} ${escapeHTML(o.label)}</button>`).join('')}</div>
         </div>` : ''}
+        ${item.presenterNotes?.note ? `<div class="rv-presenter-note"><h4>${icon('presentation')} Notes from ${escapeHTML(item.presenterNotes.by || 'the presenter')}</h4><p>${escapeHTML(item.presenterNotes.note)}</p></div>` : ''}
         <label>Your notes<textarea class="rv-note" placeholder="${item.kind === 'video' ? 'Anything you would tell us about this clip…' : 'Anything you would tell us about this design…'}"></textarea></label>
         <div class="rv-anno-head"><span>${item.kind === 'video' ? 'Marks on the video' : item.kind === 'stage' && Object.values(item.sources || {}).some(src => ['video', 'playlist'].includes(src.kind)) ? 'Pins and video marks' : 'Pins on the model'} <small class="rv-anno-count"></small></span></div>
         <ol class="rv-anno-list"></ol>`;
@@ -3085,7 +3097,28 @@ function addEntry(item) {
     const notes = createNotesPanel(item, media);
     const entry = { item, media, notes };
     entries.push(entry);
+    attachPresenterNotes(item, media);
     return entry;
+}
+// "presenterNotes": { "by", "note", "annotations": [pins and video marks] } on a screen (brought in from the
+// presenter's own notes in the editor). Everyone sees them in gold with the presenter's name, on top of any
+// live-session presenter marks; notes the presenter still has in this browser are not drawn twice.
+function attachPresenterNotes(item, media) {
+    const preset = item.presenterNotes;
+    if (!preset?.annotations?.length || !media.setRemote) return;
+    const by = preset.by || 'Presenter';
+    const tagged = preset.annotations.map(a => ({ ...a, by: a.by || by }));
+    const setLive = media.setRemote.bind(media);
+    let live = { list: [], name: '' };
+    const render = () => {
+        const mine = new Set((store.item(item.id).annotations || []).map(a => a.id));
+        const shown = tagged.filter(a => !mine.has(a.id));
+        const ids = new Set(shown.map(a => a.id));
+        setLive([...shown, ...live.list.filter(a => !ids.has(a.id))], live.name || by);
+    };
+    media.setRemote = (list, name) => { live = { list: list || [], name: name || '' }; render(); };
+    onStore(render);
+    render();
 }
 function detachAll() {
     entries.forEach(entry => { entry.media.root.remove(); entry.notes.root.remove(); });
@@ -3195,6 +3228,8 @@ function buildGuided() {
         <div class="rv-guided-head"><span class="rv-guided-step"></span><div><h2></h2><p></p></div>
             <div class="rv-screen-tools">
                 <button type="button" class="rv-btn rv-left-toggle" title="Show or hide the interface column" hidden>${icon('panel-left')} <span>Interface</span></button>
+                <button type="button" class="rv-btn rv-edit-toggle" title="Edit this screen in the presentation editor" hidden>${icon('pencil')} <span>Edit</span></button>
+                <button type="button" class="rv-btn rv-move-toggle" title="Show how to turn, move and zoom the 3D view" hidden>${icon('move')} <span>How to move</span></button>
                 <button type="button" class="rv-btn rv-notes-toggle" title="Show or hide the notes column">${icon('panel-right')} <span>Notes</span></button>
                 <button type="button" class="rv-btn rv-full-toggle" title="Full screen (Esc to leave)">${icon('maximize')} <span>Full screen</span></button>
             </div></div>
@@ -3276,6 +3311,27 @@ function buildGuided() {
         syncLeft();
     });
     let dockWatch = null;
+    // "Edit": back to the presentation editor on this screen. Inside the editor's Present mode it tells the
+    // editor (same site); on this computer's preview server it opens the editor. Not on the public site.
+    const editBtn = page.querySelector('.rv-edit-toggle');
+    const reviewRef = pageParams.get('review') || '';
+    const inEditor = reviewRef.startsWith('draft:') && window.parent !== window;
+    const localFile = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && /^reviews\/[a-z0-9-]+\.json$/.test(reviewRef);
+    function syncEditBtn() { editBtn.hidden = !(policy.isHost() && (inEditor || localFile)); }
+    editBtn.addEventListener('click', () => {
+        const id = entries[guidedIndex]?.item.id || '';
+        if (document.body.classList.contains('rv-full')) setFull(false);
+        if (inEditor) { try { window.parent.postMessage({ type: 'gap-edit-screen', id }, location.origin); return; } catch { /* fall through */ } }
+        location.href = `review-editor.html?file=${encodeURIComponent(reviewRef)}${id ? `&screen=${encodeURIComponent(id)}` : ''}`;
+    });
+    syncEditBtn();
+    // "How to move" (the 3D movement guide) shows when the tab on screen has a 3D view.
+    const moveBtn = page.querySelector('.rv-move-toggle');
+    function syncMoveBtn() {
+        const media = entries[guidedIndex]?.media;
+        moveBtn.hidden = !(guidedIndex < entries.length && (media?.tutorials?.() || []).includes('camera'));
+    }
+    moveBtn.addEventListener('click', () => entries[guidedIndex]?.media.showTutorial?.('camera'));
     new MutationObserver(() => syncLeft()).observe(document.body, { attributes: true, attributeFilter: ['data-hide'] });
     // Full screen: the screen fills the window (and the display, where the browser allows it). Tabs,
     // side by side, drawing, pins and Back / Next all keep working; Esc or the button leaves.
@@ -3330,12 +3386,14 @@ function buildGuided() {
             // Panels appear when their 3D view is built (first visit to a tab); tabs hide and show panes.
             // (At most once a frame: the viewers change a lot of markup while they work.)
             let queued = false;
-            dockWatch = new MutationObserver(() => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; dockPanels(media); }); });
+            dockWatch = new MutationObserver(() => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; dockPanels(media); syncMoveBtn(); }); });
             dockWatch.observe(media, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
             new MutationObserver(() => syncLeft()).observe(left, { attributes: true, attributeFilter: ['hidden'], subtree: true });
             dockPanels(media);
+            syncMoveBtn();
         } else {
             syncLeft();
+            syncMoveBtn();
             stepEl.textContent = 'Done';
             h2.textContent = 'Thank you. Here is everything you marked.';
             p.textContent = 'Copy the link to send it back, or download the file. You can go back and change anything.';
