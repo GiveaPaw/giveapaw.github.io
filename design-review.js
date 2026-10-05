@@ -4,10 +4,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { createViewerControls } from './viewer-controls.js?v=8';
+import { createViewerControls } from './viewer-controls.js?v=9';
 import { review as builtinReview } from './design-review-content.js?v=1';
 import { driveConfig } from './drive-config.js?v=1';
-import { createLiveSession } from './live-session.js?v=8';
+import { createLiveSession } from './live-session.js?v=11';
 import { createPaintTool, createLegTool, createGuide } from './review-tools.js?v=12';
 
 // The active review: the built-in manifest, or one loaded from ?review=drive:<id> | draft:<key> | <same-site .json path>.
@@ -178,6 +178,13 @@ function initStore() {
 
 function clipOf(item, annotation) {
     if (!annotation.clip || !item.sources) return null;
+    // Pictures (an "image" material) are shown as picture clips "img-1", "img-2"...
+    const own = annotation.source && item.sources[annotation.source];
+    const picture = /^img-(\d+)$/.exec(annotation.clip);
+    if (own?.kind === 'image' && picture) {
+        const img = (own.images || []).filter(i => i.src)[+picture[1] - 1];
+        if (img) return { id: annotation.clip, label: img.caption || decodeURIComponent(String(img.src).split('/').pop()), src: img.src };
+    }
     for (const source of Object.values(item.sources)) {
         const clip = source.clips?.find(c => c.id === annotation.clip);
         if (clip) return clip;
@@ -198,6 +205,8 @@ function markWhen(item, a) {
 function sweepUnitLabel(item, value) {
     // "original": the part that was actually made (e.g. the socket or paw used at the fitting).
     if (value === 'original') return item.original?.label || 'Original';
+    const extra = (item.extras || []).find(x => String(x.value) === String(value));
+    if (extra) return extra.label || String(value);
     // Two-input sweeps key each part as "a|b" (one value per axis).
     const marked = item.original && !item.original.file && item.original.at !== undefined && String(item.original.at) === String(value) ? ` · ${item.original.label || 'Original'}` : '';
     if (item.axes) return String(value).split('|').map((v, i) => `${item.axes[i].short || item.axes[i].param} ${v}${item.axes[i].unit ? ' ' + item.axes[i].unit : ''}`).join(' · ') + marked;
@@ -233,7 +242,7 @@ function buildSummary(items) {
         }
         if (entry.note.trim()) lines.push(`- Notes: ${entry.note.trim().replace(/\s*\n\s*/g, ' / ')}`);
         entry.annotations.forEach((a, index) => {
-            const where = a.kind === 'mark' ? `at ${markWhen(item, a)}` : `on model at (${a.pos.map(v => v.toFixed(1)).join(', ')}) mm${a.value !== undefined ? `, ${sweepUnitLabel(item, a.value)}` : ''}`;
+            const where = a.kind === 'mark' ? `at ${markWhen(item, a)}` : a.kind === 'sketch' ? `drawing on the 3D view${a.value !== undefined ? `, ${sweepUnitLabel(item, a.value)}` : ''}` : `on model at (${(a.pos || []).map(v => v.toFixed(1)).join(', ')}) mm${a.value !== undefined ? `, ${sweepUnitLabel(item, a.value)}` : ''}`;
             lines.push(`- #${index + 1} ${a.label || '(no label)'} ${where}${a.note ? `: ${a.note.replace(/\s*\n\s*/g, ' / ')}` : ''}`);
         });
         lines.push('');
@@ -328,6 +337,8 @@ function normalizeItem(item, index) {
             it.values = [...map.keys()].sort((x, y) => x - y);
             // "original": { "file", "label", "short" } puts the part that was really made first on the bar.
             if (it.original?.file) { map.set('original', resolveSource(it.original.file)); it.values.unshift('original'); }
+            // "extras": [{ "value", "file", "label", "short" }] adds named stops at the end (e.g. the solid socket).
+            (it.extras || []).filter(x => x?.value && x.file).forEach(x => { map.set(String(x.value), resolveSource(x.file)); it.values.push(String(x.value)); });
             it.file = value => map.get(value);
         } else {
             const original = it.file;
@@ -347,6 +358,8 @@ function normalizeItem(item, index) {
     } else if (it.kind === 'stage') {
         const sources = {};
         Object.entries(it.sources || {}).forEach(([key, src]) => { sources[key] = normalizeSource(src, key, it, index); });
+        const firstModel = Object.values(sources).find(src => src.kind === 'assembly' || src.kind === 'sweep');
+        if (firstModel) firstModel.isFirstModel = true;
         it.sources = sources;
         it.views = (it.views || []).filter(v => (v.panes || []).length);
         if (!it.views.length) it.views = Object.keys(sources).map(key => ({ key, label: sources[key].label || key, panes: [key] }));
@@ -407,6 +420,8 @@ const AXIS_VECTORS = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1,
 const UNIT_TO_MM = { mm: 1, cm: 10, m: 1000, in: 25.4 };
 
 let firstViewer = true;
+// A clip demo that runs first (on a playlist with "clipDemo": true) holds the 3D movement guide until it ends.
+let introHold = null;
 
 // ---- 3D viewer (sweep or assembly) -----------------------------------------------------------
 
@@ -431,6 +446,7 @@ function createModelViewer(item) {
             <div class="rv-toolbar" role="toolbar" aria-label="Viewer tools" aria-orientation="vertical">
                 <button type="button" data-tool="pin" title="Pin a comment on the model">${icon('map-pin')}</button>
                 <button type="button" data-tool="measure" title="Measure between two points">${icon('ruler')}</button>
+                <button type="button" data-tool="draw" title="Draw on this view (a 2D sketch that stays with this camera angle)">${icon('pencil')}</button>
                 <button type="button" data-tool="section" title="Section cut">${icon('scissors')}</button>
                 <hr>
                 <button type="button" data-tool="grid" class="active" title="Show or hide the grid">${icon('grid-3x3')}</button>
@@ -455,6 +471,13 @@ function createModelViewer(item) {
                 <label><input type="checkbox" class="rv-section-plane" checked> plane</label>
             </div>
             <div class="rv-pins"></div>
+            <canvas class="rv-sketch"></canvas>
+            <div class="rv-draw-panel" hidden>
+                <span class="rv-swatches" role="group" aria-label="Pen colour">${PEN_COLORS.map((c, i) => `<button type="button" class="rv-swatch${i === 0 ? ' active' : ''}" data-color="${c}" style="--swatch:${c}" title="Pen colour"></button>`).join('')}</span>
+                <button type="button" class="rv-draw-undo" title="Undo your last line on this view">${icon('undo-2')}</button>
+                <button type="button" class="rv-draw-done" title="Stop drawing (Esc)">Done</button>
+            </div>
+            <button type="button" class="rv-sketch-chip" hidden></button>
             <div class="rv-loader"><span></span><p>Loading model…</p></div>
             <p class="rv-hint">Drag to orbit · Middle-drag or <kbd>Shift</kbd>+drag to pan · Scroll to zoom</p>
             <p class="rv-mode-hint" hidden></p>
@@ -659,7 +682,11 @@ function createModelViewer(item) {
     // Pins ---------------------------------------------------------------------------------------
     const pinMarkers = new Map();
     let selectedPin = null;
-    function pinAnnotations() { return store.item(item.id).annotations.filter(a => a.kind === 'pin'); }
+    // Pins and drawings belong to the model they were made on ("source": the screen's material key), so a pin
+    // on Ollie does not show on the Chihuahua. Older notes without a source stay on the screen's first model.
+    const mySource = item.sourceKey || '';
+    const belongs = a => (a.source ? a.source === mySource : (!mySource || !!item.isFirstModel));
+    function pinAnnotations() { return store.item(item.id).annotations.filter(a => a.kind === 'pin' && belongs(a)); }
     function rebuildPinMarkers() {
         const pins = pinAnnotations();
         const wanted = new Set(pins.map(p => p.id));
@@ -693,7 +720,9 @@ function createModelViewer(item) {
     // Pins broadcast by a live-session presenter, shown in gold and never editable here.
     const remoteMarkers = new Map();
     function setRemote(list, name) {
-        const pins = (list || []).filter(a => a.kind === 'pin' && a.pos);
+        remoteSketches = (list || []).filter(a => a.kind === 'sketch' && belongs(a)).map(a => ({ ...a, who: { name: a.by || name || 'Presenter', color: '#e0a020' } }));
+        sketchDirty = true;
+        const pins = (list || []).filter(a => a.kind === 'pin' && a.pos && belongs(a));
         const wanted = new Set(pins.map(p => p.id));
         [...remoteMarkers.keys()].forEach(id => {
             if (wanted.has(id)) return;
@@ -717,9 +746,197 @@ function createModelViewer(item) {
             marker.label.innerHTML = `<span class="rv-anno-num">${index + 1}</span><span>${escapeHTML(pin.by || name || 'Presenter')}: ${escapeHTML(pin.label || 'Pin ' + (index + 1))}</span>`;
         });
     }
+    // Pins and drawings by the other people in a live session, in each person's colour with their name.
+    const othersMarkers = new Map();
+    let othersSketches = [];
+    function setOthers(list) {
+        othersSketches = (list || []).filter(a => a.kind === 'sketch' && belongs(a));
+        sketchDirty = true;
+        const pins = (list || []).filter(a => a.kind === 'pin' && a.pos && belongs(a));
+        const wanted = new Set(pins.map(p => `${p.who?.name}|${p.id}`));
+        [...othersMarkers.keys()].forEach(id => {
+            if (wanted.has(id)) return;
+            const marker = othersMarkers.get(id);
+            pinRoot.remove(marker.mesh);
+            marker.label.remove();
+            othersMarkers.delete(id);
+        });
+        pins.forEach(pin => {
+            const id = `${pin.who?.name}|${pin.id}`;
+            const color = pin.who?.color || '#7fd0ff';
+            let marker = othersMarkers.get(id);
+            if (!marker) {
+                const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 16), new THREE.MeshBasicMaterial({ color }));
+                const label = el('span', 'rv-pin-label remote other');
+                pinRoot.add(mesh);
+                pinsEl.append(label);
+                marker = { mesh, label };
+                othersMarkers.set(id, marker);
+            }
+            marker.mesh.material.color.set(color);
+            marker.mesh.position.fromArray(pin.pos);
+            marker.mesh.scale.setScalar(sceneRadius * 0.012);
+            marker.label.style.borderColor = color;
+            marker.label.innerHTML = `<span class="rv-anno-dot" style="background:${escapeHTML(color)}"></span><span>${escapeHTML(pin.who?.name || 'Guest')}: ${escapeHTML(pin.label || 'Pin')}</span>`;
+        });
+    }
+
+    // Drawing on the 3D view: a flat sketch tied to the camera angle it was drawn from. It shows while the
+    // view is (nearly) the same, and the notes list or the chip flies back to it. Stored as a "sketch" note.
+    const sketchCanvas = root.querySelector('.rv-sketch');
+    const sketchCtx = sketchCanvas.getContext('2d');
+    const drawPanel = root.querySelector('.rv-draw-panel');
+    const sketchChip = root.querySelector('.rv-sketch-chip');
+    let sketching = false, stroke = null, sketchColor = PEN_COLORS[0], sketchDirty = true, sketchSig = '';
+    let remoteSketches = [];
+    const SKETCH_WIDTH = 2.5;
+    function mySketches() { return store.item(item.id).annotations.filter(a => a.kind === 'sketch' && belongs(a)); }
+    function viewMatches(sketch) {
+        if (!sketch?.camera?.p || !sketch.camera.t) return false;
+        if (isSweep && sketch.value !== undefined && sketch.value !== item.values[sweep.index]) return false;
+        const p = new THREE.Vector3().fromArray(sketch.camera.p), t = new THREE.Vector3().fromArray(sketch.camera.t);
+        const reach = Math.max(1e-6, p.distanceTo(t)) * 0.03;
+        return camera.position.distanceTo(p) < reach && controls.target.distanceTo(t) < reach;
+    }
+    function setSketching(on) {
+        sketching = !!on && !locked;
+        if (sketching && mode) setMode(mode);
+        stage.classList.toggle('mode-sketch', sketching);
+        toolButtons.draw.classList.toggle('active', sketching);
+        drawPanel.hidden = !sketching;
+        controls.enabled = !sketching && !locked;
+        modeHintEl.hidden = !sketching && mode === null;
+        if (sketching) modeHintEl.textContent = 'Draw on this view (it stays with this camera angle)';
+        sketchDirty = true;
+    }
+    function sketchPoint(event) {
+        const rect = sketchCanvas.getBoundingClientRect();
+        return [Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)), Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height))].map(v => +v.toFixed(4));
+    }
+    sketchCanvas.addEventListener('pointerdown', event => {
+        if (!sketching || event.button !== 0) return;
+        event.preventDefault();
+        try { sketchCanvas.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+        emitNav();
+        stroke = { type: 'pen', pts: [sketchPoint(event)], color: sketchColor, width: SKETCH_WIDTH };
+        sketchDirty = true;
+    });
+    sketchCanvas.addEventListener('pointermove', event => {
+        if (!stroke) return;
+        const p = sketchPoint(event), last = stroke.pts[stroke.pts.length - 1];
+        if (Math.hypot(p[0] - last[0], p[1] - last[1]) > 0.003) { stroke.pts.push(p); sketchDirty = true; }
+    });
+    const endStroke = () => {
+        if (!stroke) return;
+        const shape = stroke;
+        stroke = null;
+        sketchDirty = true;
+        if (shape.pts.length < 2) shape.pts.push([shape.pts[0][0] + 0.002, shape.pts[0][1]]);
+        const here = mySketches().find(viewMatches);
+        let id = here?.id;
+        store.update(item.id, entry => {
+            const target = id && entry.annotations.find(a => a.id === id);
+            if (target) { target.shapes.push(shape); return; }
+            id = uid();
+            entry.annotations.push({
+                id, kind: 'sketch', label: '', note: '',
+                camera: { p: camera.position.toArray().map(v => +v.toFixed(3)), t: controls.target.toArray().map(v => +v.toFixed(3)) },
+                shapes: [shape],
+                ...(isSweep ? { value: item.values[sweep.index] } : {}),
+                ...(mySource ? { source: mySource } : {}),
+            });
+        });
+        emitChange('annotations');
+        root.dispatchEvent(new CustomEvent('rv-focus-annotation', { detail: id, bubbles: true }));
+    };
+    sketchCanvas.addEventListener('pointerup', endStroke);
+    sketchCanvas.addEventListener('pointercancel', endStroke);
+    drawPanel.querySelectorAll('[data-color]').forEach(swatch => swatch.addEventListener('click', () => {
+        sketchColor = swatch.dataset.color;
+        drawPanel.querySelectorAll('[data-color]').forEach(b => b.classList.toggle('active', b === swatch));
+    }));
+    drawPanel.querySelector('.rv-draw-undo').addEventListener('click', () => {
+        const here = mySketches().find(viewMatches);
+        if (!here) return;
+        store.update(item.id, entry => {
+            const target = entry.annotations.find(a => a.id === here.id);
+            target.shapes.pop();
+            if (!target.shapes.length && !target.label && !target.note) entry.annotations.splice(entry.annotations.indexOf(target), 1);
+        });
+        sketchDirty = true;
+    });
+    drawPanel.querySelector('.rv-draw-done').addEventListener('click', () => setSketching(false));
+    addEventListener('keydown', event => { if (event.key === 'Escape' && sketching && !event.target.closest?.('input, textarea')) setSketching(false); });
+    let chipCycle = 0;
+    sketchChip.addEventListener('click', () => {
+        const away = [...mySketches(), ...remoteSketches, ...othersSketches].filter(k => !viewMatches(k));
+        if (!away.length) return;
+        const k = away[chipCycle++ % away.length];
+        emitNav();
+        if (isSweep && k.value !== undefined) showValue(item.values.indexOf(k.value));
+        flyTo(k.camera.p, k.camera.t);
+    });
+    function drawSketches() {
+        const w = sketchCanvas.clientWidth, h = sketchCanvas.clientHeight;
+        if (!w || !h) return;
+        const sig = `${w}x${h}|${camera.position.toArray().map(v => v.toFixed(2))}|${controls.target.toArray().map(v => v.toFixed(2))}|${isSweep ? sweep.index : ''}`;
+        if (!sketchDirty && sig === sketchSig) return;
+        sketchSig = sig;
+        sketchDirty = false;
+        const dpr = Math.min(window.devicePixelRatio, 2);
+        if (sketchCanvas.width !== Math.round(w * dpr) || sketchCanvas.height !== Math.round(h * dpr)) {
+            sketchCanvas.width = Math.round(w * dpr);
+            sketchCanvas.height = Math.round(h * dpr);
+        }
+        sketchCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        sketchCtx.clearRect(0, 0, w, h);
+        const line = (shape, fallback) => {
+            const pts = shape.pts || [];
+            if (pts.length < 2) return;
+            sketchCtx.strokeStyle = shape.color || fallback;
+            sketchCtx.lineWidth = shape.width || SKETCH_WIDTH;
+            sketchCtx.lineJoin = 'round';
+            sketchCtx.lineCap = 'round';
+            sketchCtx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            sketchCtx.shadowBlur = 2;
+            sketchCtx.beginPath();
+            pts.forEach(([x, y], i) => (i ? sketchCtx.lineTo(x * w, y * h) : sketchCtx.moveTo(x * w, y * h)));
+            sketchCtx.stroke();
+            sketchCtx.shadowBlur = 0;
+        };
+        const tag = (k, text, color) => {
+            const first = k.shapes?.[0]?.pts?.[0];
+            if (!first) return;
+            sketchCtx.font = '700 11px Inter, system-ui, sans-serif';
+            const tw = sketchCtx.measureText(text).width;
+            const x = Math.min(w - tw - 12, first[0] * w + 6), y = Math.max(14, first[1] * h - 10);
+            sketchCtx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+            sketchCtx.fillRect(x - 4, y - 11, tw + 8, 16);
+            sketchCtx.fillStyle = color;
+            sketchCtx.fillText(text, x, y + 1);
+        };
+        let away = 0;
+        const all = [
+            ...mySketches().map(k => ({ k, who: null })),
+            ...remoteSketches.map(k => ({ k, who: k.who })),
+            ...othersSketches.map(k => ({ k, who: k.who })),
+        ];
+        all.forEach(({ k, who }) => {
+            if (!viewMatches(k)) { away++; return; }
+            (k.shapes || []).forEach(shape => line(shape, who?.color || PEN_COLORS[0]));
+            if (who) tag(k, `${who.name}${k.label ? ': ' + k.label : ''}`, who.color || '#7a5000');
+            else if (k.label) tag(k, k.label, '#7a0049');
+        });
+        if (stroke) line(stroke, sketchColor);
+        sketchChip.hidden = !away;
+        if (away) sketchChip.innerHTML = `${icon('pencil')} ${away} drawing${away === 1 ? '' : 's'} at another angle · show`;
+        if (away) refreshIcons();
+    }
+    toolButtons.draw.addEventListener('click', () => setSketching(!sketching));
+
     const projected = new THREE.Vector3();
     function placePinLabels() {
-        if (!pinMarkers.size && !remoteMarkers.size) return;
+        if (!pinMarkers.size && !remoteMarkers.size && !othersMarkers.size) return;
         const width = canvas.clientWidth;
         const height = canvas.clientHeight;
         const place = marker => {
@@ -732,6 +949,7 @@ function createModelViewer(item) {
         };
         pinMarkers.forEach(place);
         remoteMarkers.forEach(place);
+        othersMarkers.forEach(place);
     }
     function selectPin(id) { selectedPin = id; rebuildPinMarkers(); }
     function addPin(point) {
@@ -740,6 +958,7 @@ function createModelViewer(item) {
             camera: { position: camera.position.toArray(), target: controls.target.toArray() },
         };
         if (isSweep) annotation.value = item.values[sweep.index];
+        if (mySource) annotation.source = mySource;
         store.update(item.id, entry => entry.annotations.push(annotation));
         selectPin(annotation.id);
         setMode(null);
@@ -750,6 +969,12 @@ function createModelViewer(item) {
         flight = { start: performance.now(), fromP: camera.position.clone(), fromT: controls.target.clone(), toP: new THREE.Vector3().fromArray(position), toT: new THREE.Vector3().fromArray(target) };
     }
     function jumpTo(id) {
+        const sketch = mySketches().find(a => a.id === id);
+        if (sketch) {
+            if (isSweep && sketch.value !== undefined) showValue(item.values.indexOf(sketch.value));
+            flyTo(sketch.camera.p, sketch.camera.t);
+            return;
+        }
         const pin = pinAnnotations().find(a => a.id === id);
         if (!pin) return;
         selectPin(id);
@@ -761,6 +986,7 @@ function createModelViewer(item) {
     let mode = null;
     function setMode(next) {
         mode = mode === next ? null : next;
+        if (mode !== null && sketching) setSketching(false);
         stage.classList.toggle('mode-pin', mode === 'pin');
         stage.classList.toggle('mode-measure', mode === 'measure');
         toolButtons.pin.classList.toggle('active', mode === 'pin');
@@ -828,6 +1054,7 @@ function createModelViewer(item) {
         cubeCanvas: root.querySelector('.view-cube'),
         helpButton: moveHelp,
         dismissible: true,
+        closeOnLastGesture: true,
         // In the guided layout the button sits in the screen's header, next to Hide notes.
         collapseTarget: () => { const b = document.querySelector('.rv-guided .rv-move-toggle'); return b && !b.hidden && b.offsetParent ? b : null; },
         axisColors: NTOP_AXIS_COLORS,
@@ -1006,7 +1233,9 @@ function createModelViewer(item) {
             seg.setAttribute('aria-label', sweepUnitLabel(item, value));
             const isOriginal = value === 'original' || (item.original && !item.original.file && Number(item.original.at) === value);
             if (isOriginal) seg.classList.add('is-original');
-            seg.innerHTML = `<span class="rv-seg-bar"></span><span class="rv-seg-label">${escapeHTML(value === 'original' ? (item.original.short || 'Orig.') : String(value))}</span>`;
+            const extraStop = (item.extras || []).find(x => String(x.value) === String(value));
+            if (extraStop) seg.classList.add('is-extra');
+            seg.innerHTML = `<span class="rv-seg-bar"></span><span class="rv-seg-label">${escapeHTML(value === 'original' ? (item.original.short || 'Orig.') : extraStop ? (extraStop.short || extraStop.label || String(value)) : String(value))}</span>`;
             sweepEls.segs.append(seg);
         });
         // One control: click a block or drag across the row to scrub.
@@ -1462,7 +1691,7 @@ function createModelViewer(item) {
                 framed = true;
                 hideLoader();
             }
-            if (firstViewer) { firstViewer = false; requestAnimationFrame(() => viewerControls.startIntro()); }
+            if (firstViewer) { firstViewer = false; Promise.resolve(introHold).then(after => requestAnimationFrame(() => viewerControls.startIntro({ force: after === true }))); }
         } catch (error) {
             console.error(error);
             showLoader('A model could not be loaded. Refresh the page to try again.', true);
@@ -1509,9 +1738,10 @@ function createModelViewer(item) {
         }
         renderer.render(scene, camera);
         placePinLabels();
+        drawSketches();
     });
 
-    const unsubscribeStore = store.subscribe(() => { rebuildPinMarkers(); syncSweepUI(); });
+    const unsubscribeStore = store.subscribe(() => { rebuildPinMarkers(); syncSweepUI(); sketchDirty = true; });
     syncSweepUI();
 
     // State shared in a live session.
@@ -1525,12 +1755,16 @@ function createModelViewer(item) {
             ...(paintTool?.getState() || {}),
             ...(legTool?.getState() || {}),
             ...(isSweep ? { demoStep: demoStep || '' } : {}),   // '' not null: the live database drops nulls
-            annotations: pinAnnotations().map(p => ({ id: p.id, kind: 'pin', label: p.label, pos: p.pos })),
+            annotations: [
+                ...pinAnnotations().map(p => ({ id: p.id, kind: 'pin', label: p.label, pos: p.pos, ...(p.source ? { source: p.source } : {}) })),
+                ...mySketches().map(k => ({ id: k.id, kind: 'sketch', label: k.label, camera: k.camera, shapes: k.shapes, ...(k.value !== undefined ? { value: k.value } : {}), ...(k.source ? { source: k.source } : {}) })),
+            ],
         };
     }
     let locked = false;
     function setLocked(value) {
         locked = !!value;
+        if (locked && sketching) setSketching(false);
         controls.enabled = !locked;
         root.classList.toggle('rv-locked', locked);
         if (locked && mode) setMode(null);
@@ -1588,7 +1822,7 @@ function createModelViewer(item) {
         root, item,
         jumpTo, select: selectPin,
         mediaEl: stage,
-        getState, applyState, setLocked, setRemote,
+        getState, applyState, setLocked, setRemote, setOthers,
         onChange: cb => changeListeners.add(cb),
         onUserNav: cb => navListeners.add(cb),
         remount() {
@@ -1700,6 +1934,7 @@ function createStageViewer(item) {
     const linkedPairs = new Set();
     let locked = false;
     let remote = { list: [], name: '' };
+    let others = [];
     let linking = false;
     const emit = kind => changeListeners.forEach(fn => fn(kind));
 
@@ -1710,6 +1945,7 @@ function createStageViewer(item) {
         child.onUserNav?.(() => navListeners.forEach(fn => fn()));
         child.setLocked?.(locked);
         child.setRemote?.(remote.list, remote.name);
+        child.setOthers?.(others);
     }
     function paneFor(key) {
         if (paneEls[key]) return paneEls[key];
@@ -1717,7 +1953,8 @@ function createStageViewer(item) {
         const pane = el('section', 'rv-pane');
         pane.dataset.pane = key;
         pane.hidden = true;
-        pane.innerHTML = `<p class="rv-pane-tag${src.tone === 'proposed' ? ' is-proposed' : ''}"><strong>${escapeHTML(src.label || key)}</strong><em>${escapeHTML(src.caption || '')}</em></p><div class="rv-pane-body"></div>`;
+        // "tag": false on a source leaves out the name banner at the top of its pane.
+        pane.innerHTML = `${src.tag === false ? '' : `<p class="rv-pane-tag${src.tone === 'proposed' ? ' is-proposed' : ''}"><strong>${escapeHTML(src.label || key)}</strong><em>${escapeHTML(src.caption || '')}</em></p>`}<div class="rv-pane-body"></div>`;
         stageEl.append(pane);
         paneEls[key] = pane;
         return pane;
@@ -1755,8 +1992,13 @@ function createStageViewer(item) {
             kept[key] = child;
             wire(child);
         } else if (src.kind === 'image') {
-            kept[key] = createImagePane(src);
-            body.replaceChildren(kept[key].root);
+            // Pictures open in the same viewer as video clips: drawing, text, eraser, zoom and marks in the
+            // notes, and the whole picture always fits (no cropping). Several pictures become a clip list.
+            const clips = (src.images || []).filter(img => img.src).map((img, i) => ({ id: `img-${i + 1}`, label: img.caption || decodeURIComponent(String(img.src).split('/').pop()), src: img.src }));
+            const child = createVideoAnnotator({ kind: 'playlist', label: src.label, clips, id: item.id, sourceKey: key, title: item.title });
+            body.replaceChildren(child.root);
+            kept[key] = child;
+            wire(child);
         } else {
             kept[key] = { pending: true };
             body.replaceChildren(pendingCard(src));
@@ -1910,7 +2152,10 @@ function createStageViewer(item) {
                 return;
             }
             const current = views.find(x => x.key === view);
-            if (!current.panes.some(k => isModel(sourceOf(k)))) {
+            if (target.source && isModel(sourceOf(target.source)) && !current.panes.includes(target.source)) {
+                const v = views.find(x => x.panes.includes(target.source));
+                if (v) showView(v.key);
+            } else if (!current.panes.some(k => isModel(sourceOf(k)))) {
                 const withModel = views.find(x => x.panes.some(k => isModel(sourceOf(k))));
                 if (withModel) showView(withModel.key);
             }
@@ -1920,14 +2165,19 @@ function createStageViewer(item) {
             Object.values(built || {}).forEach(viewer => viewer.select(id));
             Object.values(kept).forEach(child => child.select?.(id));
         },
+        jumpToMark(mark) {
+            const key = mark.source || Object.keys(item.sources).find(k => ['video', 'playlist'].includes(item.sources[k].kind));
+            const v = views.find(x => x.key === view && x.panes.includes(key)) || views.find(x => x.panes.includes(key));
+            if (v && v.key !== view) showView(v.key);
+            kept[key]?.jumpToMark?.(mark);
+        },
         getState() {
             const panes = {};
             Object.entries(built || {}).forEach(([key, viewer]) => { panes[key] = viewer.getState(); });
             Object.entries(kept).forEach(([key, child]) => { if (child.getState) panes[key] = child.getState(); });
             const annotations = [];
-            const firstModel = Object.values(panes).find(st => st.camera);
-            if (firstModel) annotations.push(...(firstModel.annotations || []));
-            Object.values(panes).forEach(st => { if (!st.camera) annotations.push(...(st.annotations || [])); });
+            const seen = new Set();
+            Object.values(panes).forEach(st => (st.annotations || []).forEach(a => { if (!seen.has(a.id)) { seen.add(a.id); annotations.push(a); } }));
             return { view, panes, media: views.filter(v => v.key.startsWith('lib:')).map(v => v.key), annotations };
         },
         applyState(state) {
@@ -1951,7 +2201,11 @@ function createStageViewer(item) {
             Object.values(built || {}).forEach(viewer => viewer.setRemote(remote.list, name));
             Object.values(kept).forEach(child => child.setRemote?.(remote.list, name));
         },
-        setOthers(list) { Object.values(kept).forEach(child => child.setOthers?.(list)); },
+        setOthers(list) {
+            others = list || [];
+            Object.values(built || {}).forEach(viewer => viewer.setOthers?.(others));
+            Object.values(kept).forEach(child => child.setOthers?.(others));
+        },
         // The camera tutorial opens on the first 3D view showing on this screen.
         tutorials() {
             const visible = Object.keys(paneEls).filter(key => !paneEls[key]?.hidden).map(key => built?.[key] || kept[key]).filter(Boolean);
@@ -1985,11 +2239,12 @@ function createVideoAnnotator(item) {
     const sourceKey = item.sourceKey || '';
     const clips = item.kind === 'playlist' ? item.clips : [{ id: '', label: item.label || item.title, src: item.src, poster: item.poster, stops: item.stops || [], rotate: item.rotate, start: item.start, end: item.end }];
     let clip = clips[0];
-    // The strip of clip thumbnails is hidden until you open it (remembered in this browser).
+    // The strip of clip thumbnails is hidden until you open it (remembered in this browser);
+    // "showClips": true on a playlist opens it unless this browser has closed it before.
     const CLIPS_KEY = 'gap-review-clips-shown';
-    let clipsShown = (() => { try { return localStorage.getItem(CLIPS_KEY) === '1'; } catch { return false; } })();
+    let clipsShown = (() => { try { const kept = localStorage.getItem(CLIPS_KEY); return kept === null ? !!item.showClips : kept === '1'; } catch { return !!item.showClips; } })();
     root.innerHTML = `
-        ${clips.length > 1 ? `<div class="rv-clips" role="tablist" aria-label="Choose a clip"${clipsShown ? '' : ' hidden'}>${clips.map(c => { const thumb = c.poster || (isPicture(c) ? c.src : ''); return `<button type="button" role="tab" data-clip="${escapeHTML(c.id)}" title="${escapeHTML(c.label)}">${thumb ? `<img src="${escapeHTML(thumb)}" alt="" loading="lazy">` : icon(isPicture(c) ? 'image' : 'film')}<span>${escapeHTML(c.label)}</span></button>`; }).join('')}</div>` : ''}
+        ${clips.length > 1 ? `<div class="rv-clips" role="tablist" aria-label="Choose a clip"><span class="rv-clips-now"></span>${clips.map(c => { const thumb = c.poster || (isPicture(c) ? c.src : ''); return `<button type="button" role="tab" data-clip="${escapeHTML(c.id)}" title="${escapeHTML(c.label)}">${thumb ? `<img src="${escapeHTML(thumb)}" alt="" loading="lazy">` : icon(isPicture(c) ? 'image' : 'film')}<span>${escapeHTML(c.label)}</span></button>`; }).join('')}<button type="button" class="rv-clips-toggle" aria-expanded="${clipsShown}"></button></div>` : ''}
         <div class="rv-video-frame">
             <div class="rv-zoom-layer">
                 <video preload="metadata" playsinline muted></video>
@@ -2017,7 +2272,6 @@ function createVideoAnnotator(item) {
         <div class="rv-timeline"><div class="rv-timeline-track"><div class="rv-timeline-fill"></div><div class="rv-timeline-head"></div></div></div>
         <div class="rv-video-bar">
             <button type="button" class="rv-play" title="Play or pause (space)">${icon('play')}</button>
-            ${clips.length > 1 ? `<button type="button" class="rv-clips-toggle" aria-expanded="${clipsShown}" title="Show or hide the list of clips">${icon('list-video')} <span></span></button>` : ''}
             <span class="rv-time">0:00.0 <small>/ 0:00.0</small></span>
             <span class="rv-frame" title="Frame number">f 0</span>
             <span class="rv-range-btns" role="group" aria-label="Comment on a stretch of video">
@@ -2233,15 +2487,19 @@ function createVideoAnnotator(item) {
     // Clips -------------------------------------------------------------------------------------------
     const clipsEl = root.querySelector('.rv-clips');
     const clipsToggle = root.querySelector('.rv-clips-toggle');
+    // The strip folds to one line (which clip is showing + "Show videos"); the button at its top right folds
+    // and opens it.
     function syncClipsToggle() {
         if (!clipsToggle) return;
-        root.classList.toggle('has-clips', clipsShown);
-        clipsEl.hidden = !clipsShown;
-        clipsToggle.classList.toggle('active', clipsShown);
+        root.classList.add('has-clips');
+        clipsEl.classList.toggle('is-folded', !clipsShown);
         clipsToggle.setAttribute('aria-expanded', String(clipsShown));
+        const noun = clips.every(isPicture) ? 'picture' : 'video';
         const n = clips.indexOf(clip) + 1;
-        clipsToggle.querySelector('span').textContent = clipsShown ? `Hide clips` : `Clip ${n} of ${clips.length}${clip.label && !/^\d/.test(clip.label) ? ': ' + clip.label : ''}`;
-        clipsToggle.title = clipsShown ? 'Hide the list of clips' : `Showing ${clip.label}. Click to choose another clip`;
+        clipsEl.querySelector('.rv-clips-now').textContent = `${noun === 'picture' ? 'Picture' : 'Video'} ${n} of ${clips.length}${clip.label && !/^\d/.test(clip.label) ? ': ' + clip.label : ''}`;
+        clipsToggle.innerHTML = clipsShown ? `${icon('chevron-up')} <span>Hide</span>` : `${icon('chevron-down')} <span>Show ${noun}s</span>`;
+        clipsToggle.title = clipsShown ? `Fold the list of ${noun}s away` : `Show all ${clips.length} ${noun}s`;
+        refreshIcons();
     }
     clipsToggle?.addEventListener('click', () => {
         clipsShown = !clipsShown;
@@ -2278,6 +2536,161 @@ function createVideoAnnotator(item) {
         b.classList.toggle('active', b.dataset.clip === clip.id);
         b.addEventListener('click', () => { emitNav(); setClip(b.dataset.clip); });
     });
+
+    // Clip demo ("clipDemo": true on a playlist): a card like the 3D movement guide ("How to move") that walks
+    // through the clip strip: pick the last video, go back to the first, fold the strip, open it again. Each
+    // step ticks off ("You did it") once done and moves on; after the last one the card shrinks into the
+    // header's "How to swap videos" button, which replays it. Plays on its own each time the page opens (the
+    // 3D guide waits for it); "Got it, next" skips a step; x, Esc or the header button end it.
+    const CLIP_DEMO_KEY = 'gap-review-clip-demo-seen';
+    const swapButton = () => { const b = document.querySelector('.rv-guided .rv-swap-toggle'); return b && !b.hidden && b.offsetParent ? b : null; };
+    const thumbEl = c => clipsEl.querySelector(`[data-clip="${CSS.escape(c.id)}"]`);
+    let clipDemo = null;
+    function clipSteps() {
+        const verb = matchMedia('(pointer: coarse)').matches ? 'Tap' : 'Click';
+        const first = clips[0], last = clips[clips.length - 1];
+        const name = c => `<b>Video ${clips.indexOf(c) + 1}</b>${c.label && !/^\d/.test(c.label) ? ` (${escapeHTML(c.label)})` : ''}`;
+        return [
+            { title: 'Pick a video', text: `${verb} ${name(last)} in the strip above the video.`, art: clips.length - 1, target: () => thumbEl(last), done: () => clip === last },
+            { title: 'Go back', text: `Now ${verb.toLowerCase()} ${name(first)}.`, art: 0, target: () => thumbEl(first), done: () => clip === first },
+            { title: 'Fold the strip away', text: `${verb} <b>Hide</b> at the top right of the strip for a bigger video.`, art: 'hide', target: () => clipsToggle, done: () => !clipsShown },
+            { title: 'Bring it back', text: `${verb} <b>Show videos</b> to open the strip again.`, art: 'show', target: () => clipsToggle, done: () => clipsShown },
+        ];
+    }
+    // A small picture of the strip with a cursor tapping what the step asks for.
+    function clipArtHTML(step) {
+        const cursor = '<span class="rv-ca-cursor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 8-6 1.6L9.6 19z"/></svg></span>';
+        if (step.art === 'show') return `<div class="rv-ca-strip is-folded"><span class="rv-ca-line"></span><span class="rv-ca-pill on">Show videos</span>${cursor}</div>`;
+        const n = Math.min(clips.length, 5);
+        const on = step.art === 'hide' ? -1 : Math.min(step.art, n - 1);
+        return `<div class="rv-ca-strip">${Array.from({ length: n }, (_, i) => `<i${i === on ? ' class="on"' : ''}></i>`).join('')}<span class="rv-ca-pill${step.art === 'hide' ? ' on' : ''}">Hide</span>${cursor}</div>`;
+    }
+    function placeClipCard(d) {
+        if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
+        const frame = frameEl.getBoundingClientRect(), box = root.getBoundingClientRect();
+        d.card.style.top = `${Math.max(frame.top - box.top + 8, frame.bottom - box.top - d.card.offsetHeight - 12)}px`;
+    }
+    function showClipStep(d, index) {
+        d.index = index;
+        d.ticked = false;
+        clearTimeout(d.timer);
+        const step = d.steps[index];
+        d.card.querySelector('[data-card]').innerHTML = `<div class="ctl-art"><figure><div class="ctl-art-frame">${clipArtHTML(step)}</div></figure></div><h3>${step.title}</h3><p class="ctl-note">${step.text}</p>`;
+        const on = d.card.querySelector('.rv-ca-strip .on');
+        const cursor = d.card.querySelector('.rv-ca-cursor');
+        if (on && cursor) { cursor.style.left = `${on.offsetLeft + on.offsetWidth / 2}px`; cursor.style.top = `${on.offsetTop + on.offsetHeight / 2}px`; }
+        d.card.querySelectorAll('[data-step]').forEach((dot, i) => dot.classList.toggle('active', i === index));
+        d.card.querySelector('.controls-coach-done').textContent = index === d.steps.length - 1 ? 'Got it' : 'Got it, next';
+        // The real thing gets a gold ring (and a clip scrolled out of the strip comes to the middle).
+        root.querySelectorAll('.rv-demo-focus').forEach(node => node.classList.remove('rv-demo-focus'));
+        const target = step.target();
+        if (target) {
+            if (target.matches('[data-clip]') && clipsEl.scrollWidth > clipsEl.clientWidth) clipsEl.scrollLeft = target.offsetLeft - (clipsEl.clientWidth - target.offsetWidth) / 2;
+            target.classList.add('rv-demo-focus');
+        }
+        placeClipCard(d);
+    }
+    function collapseClipCard(card) {
+        const into = swapButton();
+        if (!into || matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+        // Lift the card out of the video (which clips its edges) and shrink it into the header button,
+        // the way the 3D guide goes into "How to move".
+        const from = card.getBoundingClientRect(), to = into.getBoundingClientRect();
+        Object.assign(card.style, { position: 'fixed', left: `${from.left}px`, top: `${from.top}px`, bottom: 'auto', width: `${from.width}px`, margin: '0', zIndex: '200' });
+        document.body.append(card);
+        void card.offsetWidth;
+        card.classList.add('is-collapsing');
+        card.style.transform = `translate(${to.left + to.width / 2 - (from.left + from.width / 2)}px, ${to.top + to.height / 2 - (from.top + from.height / 2)}px) scale(0.05)`;
+        const finish = () => {
+            if (!card.isConnected) return;
+            card.remove();
+            into.classList.remove('is-pulsing');
+            void into.offsetWidth;
+            into.classList.add('is-pulsing');
+            setTimeout(() => into.classList.remove('is-pulsing'), 2200);
+        };
+        card.addEventListener('transitionend', event => { if (event.propertyName === 'transform') finish(); });
+        setTimeout(finish, 900);
+        return true;
+    }
+    function stopClipDemo(animate = true) {
+        const d = clipDemo;
+        if (!d) return;
+        clipDemo = null;
+        clearInterval(d.watch);
+        clearTimeout(d.timer);
+        removeEventListener('keydown', d.key, true);
+        removeEventListener('resize', d.place);
+        root.querySelectorAll('.rv-demo-focus').forEach(node => node.classList.remove('rv-demo-focus'));
+        if (!(animate && collapseClipCard(d.card))) d.card.remove();
+        root.classList.remove('rv-demoing');
+        document.querySelector('.rv-guided .rv-swap-toggle')?.classList.remove('active');
+        try { localStorage.setItem(CLIP_DEMO_KEY, '1'); } catch { /* storage off */ }
+        d.done();
+    }
+    function runClipDemo() {
+        if (clipDemo) { stopClipDemo(); return Promise.resolve(); }
+        const d = { steps: clipSteps(), index: 0, ticked: false };
+        const finished = new Promise(resolve => { d.done = resolve; });
+        clipDemo = d;
+        d.key = event => { if (event.key === 'Escape') stopClipDemo(); };
+        d.place = () => placeClipCard(d);
+        addEventListener('keydown', d.key, true);
+        addEventListener('resize', d.place);
+        root.classList.add('rv-demoing');
+        document.querySelector('.rv-guided .rv-swap-toggle')?.classList.add('active');
+        if (!clipsShown) { clipsShown = true; syncClipsToggle(); }
+        d.card = el('aside', 'controls-coach rv-clip-coach');
+        d.card.setAttribute('aria-label', 'How to swap videos');
+        d.card.innerHTML = `
+            <button type="button" class="controls-coach-close" title="Hide (the How to swap videos button brings it back)" aria-label="Hide">&times;</button>
+            <div class="ctl-card" data-card></div>
+            <div class="controls-coach-foot">
+                <div class="controls-coach-dots" role="group" aria-label="Choose a step">${d.steps.map((step, i) => `<button type="button" data-step="${i}" aria-label="${escapeHTML(step.title)}"></button>`).join('')}</div>
+                <button type="button" class="controls-coach-done">Got it, next</button>
+            </div>`;
+        d.card.addEventListener('keydown', event => event.stopPropagation());
+        d.card.querySelector('.controls-coach-close').addEventListener('click', () => stopClipDemo());
+        d.card.querySelector('.controls-coach-done').addEventListener('click', () => { if (d.index < d.steps.length - 1) showClipStep(d, d.index + 1); else stopClipDemo(); });
+        d.card.querySelectorAll('[data-step]').forEach(dot => dot.addEventListener('click', () => showClipStep(d, +dot.dataset.step)));
+        root.append(d.card);
+        const begin = () => {
+            if (clipDemo !== d) return;
+            showClipStep(d, 0);
+            // A step done -> "You did it", then the next step; after the last, the card puts itself away.
+            d.watch = setInterval(() => {
+                if (clipDemo !== d) return;
+                if (!root.isConnected || root.offsetParent === null) { stopClipDemo(false); return; }
+                if (d.ticked || !d.steps[d.index].done()) return;
+                d.ticked = true;
+                d.card.querySelector('h3')?.classList.add('is-tried');
+                root.querySelectorAll('.rv-demo-focus').forEach(node => node.classList.remove('rv-demo-focus'));
+                const at = d.index;
+                d.timer = setTimeout(() => {
+                    if (clipDemo !== d || d.index !== at) return;
+                    if (at < d.steps.length - 1) showClipStep(d, at + 1);
+                    else stopClipDemo();
+                }, at < d.steps.length - 1 ? 900 : 600);
+            }, 150);
+        };
+        if (clip !== clips[0]) setClip(clips[0].id, true).then(begin);
+        else begin();
+        return finished;
+    }
+    if (item.clipDemo && clips.length > 1) {
+        // Every time the page opens: wait until the video is on screen, play the demo, then the 3D movement guide.
+        introHold = new Promise(resolve => {
+            let tries = 0;
+            const start = () => {
+                // (and the tab is in front: a link opened in a background tab waits until it is looked at)
+                if (root.offsetParent !== null && clipsEl.offsetWidth && document.visibilityState === 'visible') setTimeout(() => runClipDemo().then(() => setTimeout(() => resolve(true), 650)), 700);
+                else if (document.visibilityState !== 'visible') document.addEventListener('visibilitychange', start, { once: true });
+                else if (++tries < 600) setTimeout(start, 250);
+                else resolve();
+            };
+            start();
+        });
+    }
     function layout() {
         applyRotation();
         // The picture's box on screen, after any quarter turn (marks are stored relative to it).
@@ -2433,7 +2846,7 @@ function createVideoAnnotator(item) {
             label.style.borderColor = mark.who?.color || '#7fd0ff';
             labelsEl.append(label);
         });
-        remoteMarks.filter(m => shownAt(m, t)).forEach((mark, index) => {
+        remoteHere().filter(m => shownAt(m, t)).forEach((mark, index) => {
             (mark.shapes || []).forEach(shape => drawShape(shape, '#e0a020', false));
             const label = el('span', 'rv-mark-label remote', `<span class="rv-anno-num">${index + 1}</span><span>${escapeHTML(mark.by || remoteName)}: ${escapeHTML(mark.label || 'Mark ' + (index + 1))}</span>`);
             label.title = 'Drag to move this label out of the way (only on your screen)';
@@ -2486,12 +2899,25 @@ function createVideoAnnotator(item) {
         addEventListener('pointerup', up);
         addEventListener('pointercancel', up);
     }
-    let remoteMarks = [];
+    let remoteAll = [];
     let remoteName = 'Presenter';
+    const remoteHere = () => remoteAll.filter(a => (a.clip || '') === (clip.id || ''));
     function setRemote(list, name) {
-        remoteMarks = (list || []).filter(a => a.kind === 'mark' && (a.source || '') === sourceKey && (a.clip || '') === (clip.id || ''));
+        remoteAll = (list || []).filter(a => a.kind === 'mark' && (a.source || '') === sourceKey);
         remoteName = name || 'Presenter';
+        renderTimeline();
         draw();
+    }
+    // A presenter's (or live presenter's) mark: open its clip, stop at its moment so its label shows.
+    async function jumpToMark(mark) {
+        if ((mark.clip || '') !== (clip.id || '')) await setClip(mark.clip || '');
+        stopReverse();
+        video.pause();
+        video.currentTime = mark.t;
+        lastT = mark.t;
+        renderTimeline();
+        draw();
+        root.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
     let locked = false;
     function setLocked(value) {
@@ -2737,6 +3163,15 @@ function createVideoAnnotator(item) {
             pending.title = `Range starts at ${relTime(rangeIn)}. Press Out to finish it.`;
             track.append(pending);
         }
+        remoteHere().forEach(mark => {
+            if (!inside(mark.t)) return;
+            const marker = el('button', 'rv-timeline-marker is-remote');
+            marker.type = 'button';
+            marker.title = `${mark.by || remoteName}: ${mark.label || 'Mark'} at ${relTime(mark.t)}`;
+            marker.style.left = pos(mark.t);
+            marker.addEventListener('click', event => { event.stopPropagation(); emitNav(); jumpToMark(mark); });
+            track.append(marker);
+        });
         marks().forEach((mark, index) => {
             if (!inside(mark.t)) return;
             const marker = el('button', 'rv-timeline-marker' + (mark.id === selected ? ' active' : ''), String(index + 1));
@@ -2972,8 +3407,10 @@ function createVideoAnnotator(item) {
         root, item, jumpTo, select,
         mediaEl: frameEl,
         getState, applyState, setLocked, setRemote,
-        tutorials: () => [],          // the video tutorial is switched off for now
-        showTutorial: () => false,
+        jumpToMark,
+        // The video tutorial is switched off for now; "clips" is the clip demo (How to swap videos).
+        tutorials: () => (item.clipDemo && clips.length > 1 ? ['clips'] : []),
+        showTutorial: kind => { if (kind !== 'clips' || !item.clipDemo || clips.length < 2) return false; runClipDemo(); return true; },
         setOthers(list) {
             othersMarks = (list || []).filter(a => a.kind === 'mark' && (a.source || '') === sourceKey && (a.clip || '') === (clip.id || ''));
             draw();
@@ -3001,10 +3438,14 @@ function createNotesPanel(item, media) {
             <h4>${escapeHTML(item.choices.ask)}</h4>
             <div>${item.choices.options.map(o => `<button type="button" data-choice="${escapeHTML(o.key)}">${o.icon ? icon(o.icon) : ''} ${escapeHTML(o.label)}</button>`).join('')}</div>
         </div>` : ''}
-        ${item.presenterNotes?.note ? `<div class="rv-presenter-note"><h4>${icon('presentation')} Notes from ${escapeHTML(item.presenterNotes.by || 'the presenter')}</h4><p>${escapeHTML(item.presenterNotes.note)}</p></div>` : ''}
+        ${presenterNoteBlock(item)}
         <label>Your notes<textarea class="rv-note" placeholder="${item.kind === 'video' ? 'Anything you would tell us about this clip…' : 'Anything you would tell us about this design…'}"></textarea></label>
-        <div class="rv-anno-head"><span>${item.kind === 'video' ? 'Marks on the video' : item.kind === 'stage' && Object.values(item.sources || {}).some(src => ['video', 'playlist'].includes(src.kind)) ? 'Pins and video marks' : 'Pins on the model'} <small class="rv-anno-count"></small></span></div>
+        <div class="rv-anno-head"><span>${item.kind === 'video' ? 'Marks on the video' : item.kind === 'stage' && Object.values(item.sources || {}).some(src => ['video', 'playlist', 'image'].includes(src.kind)) ? 'Pins, drawings and marks' : 'Pins and drawings on the model'} <small class="rv-anno-count"></small></span></div>
         <ol class="rv-anno-list"></ol>`;
+    root.querySelectorAll('.rv-presenter-marks [data-mark]').forEach(button => button.addEventListener('click', () => {
+        const mark = (item.presenterNotes?.annotations || []).find(a => a.id === button.dataset.mark);
+        if (mark) media.jumpToMark?.(mark);
+    }));
     const noteEl = root.querySelector('.rv-note');
     const listEl = root.querySelector('.rv-anno-list');
     const countEl = root.querySelector('.rv-anno-count');
@@ -3048,7 +3489,8 @@ function createNotesPanel(item, media) {
             if (!li) { li = row(annotation); rows.set(annotation.id, li); }
             if (listEl.children[index] !== li) listEl.insertBefore(li, listEl.children[index] || null);
             li.querySelector('.rv-anno-num').textContent = index + 1;
-            let where = annotation.kind === 'mark' ? markWhen(item, annotation) : 'on model';
+            const onModel = annotation.source && item.sources?.[annotation.source] ? (item.sources[annotation.source].label || annotation.source) : 'model';
+            let where = annotation.kind === 'mark' ? markWhen(item, annotation) : annotation.kind === 'sketch' ? `drawing on ${onModel}` : `on ${onModel}`;
             if (annotation.value !== undefined) where += ` · ${sweepUnitLabel(item, annotation.value)}`;
             li.querySelector('.rv-anno-where').textContent = where;
             const labelEl = li.querySelector('.rv-anno-label');
@@ -3059,7 +3501,7 @@ function createNotesPanel(item, media) {
         countEl.textContent = annotations.length ? `(${annotations.length})` : '';
         let empty = listEl.querySelector('.rv-anno-empty');
         if (!annotations.length && !empty) {
-            empty = el('li', 'rv-anno-empty', item.kind === 'video' ? 'Use the box, arrow, pen, or point tools on the video, or press "Flag this moment".' : item.kind === 'stage' && Object.values(item.sources || {}).some(src => ['video', 'playlist'].includes(src.kind)) ? 'Pin the model, draw on a paused video frame, or press In and Out to mark a stretch of video.' : 'Use the pin tool in the viewer, then click the model.');
+            empty = el('li', 'rv-anno-empty', item.kind === 'video' ? 'Use the box, arrow, pen, or point tools on the video, or press "Flag this moment".' : item.kind === 'stage' && Object.values(item.sources || {}).some(src => ['video', 'playlist', 'image'].includes(src.kind)) ? 'Pin or draw on the model, draw on a picture or a paused video frame, or press In and Out to mark a stretch of video.' : 'Use the pin or pencil tool in the viewer.');
             listEl.append(empty);
         } else if (annotations.length && empty) empty.remove();
         refreshIcons();
@@ -3099,6 +3541,25 @@ function addEntry(item) {
     entries.push(entry);
     attachPresenterNotes(item, media);
     return entry;
+}
+// The presenter's notes at the top of the notes column: their note, and their video marks (clip, time,
+// label) as buttons that jump to the moment.
+function presenterNoteBlock(item) {
+    const pn = item.presenterNotes;
+    if (!pn) return '';
+    const clipLabel = mark => {
+        const src = item.sources?.[mark.source] || (item.kind === 'playlist' || item.kind === 'video' ? item : null);
+        const list = src?.clips || [];
+        const at = list.findIndex((c, i) => (c.id || `clip-${i + 1}`) === mark.clip);
+        return at >= 0 ? `Video ${at + 1}${list[at].label ? ': ' + list[at].label : ''}` : '';
+    };
+    const time = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    const marks = (pn.annotations || []).filter(a => a.kind === 'mark');
+    if (!pn.note && !marks.length) return '';
+    return `<div class="rv-presenter-note"><h4>${icon('presentation')} Notes from ${escapeHTML(pn.by || 'the presenter')}</h4>
+        ${pn.note ? `<p>${escapeHTML(pn.note)}</p>` : ''}
+        ${marks.length ? `<ol class="rv-presenter-marks">${marks.map(m => `<li><button type="button" data-mark="${escapeHTML(m.id)}" title="Go to this moment"><span class="rv-pm-time">${time(m.t || 0)}</span><span class="rv-pm-text"><b>${escapeHTML(m.label || 'Mark')}</b>${m.note ? ` – ${escapeHTML(m.note)}` : ''}<small>${escapeHTML(clipLabel(m))}</small></span></button></li>`).join('')}</ol>` : ''}
+    </div>`;
 }
 // "presenterNotes": { "by", "note", "annotations": [pins and video marks] } on a screen (brought in from the
 // presenter's own notes in the editor). Everyone sees them in gold with the presenter's name, on top of any
@@ -3225,10 +3686,11 @@ let guidedIndex = 0;
 function buildGuided() {
     const page = el('div', 'rv-guided');
     page.innerHTML = `
-        <div class="rv-guided-head"><span class="rv-guided-step"></span><div><h2></h2><p></p></div>
+        <div class="rv-guided-head"><button type="button" class="rv-btn rv-toc-toggle" title="Show or hide the list of screens" aria-label="Screens">${icon('list')}</button><span class="rv-guided-step"></span><div><h2></h2><p></p></div>
             <div class="rv-screen-tools">
                 <button type="button" class="rv-btn rv-left-toggle" title="Show or hide the interface column" hidden>${icon('panel-left')} <span>Interface</span></button>
                 <button type="button" class="rv-btn rv-edit-toggle" title="Edit this screen in the presentation editor" hidden>${icon('pencil')} <span>Edit</span></button>
+                <button type="button" class="rv-btn rv-swap-toggle" title="Show how to switch between the videos" hidden>${icon('list-video')} <span>How to swap videos</span></button>
                 <button type="button" class="rv-btn rv-move-toggle" title="Show how to turn, move and zoom the 3D view" hidden>${icon('move')} <span>How to move</span></button>
                 <button type="button" class="rv-btn rv-notes-toggle" title="Show or hide the notes column">${icon('panel-right')} <span>Notes</span></button>
                 <button type="button" class="rv-btn rv-full-toggle" title="Full screen (Esc to leave)">${icon('maximize')} <span>Full screen</span></button>
@@ -3237,6 +3699,31 @@ function buildGuided() {
         <div class="rv-guided-foot"><button type="button" class="rv-btn rv-guided-back">${icon('chevron-left')} Back</button><div class="rv-guided-dots"></div><button type="button" class="rv-btn rv-primary rv-guided-next">Next ${icon('chevron-right')}</button></div>`;
     const slot = page.querySelector('.rv-guided-slot');
     const dots = page.querySelector('.rv-guided-dots');
+    // Screen list on the left (like the editor's): jump to any screen; collapses to give the screen room.
+    // Open on wide windows unless you closed it (remembered); a drawer over the page on phones.
+    const shell = el('div', 'rv-guided-shell');
+    const toc = el('aside', 'rv-toc', `<div class="rv-toc-head"><strong>Screens</strong><button type="button" class="rv-toc-close" title="Hide the list">${icon('panel-left-close')}</button></div><ol class="rv-toc-list"></ol>`);
+    const tocList = toc.querySelector('.rv-toc-list');
+    const TOC_KEY = 'gap-review-toc';
+    const narrowToc = () => matchMedia('(max-width: 900px)').matches;
+    function setToc(open, remember = true) {
+        shell.classList.toggle('toc-open', open);
+        page.querySelector('.rv-toc-toggle').classList.toggle('active', open);
+        if (remember && !narrowToc()) { try { localStorage.setItem(TOC_KEY, open ? 'open' : 'closed'); } catch { /* storage off */ } }
+    }
+    entries.concat([null]).forEach((entry, i) => {
+        const li = el('li');
+        const button = el('button', 'rv-toc-item', entry
+            ? `<span class="rv-toc-num">${i + 1}</span><span class="rv-toc-title">${escapeHTML(entry.item.title)}</span><span class="rv-toc-done" title="You have notes here"></span>`
+            : `<span class="rv-toc-num">${icon('clipboard-list')}</span><span class="rv-toc-title">Summary</span>`);
+        button.type = 'button';
+        button.addEventListener('click', () => { show(i); if (narrowToc()) setToc(false, false); });
+        li.append(button);
+        tocList.append(li);
+    });
+    page.querySelector('.rv-toc-toggle').addEventListener('click', () => setToc(!shell.classList.contains('toc-open')));
+    toc.querySelector('.rv-toc-close').addEventListener('click', () => setToc(false));
+    setToc(!narrowToc() && review.screensList !== 'closed' && (() => { try { return localStorage.getItem(TOC_KEY) !== 'closed'; } catch { return true; } })(), false);
     const total = entries.length + 1;
     for (let i = 0; i < total; i++) {
         const dot = el('button');
@@ -3327,16 +3814,34 @@ function buildGuided() {
         if (document.body.classList.contains('rv-full')) setFull(false);
         if (inEditor) { try { window.parent.postMessage({ type: 'gap-edit-screen', id }, location.origin); return; } catch { /* fall through */ } }
         const base = onThisComputer ? new URL('review-editor.html', location.href).href : 'http://localhost:8131/review-editor.html';
-        window.open(`${base}?file=${encodeURIComponent(reviewRef)}${id ? `&screen=${encodeURIComponent(id)}` : ''}`, 'gap-review-editor');
+        const url = `${base}?file=${encodeURIComponent(reviewRef)}${id ? `&screen=${encodeURIComponent(id)}` : ''}`;
+        if (onThisComputer) {
+            // An editor tab already open (it names itself): bring it forward and select this screen there,
+            // without reloading it (it may hold unsaved edits). Otherwise open one.
+            const tab = window.open('', 'gap-review-editor');
+            let isEditor = false;
+            try { isEditor = !!tab && /review-editor\.html$/.test(tab.location.pathname); } catch { /* not readable */ }
+            if (isEditor) {
+                try { new BroadcastChannel('gap-review-editor').postMessage({ type: 'edit-screen', file: reviewRef, id }); } catch { /* old browser */ }
+                tab.focus();
+            } else if (tab) tab.location.href = url;
+            else window.open(url, 'gap-review-editor');
+            return;
+        }
+        window.open(url, 'gap-review-editor');
     });
     syncEditBtn();
     // "How to move" (the 3D movement guide) shows when the tab on screen has a 3D view.
     const moveBtn = page.querySelector('.rv-move-toggle');
+    const swapBtn = page.querySelector('.rv-swap-toggle');
     function syncMoveBtn() {
         const media = entries[guidedIndex]?.media;
-        moveBtn.hidden = !(guidedIndex < entries.length && (media?.tutorials?.() || []).includes('camera'));
+        const kinds = guidedIndex < entries.length ? (media?.tutorials?.() || []) : [];
+        moveBtn.hidden = !kinds.includes('camera');
+        swapBtn.hidden = !kinds.includes('clips');
     }
     moveBtn.addEventListener('click', () => entries[guidedIndex]?.media.showTutorial?.('camera'));
+    swapBtn.addEventListener('click', () => entries[guidedIndex]?.media.showTutorial?.('clips'));
     new MutationObserver(() => syncLeft()).observe(document.body, { attributes: true, attributeFilter: ['data-hide'] });
     // Full screen: the screen fills the window (and the display, where the browser allows it). Tabs,
     // side by side, drawing, pins and Back / Next all keep working; Esc or the button leaves.
@@ -3428,15 +3933,18 @@ function buildGuided() {
         page.querySelector('.rv-guided-next').hidden = guidedIndex === total - 1;
         page.querySelector('.rv-guided-next').innerHTML = guidedIndex === total - 2 ? `Finish ${icon('check')}` : `Next ${icon('chevron-right')}`;
         [...dots.children].forEach((dot, i) => dot.classList.toggle('active', i === guidedIndex));
+        [...tocList.children].forEach((li, i) => { li.firstChild.classList.toggle('active', i === guidedIndex); if (i === guidedIndex) li.firstChild.setAttribute('aria-current', 'step'); else li.firstChild.removeAttribute('aria-current'); });
         refreshIcons();
         layout.notify(guidedIndex);
     }
     layout.show = show;
     layout.getIndex = () => guidedIndex;
-    host.append(page);
+    shell.append(toc, page);
+    host.append(shell);
     show(Math.min(guidedIndex, total - 1));
     onStore(() => {
         [...dots.children].forEach((dot, i) => dot.classList.toggle('done', i < entries.length && store.answered(entries[i].item.id)));
+        [...tocList.children].forEach((li, i) => li.firstChild.classList.toggle('done', i < entries.length && store.answered(entries[i].item.id)));
         if (summaryPre) summaryPre.textContent = buildSummary(entries.map(e => e.item));
     });
 }
@@ -3476,8 +3984,11 @@ reviewerInput.addEventListener('input', () => {
 });
 function wireReview() {
     document.getElementById('rv-title').textContent = review.title;
+    document.getElementById('rv-title').classList.remove('rv-pending');
     document.getElementById('rv-subtitle').textContent = review.subtitle || 'Give a Paw';
     document.title = `${review.title} - Give a Paw`;
+    // "reviewerName": the name box starts filled in (the reviewer can change it).
+    if (!store.data.reviewer && review.reviewerName) store.set(data => { data.reviewer = review.reviewerName; });
     reviewerInput.value = store.data.reviewer || '';
     reviewerInput.placeholder = review.reviewerDefault || 'Your name';
     emailButton.hidden = !review.returnEmail;

@@ -1,0 +1,176 @@
+{
+  "id": "ollie-fitting-preview",
+  "title": "Ollie's prosthetic fitting",
+  "subtitle": "Give a Paw",
+  "intro": "",
+  "reviewerDefault": "Derrick Campana",
+  "returnEmail": "",
+  "participantTools": [
+    "pin",
+    "measure",
+    "section",
+    "layers",
+    "alpha",
+    "draw",
+    "help"
+  ],
+  "items": [
+    {
+      "id": "fitting-videos",
+      "kind": "stage",
+      "title": "Ollie's Prosthetic Fitting Session",
+      "context": "Four clips from the fitting (choose one above the video), next to the socket he wore. Drag the 3D model to turn it.",
+      "sources": {
+        "videos": {
+          "kind": "playlist",
+          "label": "Fitting videos",
+          "caption": "Ollie's fitting session",
+          "clips": [
+            {
+              "id": "img_3890",
+              "src": "media/ollie-fitting/IMG_3890.mp4",
+              "poster": "media/ollie-fitting/IMG_3890.jpg",
+              "stops": [],
+              "label": "Hall Running"
+            },
+            {
+              "id": "img_3893",
+              "label": "Severe trip on carpet",
+              "src": "media/ollie-fitting/IMG_3893.mp4",
+              "poster": "media/ollie-fitting/IMG_3893.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3894",
+              "label": "Carpet w/o rubber pad",
+              "src": "media/ollie-fitting/IMG_3894.mp4",
+              "poster": "media/ollie-fitting/IMG_3894.jpg",
+              "stops": []
+            },
+            {
+              "id": "img_3900",
+              "src": "media/ollie-fitting/IMG_3900.mp4",
+              "poster": "media/ollie-fitting/IMG_3900.jpg",
+              "stops": [],
+              "label": "Adjusting socket"
+            }
+          ],
+          "tone": "proposed",
+          "showClips": true,
+          "clipDemo": true,
+          "tag": false
+        },
+        "socket": {
+          "kind": "assembly",
+          "label": "Socket used at the fitting",
+          "caption": "the socket Ollie wore",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "ollie-attachment-surface.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "split",
+          "label": "Videos + socket",
+          "icon": "columns-2",
+          "panes": [
+            "videos",
+            "socket"
+          ]
+        }
+      ],
+      "presenterNotes": {
+        "by": "Tyler",
+        "note": "",
+        "annotations": [
+          {
+            "id": "j804ahz",
+            "kind": "mark",
+            "source": "videos",
+            "clip": "img_3890",
+            "t": 34.36,
+            "label": "Running",
+            "note": "",
+            "shapes": []
+          },
+          {
+            "id": "zbic9et",
+            "kind": "mark",
+            "source": "videos",
+            "clip": "img_3890",
+            "t": 65.77,
+            "label": "Cross Over",
+            "note": "Unwanted lateral movement & cross over",
+            "shapes": []
+          },
+          {
+            "id": "j9jqbq4",
+            "kind": "mark",
+            "source": "videos",
+            "clip": "img_3890",
+            "t": 81.48,
+            "label": "Gap in Prosthetic",
+            "note": "We see noticable gap in prosthetic as it is bending",
+            "shapes": []
+          },
+          {
+            "id": "ciz2hch",
+            "kind": "mark",
+            "source": "videos",
+            "clip": "img_3893",
+            "t": 0,
+            "label": "Severe trip",
+            "note": "using rubber pad, caught on carpet",
+            "shapes": []
+          },
+          {
+            "id": "fr63447",
+            "kind": "mark",
+            "source": "videos",
+            "clip": "img_3894",
+            "t": 0,
+            "label": "Carpet w/o rubber pad",
+            "note": "",
+            "shapes": []
+          },
+          {
+            "id": "w9z5bwv",
+            "kind": "mark",
+            "source": "videos",
+            "clip": "img_3900",
+            "t": 2.24,
+            "label": "Adjusting Socket",
+            "note": "",
+            "shapes": []
+          }
+        ]
+      },
+      "defaultView": "split"
+    }
+  ],
+  "reviewerName": "Derrick Campana",
+  "screensList": "closed"
+}

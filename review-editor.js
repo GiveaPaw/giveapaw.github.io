@@ -1469,13 +1469,28 @@ $('#ed-toggle-outline').addEventListener('click', () => setOutline(!S.outline));
 document.querySelectorAll('.ed-mode [data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 $('#ed-fullscreen').addEventListener('click', toggleFullscreen);
 $('#ed-reload-preview').addEventListener('click', refreshPreview);
-$('#ed-present').addEventListener('click', async () => {
+// The real presentation (as viewers see it), in its own tab, on the screen being edited. Its Edit button
+// comes back to this tab (named below) and selects the screen it showed, without reloading the editor.
+async function openViewerView() {
     if (dirty()) {
         if (!confirm('Save your changes first? The presentation opens from the saved file.')) return;
         if (!(await save())) return;
     }
-    window.open(`design-review.html?review=${encodeURIComponent(S.path)}&host=1`, '_blank');
-});
+    const item = S.sel !== 'settings' && !S.sel?.hidden ? `&item=${encodeURIComponent(S.sel.id)}` : '';
+    window.open(`design-review.html?review=${encodeURIComponent(S.path)}&host=1${item}`, 'gap-review-present');
+}
+$('#ed-present').addEventListener('click', openViewerView);
+$('#ed-open-viewer').addEventListener('click', openViewerView);
+window.name = 'gap-review-editor';
+if ('BroadcastChannel' in window) {
+    new BroadcastChannel('gap-review-editor').addEventListener('message', event => {
+        if (event.data?.type !== 'edit-screen' || event.data.file !== S.path) return;
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        setMode('edit');
+        const item = S.doc?.items.find(it => it.id === event.data.id);
+        if (item && item !== S.sel) select(item);
+    });
+}
 $('#ed-file').addEventListener('change', event => {
     if (dirty() && !confirm('You have unsaved changes. They are kept in this browser, but switch files anyway?')) { event.target.value = S.path; return; }
     location.search = `?file=${encodeURIComponent(event.target.value)}`;

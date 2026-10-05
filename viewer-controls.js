@@ -444,7 +444,7 @@ export function createPaneView({ camera, controls, canvas, stage, cubeWrap, cube
     };
 }
 
-export function createViewerControls({ camera, controls, canvas, stage, cubeWrap, cubeCanvas, helpButton, axisColors, pickMeshes, isGizmoHovered, frameView, dismissible = false, collapseTarget = null }) {
+export function createViewerControls({ camera, controls, canvas, stage, cubeWrap, cubeCanvas, helpButton, axisColors, pickMeshes, isGizmoHovered, frameView, dismissible = false, collapseTarget = null, closeOnLastGesture = false }) {
     let coach = null;
     const pane = createPaneView({
         camera, controls, canvas, stage, cubeWrap, cubeCanvas, axisColors, pickMeshes, isGizmoHovered,
@@ -527,7 +527,17 @@ export function createViewerControls({ camera, controls, canvas, stage, cubeWrap
         },
         // Releasing the gesture the current slide teaches moves on to the next slide.
         gestureEnded(kind) {
-            if (!coach.active || kind !== coach.currentKey() || coach.slide >= ACTIONS.length - 1) return;
+            if (!coach.active || kind !== coach.currentKey()) return;
+            // Last slide: with closeOnLastGesture the guide puts itself away (shrinking into its button) as
+            // soon as the student has done that gesture; otherwise it waits for "Got it".
+            if (coach.slide >= ACTIONS.length - 1) {
+                if (!closeOnLastGesture) return;
+                coach.tried.add(kind);
+                coach.markTried();
+                clearTimeout(coach.advanceTimer);
+                coach.advanceTimer = setTimeout(() => { if (coach.active && coach.slide === ACTIONS.length - 1) coach.close(false, { collapse: true }); }, 350);
+                return;
+            }
             coach.tried.add(kind);
             coach.markTried();
             clearTimeout(coach.advanceTimer);

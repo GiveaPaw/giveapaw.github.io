@@ -179,9 +179,13 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
         const items = S.notes[uidKey]?.items || {};
         return Object.values(items).reduce((n, it) => n + (it.annotations?.length || 0) + (it.note ? 1 : 0) + (it.pick !== null && it.pick !== undefined ? 1 : 0) + Object.keys(it.tags || {}).length, 0);
     }
+    // The invite is a viewer's link: no presenter (host) controls, no screen or name of the presenter's own.
+    // Presenting from this computer (localhost), it points at the public site, which remote viewers can open.
     function inviteLink() {
-        const url = new URL(location.href);
+        const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+        const url = local ? new URL(location.pathname.split('/').pop() + location.search, 'https://giveapaw.github.io/') : new URL(location.href);
         url.hash = '';
+        ['host', 'dev', 'item', 'name', 'layout'].forEach(key => url.searchParams.delete(key));
         url.searchParams.set('session', S.code);
         return url.toString();
     }
@@ -209,7 +213,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
         return `<p class="rv-live-sub">Show a tutorial on everyone's screen</p><div class="rv-live-presets">${kinds.map(kind => `<button type="button" class="rv-btn rv-mini" data-tutorial="${escapeHTML(kind)}">${icon(TUTORIAL_ICONS[kind] || 'circle-help')} ${escapeHTML(TUTORIAL_NAMES[kind] || kind)}</button>`).join('')}</div>`;
     }
     function wireHostSection() {
-        panel.querySelector('[data-summon]')?.addEventListener('click', () => { S.transport.update('meta', { summon: Date.now() }); toast('Everyone is back on your view'); });
+        panel.querySelector('[data-summon]')?.addEventListener('click', () => { S.transport.update('meta', { summon: Date.now(), summonQuiet: false }); toast('Everyone is back on your view'); });
         panel.querySelectorAll('[data-tutorial]').forEach(button => button.addEventListener('click', () => {
             S.transport.update('meta', { tutorial: `${Date.now()}:${button.dataset.tutorial}` });
             toast(`${TUTORIAL_NAMES[button.dataset.tutorial] || 'Tutorial'} shown on everyone's screen`);
@@ -393,7 +397,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
             const wasLocked = S.locked;
             S.role = meta?.leaderUid === S.uid ? 'leader' : 'follower';
             S.locked = !!meta?.locked;
-            if (S.role === 'leader' && !wasLeader) { publishState(); if (wasLeader === false && S.transport) toast('You are now presenting'); }
+            if (S.role === 'leader' && !wasLeader) { S.lastLeaderIndex = layout.getIndex(); publishState(); if (wasLeader === false && S.transport) toast('You are now presenting'); }
             if (S.role === 'follower' && wasLeader) toast(`${leaderName()} is now presenting`);
             const lockMe = S.locked && S.role === 'follower';
             entries.forEach(e => e.media.setLocked?.(lockMe));
@@ -405,7 +409,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
                 if (S.lastSummon !== undefined) {
                     setFollowing(true);
                     if (S.remoteState) applyRemote(S.remoteState);
-                    toast(`${leaderName()} brought everyone to their view`);
+                    if (!meta.summonQuiet) toast(`${leaderName()} brought everyone to their view`);
                 }
             }
             S.lastSummon = meta?.summon ?? null;
@@ -443,7 +447,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
         t.remove(`members/${S.uid}`);
         t.remove(`pointers/${S.uid}`);
         t.disconnect();
-        Object.assign(S, { transport: null, code: null, uid: null, role: null, following: true, meta: null, members: {}, pointers: {}, strokes: {}, notes: {}, remoteState: null, locked: false, lastSummon: undefined, lastTutorial: undefined, membersSig: '' });
+        Object.assign(S, { transport: null, code: null, uid: null, role: null, following: true, meta: null, members: {}, pointers: {}, strokes: {}, notes: {}, remoteState: null, locked: false, lastSummon: undefined, lastTutorial: undefined, lastLeaderIndex: undefined, membersSig: '' });
         applyPolicy();
         entries.forEach(e => { e.media.setRemote?.(null); e.media.setOthers?.([]); e.media.setLocked?.(false); });
         setHighlight(false);
@@ -472,7 +476,12 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
     layout.listeners.add(index => {
         entries.forEach(attach);
         if (!S.transport) return;
-        if (S.role === 'leader') publishState();
+        if (S.role === 'leader') {
+            publishState();
+            // Going to another screen brings everyone along, including people looking around on their own.
+            if (index !== S.lastLeaderIndex) S.transport.update('meta', { summon: Date.now(), summonQuiet: true });
+            S.lastLeaderIndex = index;
+        }
         else if (!applyingRemote && S.remoteState && index !== S.remoteState.index) {
             if (S.locked) applyRemote(S.remoteState);
             else if (S.following) setFollowing(false);
@@ -534,7 +543,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
             Object.entries(S.notes).forEach(([id, note]) => {
                 if (id === S.uid || (S.role === 'follower' && id === S.meta?.leaderUid)) return;
                 const annotations = note?.items?.[entry.item.id]?.annotations || [];
-                annotations.filter(a => a.kind === 'mark').forEach(a => list.push({ ...a, who: { name: note.name || 'Guest', color: colorFor(id) } }));
+                annotations.filter(a => a.kind === 'mark' || a.kind === 'pin' || a.kind === 'sketch').forEach(a => list.push({ ...a, who: { name: note.name || 'Guest', color: colorFor(id) } }));
             });
             entry.media.setOthers?.(list);
         });

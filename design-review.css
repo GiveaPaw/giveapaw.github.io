@@ -746,7 +746,7 @@ body:not(.rv-host) .rv-toolbar hr, body:not(.rv-host) .rv-host-only { display: n
     .rv-top { padding: 8px 12px; gap: 10px; }
     .rv-variants { grid-template-columns: minmax(0, 1fr); }
     .rv-variants button span { display: none; }
-    .rv-reviewer input { width: 110px; }
+    .rv-reviewer input { width: 140px; }
     .rv-scroll { padding: 14px 12px 90px; gap: 16px; }
     .rv-scroll .rv-viewer { height: 420px; }
     .rv-scroll .rv-compare { height: 480px; }
@@ -806,7 +806,7 @@ body:not(.rv-host) .rv-toolbar hr, body:not(.rv-host) .rv-host-only { display: n
 .rv-video-frame img.rv-picture { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; background: #000; transform-origin: 50% 50%; user-select: none; -webkit-user-drag: none; }
 .rv-video.is-picture .rv-video-frame video, .rv-video.is-picture .rv-timeline, .rv-video.is-picture .rv-stop-banner { display: none !important; }
 .rv-video.is-picture .rv-video-bar > :not(.rv-rotate):not(.rv-clips-toggle) { display: none !important; }
-body:not(.rv-host) .rv-video.is-picture:not(:has(.rv-clips-toggle)) .rv-video-bar { display: none; }
+body:not(.rv-host) .rv-video.is-picture .rv-video-bar { display: none; }
 .rv-video.is-picture .rv-video-bar { justify-content: space-between; }
 
 /* 3D toolbar: pin, measure and section only (2026-10-02). The other tools still exist (F fits the view). */
@@ -1019,3 +1019,137 @@ body[data-hide~="help"] .rv-move-help { display: none !important; }
 .rv-guided .rv-move-help { display: none !important; }
 .rv-move-toggle.is-pulsing { animation: rv-move-pulse 1s ease-out 2; border-color: #fdb515; }
 body[data-hide~="help"] .rv-move-toggle { display: none !important; }
+
+/* Guided layout: list of screens on the left (collapsible, like the editor's outline). */
+.rv-guided-shell { display: grid; grid-template-columns: 0 minmax(0, 1fr); transition: grid-template-columns 0.2s ease; }
+.rv-guided-shell.toc-open { grid-template-columns: 250px minmax(0, 1fr); }
+.rv-guided-shell > .rv-guided { width: 100%; min-width: 0; }
+.rv-toc { display: flex; flex-direction: column; min-width: 0; height: calc(100dvh - var(--top-h, 63px)); overflow: hidden; border-right: 1px solid var(--line); background: #fff; visibility: hidden; }
+.rv-guided-shell.toc-open .rv-toc { visibility: visible; }
+.rv-toc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 10px 8px 16px; }
+.rv-toc-head strong { color: var(--navy); font: 700 0.95rem var(--font-heading); }
+.rv-toc-close { display: grid; width: 30px; height: 30px; place-items: center; padding: 0; border: 1px solid #c8d1da; border-radius: 6px; background: #fff; color: #506172; cursor: pointer; }
+.rv-toc-close svg { width: 16px; height: 16px; }
+.rv-toc-list { display: grid; gap: 2px; margin: 0; padding: 4px 8px 16px; overflow-y: auto; list-style: none; }
+.rv-toc-item { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; align-items: center; gap: 8px; width: 100%; padding: 8px 8px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--navy-ink); font: 600 0.8rem/1.25 var(--font-heading); text-align: left; cursor: pointer; }
+.rv-toc-item:hover { background: #f2f5f8; }
+.rv-toc-item.active { border-color: #b9c9db; background: #eaf1f7; }
+.rv-toc-num { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--navy); color: #fff; font: 700 0.72rem var(--font-heading); }
+.rv-toc-num svg { width: 14px; height: 14px; }
+.rv-toc-title { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.rv-toc-done { width: 8px; height: 8px; border-radius: 50%; background: transparent; }
+.rv-toc-item.done .rv-toc-done { background: #1d8a6a; }
+.rv-guided-head { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+.rv-toc-toggle { width: 34px; padding: 0; justify-content: center; }
+.rv-toc-toggle.active { border-color: var(--navy); background: #eaf1f7; }
+@media (max-width: 760px) { .rv-guided-head { grid-template-columns: auto auto minmax(0, 1fr); } }
+@media (max-width: 900px) {
+    .rv-guided-shell, .rv-guided-shell.toc-open { grid-template-columns: minmax(0, 1fr); }
+    .rv-toc { position: fixed; z-index: 60; top: var(--top-h, 63px); left: 0; bottom: 0; width: min(290px, 86vw); height: auto; box-shadow: 8px 0 24px rgba(24, 43, 62, 0.2); transform: translateX(-105%); transition: transform 0.2s ease; }
+    .rv-guided-shell.toc-open .rv-toc { transform: none; }
+}
+body.rv-full .rv-toc { height: 100dvh; }
+
+/* 3D view: drawing tool, the sketch layer, and other people's pins. */
+.rv-sketch { position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%; pointer-events: none; }
+.rv-stage.mode-sketch .rv-sketch { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.rv-draw-panel { position: absolute; z-index: 6; bottom: 12px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #b6c0ca; border-radius: 8px; background: rgba(255, 255, 255, 0.96); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2); transform: translateX(-50%); }
+.rv-draw-panel[hidden] { display: none; }
+.rv-draw-panel .rv-swatches { display: flex; gap: 4px; }
+.rv-draw-undo, .rv-draw-done { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 10px; border: 1px solid #b6c0ca; border-radius: 5px; background: #fff; color: var(--navy-ink); font: 700 0.74rem var(--font-heading); cursor: pointer; }
+.rv-draw-undo { padding: 0; }
+.rv-draw-undo svg { width: 15px; height: 15px; }
+.rv-draw-done { border-color: var(--navy); background: var(--navy); color: #fff; }
+.rv-sketch-chip { position: absolute; z-index: 5; left: 50%; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border: 1px solid #b6c0ca; border-radius: 14px; background: rgba(255, 255, 255, 0.95); color: var(--navy-ink); font: 700 0.72rem var(--font-heading); cursor: pointer; transform: translateX(-50%); box-shadow: 0 3px 10px rgba(24, 43, 62, 0.16); white-space: nowrap; }
+.rv-sketch-chip[hidden] { display: none; }
+.rv-sketch-chip svg { width: 14px; height: 14px; }
+.rv-pin-label.other { border-width: 2px; }
+.rv-anno-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+body[data-hide~="draw"] .rv-toolbar [data-tool="draw"] { display: none !important; }
+.rv-viewer.rv-locked .rv-toolbar [data-tool="draw"] { display: none; }
+
+/* A named stop at the end of a one-bar slider (e.g. "Solid"): a gap before it and a solid outline. */
+.rv-seg.is-extra { margin-left: 6px; }
+.rv-seg.is-extra .rv-seg-bar { box-shadow: inset 0 0 0 2px #8a97a5; }
+.rv-seg.is-extra .rv-seg-label { color: var(--navy-ink); font-weight: 800; }
+.rv-stage.mode-sketch .rv-sketch-chip { display: none; }
+
+/* Clip demo ("clipDemo" on a playlist): gold tips that stand out on the dark video, a glowing clip,
+   and the header button "How to swap videos" that the last tip shrinks into. */
+.rv-video .rv-demo-tip, .rv-demo-tip.is-collapsing { border: 1px solid #c88a00; background: #fdb515; color: #0e2a47; font-weight: 600; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(253, 181, 21, 0.35); }
+.rv-video .rv-demo-tip b, .rv-demo-tip.is-collapsing b { color: #0e2a47; font-weight: 800; }
+.rv-video .rv-demo-tip::after, .rv-demo-tip.is-collapsing::after { background: #fdb515; }
+.rv-demo-tip.is-collapsing { transform-origin: center; transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease 0.5s; }
+.rv-clips .rv-demo-focus { outline: 3px solid #fdb515; outline-offset: 1px; box-shadow: 0 0 16px 3px rgba(253, 181, 21, 0.75); }
+.rv-clips.rv-demo-focus { outline: 3px solid #fdb515; outline-offset: -3px; box-shadow: inset 0 0 18px rgba(253, 181, 21, 0.45); border-radius: 0; }
+.rv-swap-toggle.is-pulsing { animation: rv-move-pulse 1s ease-out 2; border-color: #fdb515; }
+.rv-swap-toggle.active { border-color: var(--navy); background: #eaf1f7; }
+body[data-hide~="help"] .rv-swap-toggle { display: none !important; }
+
+/* Page title: hidden until the review's own title is in (no "Design review" flash); shown anyway after 4 s. */
+#rv-title.rv-pending { visibility: hidden; animation: rv-reveal 0s 4s forwards; }
+@keyframes rv-reveal { to { visibility: visible; } }
+/* Narrower windows: the screen's buttons go on their own row under the title instead of squeezing it. */
+@media (max-width: 1100px) {
+    .rv-guided-head { grid-template-columns: auto auto minmax(0, 1fr); }
+    .rv-screen-tools { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
+}
+/* Phones: screen number on its own row, the title and description full width below it. */
+@media (max-width: 560px) {
+    .rv-guided-head { grid-template-columns: auto minmax(0, 1fr); gap: 8px 10px; }
+    .rv-guided-head .rv-guided-step { justify-self: start; }
+    .rv-guided-head > div:not(.rv-screen-tools) { grid-column: 1 / -1; }
+}
+
+/* Clip strip: fold button at its top right; folded, the strip is one line saying which clip is showing. */
+.rv-clips { position: relative; align-items: flex-start; }
+.rv-clips-now { display: none; }
+.rv-clips button.rv-clips-toggle { position: sticky; right: 0; z-index: 2; display: inline-flex; flex-direction: row; align-items: center; gap: 4px; width: auto; height: 26px; margin-left: auto; padding: 0 10px 0 8px; border: 1px solid #5e7790; border-radius: 13px; background: #243140; color: #fff; font: 700 0.68rem var(--font-heading); white-space: nowrap; box-shadow: -10px 0 10px #18212b; }
+.rv-clips button.rv-clips-toggle:hover { border-color: #fdb515; }
+.rv-clips button.rv-clips-toggle svg { width: 14px; height: 14px; }
+.rv-clips button.rv-clips-toggle span { overflow: visible; }
+.rv-clips.is-folded { align-items: center; padding-block: 5px; }
+.rv-clips.is-folded > [data-clip] { display: none; }
+.rv-clips.is-folded .rv-clips-now { display: block; overflow: hidden; color: #dfe7ee; font: 700 0.72rem var(--font-heading); text-overflow: ellipsis; white-space: nowrap; }
+.rv-clips.is-folded button.rv-clips-toggle { border-color: #fdb515; background: #fdb515; color: #0e2a47; box-shadow: none; }
+.rv-pane:has(.rv-clips.is-folded) .rv-pane-tag { top: 46px; }
+/* Video demo tips take clicks (Skip); the shrink into the header button must not replay the fade-in. */
+.rv-video .rv-demo-tip { pointer-events: auto; }
+.rv-demo-skip { display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid rgba(14, 42, 71, 0.45); border-radius: 10px; background: rgba(255, 255, 255, 0.35); color: #0e2a47; font: 700 0.66rem var(--font-heading); cursor: pointer; vertical-align: 1px; }
+.rv-demo-skip:hover { background: #fff; }
+.rv-demo-tip.is-collapsing { animation: none !important; pointer-events: none; }
+
+/* Presenter marks: gold ticks on the timeline, and a jump list in the presenter's notes. */
+.rv-timeline-marker.is-remote { width: 12px; height: 12px; min-width: 0; padding: 0; border: 2px solid #fff; border-radius: 50%; background: #e0a100; box-shadow: 0 0 0 1px #a86e00; font-size: 0; }
+.rv-timeline-marker.is-remote:hover { transform: scale(1.3); }
+.rv-presenter-marks { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; }
+.rv-presenter-marks button { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid #ecd08a; border-radius: 6px; background: #fff; color: #3f2d00; font: 500 0.78rem/1.35 var(--font-body, Inter, system-ui, sans-serif); text-align: left; cursor: pointer; }
+.rv-presenter-marks button:hover { border-color: #d99a00; background: #fff6dc; }
+.rv-pm-time { color: #7a5000; font: 700 0.74rem var(--font-mono, monospace); }
+.rv-pm-text small { display: block; margin-top: 1px; color: #8a7444; font-size: 0.7rem; }
+
+/* Video demo card: the 3D movement guide's card ("How to move"), with a small picture of the clip strip. */
+.rv-clip-coach { bottom: auto; left: 12px; z-index: 12; }
+.rv-clip-coach .ctl-art { grid-template-columns: minmax(0, 1fr); }
+.rv-clip-coach .ctl-art-frame { height: 74px; }
+.rv-clip-coach .ctl-note { margin: 0; color: var(--text); font-size: 0.8rem; line-height: 1.4; }
+.rv-clip-coach .ctl-note b { color: var(--navy-ink); }
+.rv-ca-strip { position: relative; display: flex; align-items: center; gap: 5px; width: 86%; height: 38px; padding: 0 7px; border-radius: 5px; background: #18212b; }
+.rv-ca-strip i { flex: 0 0 auto; width: 28px; height: 20px; border: 2px solid transparent; border-radius: 3px; background: #3a4b5d; }
+.rv-ca-strip i.on { border-color: var(--pink); background: #5e7790; animation: rv-ca-pulse 1.8s ease-in-out infinite; }
+.rv-ca-pill { margin-left: auto; padding: 2px 8px; border: 1px solid #5e7790; border-radius: 9px; background: #243140; color: #fff; font: 700 0.58rem var(--font-heading); white-space: nowrap; }
+.rv-ca-pill.on { border-color: var(--pink); animation: rv-ca-pulse 1.8s ease-in-out infinite; }
+.rv-ca-strip.is-folded { height: 26px; }
+.rv-ca-strip.is-folded .rv-ca-pill { border-color: #fdb515; background: #fdb515; color: #0e2a47; }
+.rv-ca-line { width: 42%; height: 6px; border-radius: 3px; background: #4a5c6e; }
+.rv-ca-cursor { position: absolute; width: 18px; height: 18px; margin: -1px 0 0 -3px; pointer-events: none; animation: rv-ca-tap 1.8s ease-in-out infinite; }
+.rv-ca-cursor svg { display: block; width: 100%; height: 100%; fill: #fff; stroke: #0e2a47; stroke-width: 1.6; }
+@keyframes rv-ca-tap { 0% { transform: translate(26px, 20px); opacity: 0; } 15% { opacity: 1; } 50% { transform: translate(0, 0) scale(1); } 60% { transform: translate(0, 0) scale(0.8); } 70%, 100% { transform: translate(0, 0) scale(1); opacity: 1; } }
+@keyframes rv-ca-pulse { 50% { box-shadow: 0 0 0 3px rgba(229, 61, 140, 0.35); } }
+@media (max-width: 640px) {
+    .rv-clip-coach { left: 8px; width: calc(100% - 16px); padding: 9px 10px; }
+    .rv-clip-coach .ctl-art-frame { height: 50px; }
+    .rv-clip-coach .rv-ca-strip { height: 32px; }
+    .rv-clip-coach .ctl-card h3 { margin: 6px 0 3px; }
+    .rv-clip-coach .controls-coach-foot { margin-top: 6px; }
+}
