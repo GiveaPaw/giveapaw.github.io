@@ -3,7 +3,7 @@
   "title": "Ollie: why the leg does not track",
   "subtitle": "Give a Paw × Bionic Pets",
   "intro": "Ollie's prosthetic leg does not move with him. It does not point where we want it to, it crosses over, and it drags on the floor. Below is the socket he wore, followed by the changes we are considering.",
-  "reviewerDefault": "Derrick Campana",
+  "reviewerDefault": "Diego Suarez",
   "returnEmail": "",
   "participantTools": [
     "pin",
@@ -1988,6 +1988,215 @@
           "panes": [
             "leg",
             "paws"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screen-both",
+      "kind": "stage",
+      "title": "BIllie Fitting",
+      "context": "",
+      "sources": {
+        "video": {
+          "kind": "playlist",
+          "label": "Videos",
+          "caption": "",
+          "clips": [
+            {
+              "id": "img-3915",
+              "label": "IMG_3915",
+              "src": "media/ollie-fit-2026-10/IMG_3915.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3915.jpg",
+              "stops": [],
+              "rotate": 270
+            },
+            {
+              "id": "img-3921",
+              "label": "IMG_3921",
+              "src": "media/ollie-fit-2026-10/IMG_3921.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3921.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3922",
+              "label": "IMG_3922",
+              "src": "media/ollie-fit-2026-10/IMG_3922.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3922.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3911",
+              "label": "IMG_3911",
+              "src": "media/ollie-fit-2026-10/IMG_3911.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3911.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3914",
+              "label": "IMG_3914",
+              "src": "media/ollie-fit-2026-10/IMG_3914.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3914.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3916",
+              "label": "IMG_3916",
+              "src": "media/ollie-fit-2026-10/IMG_3916.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3916.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3923",
+              "label": "IMG_3923",
+              "src": "media/ollie-fit-2026-10/IMG_3923.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3923.jpg",
+              "stops": [],
+              "rotate": 90
+            },
+            {
+              "id": "img-3913",
+              "label": "IMG_3913",
+              "src": "media/ollie-fit-2026-10/IMG_3913.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3913.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3912",
+              "label": "IMG_3912",
+              "src": "media/ollie-fit-2026-10/IMG_3912.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3912.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3920",
+              "label": "IMG_3920",
+              "src": "media/ollie-fit-2026-10/IMG_3920.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3920.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-5440",
+              "label": "IMG_5440",
+              "src": "media/ollie-fit-2026-10/IMG_5440.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_5440.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3918",
+              "label": "IMG_3918",
+              "src": "media/ollie-fit-2026-10/IMG_3918.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3918.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-5447",
+              "label": "IMG_5447",
+              "src": "media/ollie-fit-2026-10/IMG_5447.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_5447.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-5444",
+              "label": "IMG_5444",
+              "src": "media/ollie-fit-2026-10/IMG_5444.jpg"
+            },
+            {
+              "id": "img-5441",
+              "label": "IMG_5441",
+              "src": "media/ollie-fit-2026-10/IMG_5441.jpg"
+            },
+            {
+              "id": "img-5445",
+              "label": "IMG_5445",
+              "src": "media/ollie-fit-2026-10/IMG_5445.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_5445.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-5443",
+              "label": "IMG_5443",
+              "src": "media/ollie-fit-2026-10/IMG_5443.jpg"
+            },
+            {
+              "id": "img-5437",
+              "label": "IMG_5437",
+              "src": "media/ollie-fit-2026-10/IMG_5437.jpg"
+            },
+            {
+              "id": "billiefitting",
+              "label": "billiefitting",
+              "src": "media/ollie-fit-2026-10/billiefitting.jpg"
+            },
+            {
+              "id": "img-3917",
+              "label": "IMG_3917",
+              "src": "media/ollie-fit-2026-10/IMG_3917.mp4",
+              "poster": "media/ollie-fit-2026-10/IMG_3917.jpg",
+              "stops": []
+            },
+            {
+              "id": "img-3910",
+              "label": "IMG_3910",
+              "src": "media/ollie-fit-2026-10/IMG_3910.jpg"
+            }
+          ]
+        },
+        "model": {
+          "kind": "assembly",
+          "label": "Billie's socket",
+          "caption": "",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "billie-solid-full.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "billie-socket-7-8.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            },
+            {
+              "key": "attach",
+              "label": "Attachment surface",
+              "file": "billie-attach-7-8.glb",
+              "color": "#169c8c",
+              "opacity": 0.9,
+              "visible": false,
+              "decal": true
+            }
+          ]
+        }
+      },
+      "views": [
+        {
+          "key": "video",
+          "label": "Video",
+          "icon": "film",
+          "panes": [
+            "video"
+          ]
+        },
+        {
+          "key": "both",
+          "label": "Video + 3D",
+          "icon": "columns-2",
+          "panes": [
+            "video",
+            "model"
+          ]
+        },
+        {
+          "key": "model",
+          "label": "3D model",
+          "icon": "box",
+          "panes": [
+            "model"
           ]
         }
       ]
