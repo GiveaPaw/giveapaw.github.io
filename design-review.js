@@ -422,6 +422,7 @@ const UNIT_TO_MM = { mm: 1, cm: 10, m: 1000, in: 25.4 };
 let firstViewer = true;
 // A clip demo that runs first (on a playlist with "clipDemo": true) holds the 3D movement guide until it ends.
 let introHold = null;
+let clipDemoAutoStarted = false;
 
 // ---- 3D viewer (sweep or assembly) -----------------------------------------------------------
 
@@ -967,6 +968,11 @@ function createModelViewer(item) {
     let flight = null;
     function flyTo(position, target) {
         flight = { start: performance.now(), fromP: camera.position.clone(), fromT: controls.target.clone(), toP: new THREE.Vector3().fromArray(position), toT: new THREE.Vector3().fromArray(target) };
+    }
+    // A pin that is not this browser's own (the presenter's, from the file): show its value, fly to its view.
+    function flyToPin(pin) {
+        if (isSweep && pin.value !== undefined && item.values.includes(pin.value)) showValue(item.values.indexOf(pin.value));
+        if (pin.camera) flyTo(pin.camera.position, pin.camera.target);
     }
     function jumpTo(id) {
         const sketch = mySketches().find(a => a.id === id);
@@ -1820,7 +1826,7 @@ function createModelViewer(item) {
 
     return {
         root, item,
-        jumpTo, select: selectPin,
+        jumpTo, select: selectPin, jumpToPin: flyToPin,
         mediaEl: stage,
         getState, applyState, setLocked, setRemote, setOthers,
         onChange: cb => changeListeners.add(cb),
@@ -2164,6 +2170,14 @@ function createStageViewer(item) {
         select(id) {
             Object.values(built || {}).forEach(viewer => viewer.select(id));
             Object.values(kept).forEach(child => child.select?.(id));
+        },
+        jumpToPin(pin) {
+            const keys = Object.keys(item.sources);
+            const key = (pin.source && isModel(sourceOf(pin.source))) ? pin.source : (keys.find(k => sourceOf(k)?.isFirstModel) || keys.find(k => isModel(sourceOf(k))));
+            if (!key) return;
+            const v = views.find(x => x.key === view && x.panes.includes(key)) || views.find(x => x.panes.includes(key));
+            if (v && v.key !== view) showView(v.key);
+            built?.[key]?.jumpToPin?.(pin);
         },
         jumpToMark(mark) {
             const key = mark.source || Object.keys(item.sources).find(k => ['video', 'playlist'].includes(item.sources[k].kind));
@@ -2677,7 +2691,8 @@ function createVideoAnnotator(item) {
         else begin();
         return finished;
     }
-    if (item.clipDemo && clips.length > 1) {
+    if (item.clipDemo && clips.length > 1 && !clipDemoAutoStarted) {
+        clipDemoAutoStarted = true;
         // Every time the page opens: wait until the video is on screen, play the demo, then the 3D movement guide.
         introHold = new Promise(resolve => {
             let tries = 0;
@@ -3438,14 +3453,30 @@ function createNotesPanel(item, media) {
             <h4>${escapeHTML(item.choices.ask)}</h4>
             <div>${item.choices.options.map(o => `<button type="button" data-choice="${escapeHTML(o.key)}">${o.icon ? icon(o.icon) : ''} ${escapeHTML(o.label)}</button>`).join('')}</div>
         </div>` : ''}
-        ${presenterNoteBlock(item)}
+        <div class="rv-presenter-slot"></div>
         <label>Your notes<textarea class="rv-note" placeholder="${item.kind === 'video' ? 'Anything you would tell us about this clip…' : 'Anything you would tell us about this design…'}"></textarea></label>
         <div class="rv-anno-head"><span>${item.kind === 'video' ? 'Marks on the video' : item.kind === 'stage' && Object.values(item.sources || {}).some(src => ['video', 'playlist', 'image'].includes(src.kind)) ? 'Pins, drawings and marks' : 'Pins and drawings on the model'} <small class="rv-anno-count"></small></span></div>
         <ol class="rv-anno-list"></ol>`;
-    root.querySelectorAll('.rv-presenter-marks [data-mark]').forEach(button => button.addEventListener('click', () => {
-        const mark = (item.presenterNotes?.annotations || []).find(a => a.id === button.dataset.mark);
-        if (mark) media.jumpToMark?.(mark);
-    }));
+    // The presenter's notes from the file. Whatever this browser already has as its own notes (the presenter's
+    // own browser, where they were written) is left out, so the presenter does not see everything twice.
+    const presenterSlot = root.querySelector('.rv-presenter-slot');
+    let presenterKey = null;
+    function renderPresenterNotes() {
+        const own = store.item(item.id);
+        const mine = { ids: new Set((own.annotations || []).map(a => a.id)), note: own.note || '' };
+        const html = presenterNoteBlock(item, mine);
+        if (html === presenterKey) return;
+        presenterKey = html;
+        presenterSlot.innerHTML = html;
+        refreshIcons();
+        presenterSlot.querySelectorAll('[data-mark]').forEach(button => button.addEventListener('click', () => {
+            const note = (item.presenterNotes?.annotations || []).find(a => a.id === button.dataset.mark);
+            if (!note) return;
+            if (note.kind === 'mark') media.jumpToMark?.(note);
+            else media.jumpToPin?.(note);
+        }));
+    }
+    if (item.presenterNotes) onStore(renderPresenterNotes);
     const noteEl = root.querySelector('.rv-note');
     const listEl = root.querySelector('.rv-anno-list');
     const countEl = root.querySelector('.rv-anno-count');
@@ -3542,9 +3573,9 @@ function addEntry(item) {
     attachPresenterNotes(item, media);
     return entry;
 }
-// The presenter's notes at the top of the notes column: their note, and their video marks (clip, time,
-// label) as buttons that jump to the moment.
-function presenterNoteBlock(item) {
+// The presenter's notes at the top of the notes column: their note, their video marks (clip, time, label)
+// and 3D pins, as buttons that jump there. `mine` = this browser's own notes on the screen, left out.
+function presenterNoteBlock(item, mine = { ids: new Set(), note: '' }) {
     const pn = item.presenterNotes;
     if (!pn) return '';
     const clipLabel = mark => {
@@ -3554,11 +3585,22 @@ function presenterNoteBlock(item) {
         return at >= 0 ? `Video ${at + 1}${list[at].label ? ': ' + list[at].label : ''}` : '';
     };
     const time = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-    const marks = (pn.annotations || []).filter(a => a.kind === 'mark');
-    if (!pn.note && !marks.length) return '';
+    const modelLabel = pin => {
+        const key = pin.source || Object.keys(item.sources || {}).find(k => ['assembly', 'sweep'].includes(item.sources[k].kind));
+        return key && item.sources?.[key] ? `3D view: ${item.sources[key].label || key}` : '3D view';
+    };
+    const all = (pn.annotations || []).filter(a => a.kind === 'mark' || (a.kind === 'pin' && a.camera));
+    const shown = all.filter(a => !mine.ids.has(a.id));
+    const note = String(pn.note || '').trim();
+    const showNote = note && note !== String(mine.note || '').trim();
+    if (!showNote && !shown.length) return '';
+    let pinNo = 0;
+    const row = a => a.kind === 'mark'
+        ? `<li><button type="button" data-mark="${escapeHTML(a.id)}" title="Go to this moment"><span class="rv-pm-time">${time(a.t || 0)}</span><span class="rv-pm-text"><b>${escapeHTML(a.label || 'Mark')}</b>${a.note ? ` – ${escapeHTML(a.note)}` : ''}<small>${escapeHTML(clipLabel(a))}</small></span></button></li>`
+        : `<li><button type="button" data-mark="${escapeHTML(a.id)}" title="Go to this pin"><span class="rv-pm-time">${icon('map-pin')}</span><span class="rv-pm-text"><b>${escapeHTML(a.label || `Pin ${++pinNo}`)}</b>${a.note ? ` – ${escapeHTML(a.note)}` : ''}<small>${escapeHTML(modelLabel(a))}</small></span></button></li>`;
     return `<div class="rv-presenter-note"><h4>${icon('presentation')} Notes from ${escapeHTML(pn.by || 'the presenter')}</h4>
-        ${pn.note ? `<p>${escapeHTML(pn.note)}</p>` : ''}
-        ${marks.length ? `<ol class="rv-presenter-marks">${marks.map(m => `<li><button type="button" data-mark="${escapeHTML(m.id)}" title="Go to this moment"><span class="rv-pm-time">${time(m.t || 0)}</span><span class="rv-pm-text"><b>${escapeHTML(m.label || 'Mark')}</b>${m.note ? ` – ${escapeHTML(m.note)}` : ''}<small>${escapeHTML(clipLabel(m))}</small></span></button></li>`).join('')}</ol>` : ''}
+        ${showNote ? `<p>${escapeHTML(note)}</p>` : ''}
+        ${shown.length ? `<ol class="rv-presenter-marks">${shown.map(row).join('')}</ol>` : ''}
     </div>`;
 }
 // "presenterNotes": { "by", "note", "annotations": [pins and video marks] } on a screen (brought in from the
@@ -3723,7 +3765,7 @@ function buildGuided() {
     });
     page.querySelector('.rv-toc-toggle').addEventListener('click', () => setToc(!shell.classList.contains('toc-open')));
     toc.querySelector('.rv-toc-close').addEventListener('click', () => setToc(false));
-    setToc(!narrowToc() && review.screensList !== 'closed' && (() => { try { return localStorage.getItem(TOC_KEY) !== 'closed'; } catch { return true; } })(), false);
+    setToc(!narrowToc() && policy.isHost() && review.screensList !== 'closed' && (() => { try { return localStorage.getItem(TOC_KEY) !== 'closed'; } catch { return true; } })(), false);
     const total = entries.length + 1;
     for (let i = 0; i < total; i++) {
         const dot = el('button');

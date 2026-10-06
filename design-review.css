@@ -1153,3 +1153,36 @@ body[data-hide~="help"] .rv-swap-toggle { display: none !important; }
     .rv-clip-coach .ctl-card h3 { margin: 6px 0 3px; }
     .rv-clip-coach .controls-coach-foot { margin-top: 6px; }
 }
+
+.rv-pm-time svg { width: 14px; height: 14px; color: #a86e00; }
+
+/* Movement guide on phones and tablets: the touch-screen picture (from the walkthrough's styles; missing here,
+   so the card showed a tiny black shape). */
+.ctl-touch { width: 44px; height: 66px; }
+.ctl-touch-body { fill: #fff; stroke: #56626f; stroke-width: 2.5; }
+.ctl-touch-screen { fill: #e6ebef; stroke: #aab5c0; stroke-width: 1.5; }
+.ctl-art[data-input="touch"] { grid-template-columns: minmax(0, 1fr); }
+.ctl-art[data-input="touch"] figure { grid-column: 1 / -1; }
+.ctl-art[data-input="touch"][data-action="pan"] .ctl-pad-finger-b { display: block; }
+.ctl-art[data-input="touch"][data-action="pan"] .ctl-pad-finger-a { animation: ctl-touch-pan-a 2.1s ease-in-out infinite; }
+.ctl-art[data-input="touch"][data-action="pan"] .ctl-pad-finger-b { animation: ctl-touch-pan-b 2.1s ease-in-out infinite; }
+.ctl-art[data-input="touch"][data-action="zoom"] .ctl-pad-finger-a { animation: ctl-touch-pinch-a 1.8s ease-in-out infinite; }
+.ctl-art[data-input="touch"][data-action="zoom"] .ctl-pad-finger-b { animation: ctl-touch-pinch-b 1.8s ease-in-out infinite; }
+@keyframes ctl-touch-pan-a { 0%, 100% { transform: translate(-18px, 8px); } 50% { transform: translate(6px, -8px); } }
+@keyframes ctl-touch-pan-b { 0%, 100% { transform: translate(-4px, 8px); } 50% { transform: translate(20px, -8px); } }
+@keyframes ctl-touch-pinch-a { 0%, 100% { transform: translate(-5px, -5px); } 50% { transform: translate(-16px, -18px); } }
+@keyframes ctl-touch-pinch-b { 0%, 100% { transform: translate(5px, 5px); } 50% { transform: translate(16px, 18px); } }
+.controls-coach-cursor.is-touch svg { display: none; }
+.controls-coach-cursor.is-touch::before { content: ''; position: absolute; top: -8px; left: -8px; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 50%; background: rgba(255, 63, 164, 0.75); box-shadow: 0 0 10px rgba(255, 63, 164, 0.7); }
+/* A video pane with a clip strip names its clip in the strip, so its name banner (which sat on top of the
+   drawing tools) is left out. */
+.rv-pane:has(.rv-clips) .rv-pane-tag { display: none; }
+/* Phones: the movement guide is smaller so the model stays visible behind it. */
+@media (max-width: 640px) {
+    .controls-coach:not(.rv-clip-coach) { left: 8px; bottom: 8px; width: min(260px, calc(100% - 60px)); padding: 8px 10px; }
+    .controls-coach:not(.rv-clip-coach) .ctl-art-frame { height: 54px; }
+    .controls-coach:not(.rv-clip-coach) .ctl-touch { width: 30px; height: 46px; }
+    .controls-coach:not(.rv-clip-coach) .ctl-art figcaption { display: none; }
+    .controls-coach:not(.rv-clip-coach) .ctl-card h3 { margin: 6px 0 2px; }
+    .controls-coach:not(.rv-clip-coach) .controls-coach-foot { margin-top: 6px; }
+}
