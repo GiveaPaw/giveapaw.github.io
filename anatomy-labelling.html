@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anatomy Labelling Hub - Give a Paw</title>
+    <meta name="robots" content="noindex">
+    <!-- meta:start -->
+    <meta name="description" content="Quiz yourself on the human knee in four modes: multiple choice, find-and-click, typed answers, and matching, on textbook illustrations of the joint and of the thigh and calf muscles that move it. Build a custom quiz and share it as a link.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Give a Paw">
+    <meta property="og:title" content="Knee Anatomy Quiz">
+    <meta property="og:description" content="Quiz yourself on the human knee in four modes: multiple choice, find-and-click, typed answers, and matching, on textbook illustrations of the joint and of the thigh and calf muscles that move it. Build a custom quiz and share it as a link.">
+    <meta property="og:image" content="https://giveapaw.github.io/social-card.jpg">
+    <meta property="og:url" content="https://giveapaw.github.io/knee-anatomy-quiz.html">
+    <meta name="twitter:card" content="summary_large_image">
+    <!-- meta:end -->
+    <link rel="stylesheet" href="style.css?v=42">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="wide">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="index.html" class="sidebar-logo-link">
+                <img src="logo.jpg" alt="Give a Paw Logo" class="sidebar-logo">
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <p class="sidebar-nav-title">Our Patients</p>
+            <ul>
+                <li><a href="max-case-study.html">Max</a></li>
+                <li><a href="billie-case-study.html">Billie</a></li>
+                <li><a href="yana-case-study.html">Yana</a></li>
+                <li><a href="ollie-case-study.html">Ollie</a></li>
+                <li><a href="kiki-case-study.html">Kiki</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Earlier Projects</p>
+            <ul>
+                <li><a href="full-limb.html">Full Limb</a></li>
+                <li><a href="wheel-chair.html">Wheel Chair</a></li>
+            </ul>
+            <p class="sidebar-nav-title">How We Build</p>
+            <ul>
+                <li><a href="3d-scanning.html">3D Scanning</a></li>
+                <li><a href="preparing-ntop-input.html">Preparing nTop Input</a></li>
+                <li><a href="socket-walkthrough.html">Socket Walkthrough</a></li>
+                <li><a href="ntop-socket-creation.html">nTop Socket Creation</a></li>
+                <li><a href="implicit-viewer.html">Implicit Field Viewer</a></li>
+                <li><a href="pelvic-plane-locator.html">Pelvic Plane Locator</a></li>
+                <li><a href="interface-plane-locator.html">Interface Plane Locator</a></li>
+                <li><a href="materials.html">Materials</a></li>
+                <li><a href="3d-printing.html">3D Printing</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Learn &amp; Try</p>
+            <ul>
+                <li><a href="anatomy-quiz.html">Canine Anatomy Quiz</a></li>
+                <li><a href="downloads.html">Downloads</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Human Anatomy</p>
+            <ul>
+                <li><a href="human-anatomy-quiz.html">Full Skeleton</a></li>
+                <li><a href="head-anatomy-quiz.html">Head &amp; Neck</a></li>
+                <li><a href="chest-anatomy-quiz.html">Chest &amp; Lungs</a></li>
+                <li><a href="heart-anatomy-quiz.html">Heart</a></li>
+                <li><a href="organs-anatomy-quiz.html">Abdominal Organs</a></li>
+                <li><a href="arm-anatomy-quiz.html">Shoulder &amp; Arm</a></li>
+                <li><a href="hand-anatomy-quiz.html">Hand &amp; Forearm</a></li>
+                <li><a href="spine-anatomy-quiz.html">Spine &amp; Pelvis</a></li>
+                <li><a href="knee-anatomy-quiz.html">Knee</a></li>
+                <li><a href="foot-anatomy-quiz.html">Foot &amp; Ankle</a></li>
+                <li><a href="ear-anatomy-quiz.html">Ear</a></li>
+            </ul>
+            <p class="sidebar-nav-title">About</p>
+            <ul>
+                <li><a href="meet-the-team.html">Meet the Team</a></li>
+                <li><a href="credits.html">Credits</a></li>
+            </ul>
+        </nav>
+    </aside>
+    <div class="page">
+        <div class="content">
+            <article>
+                <section id="anatomy-labelling">
+                    <h1>Anatomy Labelling Hub<a class="headerlink" href="#anatomy-labelling" title="Permalink to this heading">&para;</a></h1>
+                    <p>Every human anatomy quiz set, with the structures still to place. <strong>Label</strong> opens that set in the shape editor: pick a structure from the list, then <strong>Trace</strong> and tap (or click) around its outline, using the labelled textbook figure in the corner to find it. Sign in once on each device and every outline saves to your account as you go; the quizzes use it straight away. Structures you have not outlined yet are left out of the quiz.</p>
+                    <div class="lh-account" id="lh-account"></div>
+                    <div class="lh-summary" id="lh-summary">Loading&hellip;</div>
+                    <div class="lh-controls">
+                        <label><input type="checkbox" id="lh-unfinished"> Only sets with structures left to label</label>
+                        <input type="search" id="lh-search" placeholder="Find a structure (e.g. tibialis)" aria-label="Find a structure">
+                    </div>
+                    <div id="lh-regions"></div>
+                    <style>
+                        .lh-summary { margin: 1rem 0; padding: 0.8rem 1rem; border-radius: 8px; background: #f3f6fb; font-weight: 600; }
+                        .lh-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+                        .lh-controls input[type=search] { flex: 1; min-width: 14rem; padding: 0.45rem 0.7rem; border: 1px solid var(--color-border); border-radius: 6px; font: inherit; }
+                        .lh-region { border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 1.25rem; background: #fff; }
+                        .lh-region > header { display: flex; align-items: center; gap: 1rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--color-border); }
+                        .lh-region h2 { margin: 0; font-size: 1.15rem; flex: 1; }
+                        .lh-region h2 a { color: inherit; }
+                        .lh-bar { width: 160px; height: 8px; border-radius: 4px; background: #e6ebf3; overflow: hidden; }
+                        .lh-bar span { display: block; height: 100%; background: #2e7d46; }
+                        .lh-count { font-size: 0.85rem; color: var(--color-text-light); white-space: nowrap; }
+                        .lh-draft { font-size: 0.75rem; font-weight: 700; color: #8a5a00; background: #fff4d6; border-radius: 999px; padding: 0.1rem 0.55rem; }
+                        .lh-set { border-top: 1px solid #eef1f6; }
+                        .lh-set:first-of-type { border-top: none; }
+                        .lh-set summary { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 1rem; cursor: pointer; list-style: none; }
+                        .lh-set summary::-webkit-details-marker { display: none; }
+                        .lh-set summary::before { content: '\25B8'; color: var(--color-text-light); transition: transform 0.15s; }
+                        .lh-set[open] summary::before { transform: rotate(90deg); }
+                        .lh-set-title { flex: 1; font-weight: 600; }
+                        .lh-btn { font: 600 0.8rem/1.2 var(--font-heading); padding: 0.35rem 0.7rem; border-radius: 5px; border: 1px solid #002676; text-decoration: none; }
+                        .lh-btn.primary { background: #002676; color: #fff; }
+                        .lh-btn.ghost { color: #002676; background: #fff; }
+                        .lh-items { columns: 3 14rem; column-gap: 1.5rem; margin: 0; padding: 0.25rem 1rem 0.8rem 2.6rem; list-style: none; font-size: 0.88rem; }
+                        .lh-items li { break-inside: avoid; padding: 0.12rem 0; display: flex; align-items: center; gap: 0.45rem; }
+                        .lh-items li.hit { background: #fff4d6; border-radius: 4px; }
+                        .lh-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #9aa3b2; }
+                        .traced .lh-dot { background: #2e7d46; border-color: #2e7d46; }
+                        .placed .lh-dot { background: #FDB515; border-color: #FDB515; }
+                        .lh-legend { font-size: 0.8rem; color: var(--color-text-light); display: flex; gap: 1rem; flex-wrap: wrap; margin: -0.5rem 0 1rem; }
+                        .lh-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+                        .lh-account { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; padding: 0.8rem 1rem; border: 1px solid #c9d2e3; border-radius: 8px; background: #fff; }
+                        .lh-account:empty { display: none; }
+                        .lh-account .lh-btn { font-size: 0.9rem; padding: 0.55rem 1rem; }
+                        .lh-account .lh-ok { color: #2e7d46; font-weight: 600; }
+                        .lh-account .lh-warn { color: #b02020; font-weight: 600; }
+                        .lh-account .lh-note { font-size: 0.85rem; color: var(--color-text-light); flex-basis: 100%; margin: 0; }
+                        .lh-account code { font-size: 0.78rem; word-break: break-all; }
+                        .lh-cloud { font-size: 0.75rem; font-weight: 700; color: #1f5f34; background: #e3f3e8; border-radius: 999px; padding: 0.1rem 0.55rem; white-space: nowrap; }
+                        button.lh-btn { cursor: pointer; }
+                        @media (max-width: 700px) { .lh-bar { display: none; } .lh-region > header { flex-wrap: wrap; } }
+                        @media (max-width: 600px) {
+                            .lh-set summary { flex-wrap: wrap; gap: 0.5rem 0.6rem; }
+                            .lh-set-title { flex-basis: calc(100% - 1.6rem); }
+                            .lh-set .lh-count { flex: 1; padding-left: 1.3rem; }
+                            .lh-items { columns: 1; padding-left: 1.6rem; }
+                        }
+                        @media (pointer: coarse) {
+                            .lh-btn { padding: 0.6rem 1rem; font-size: 0.9rem; }
+                            .lh-set summary { padding: 0.75rem 1rem; flex-wrap: wrap; }
+                            .lh-controls label { padding: 0.4rem 0; }
+                        }
+                    </style>
+                    <script src="anatomy-cloud.js?v=3"></script>
+                    <script>
+                    (() => {
+                        const REGIONS = [
+ {
+  "slug": "hand",
+  "title": "Hand & Forearm",
+  "page": "hand-anatomy-quiz.html",
+  "data": "quiz-data-hand.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Hand & Wrist Bones"
+   },
+   {
+    "key": "radius-ulna",
+    "title": "Radius & Ulna"
+   },
+   {
+    "key": "carpal-tunnel",
+    "title": "Carpal Tunnel"
+   },
+   {
+    "key": "forearm-superficial",
+    "title": "Forearm Muscles - Superficial"
+   },
+   {
+    "key": "forearm-deep",
+    "title": "Forearm Muscles - Deep"
+   },
+   {
+    "key": "hand-muscles",
+    "title": "Hand Muscles"
+   },
+   {
+    "key": "interossei",
+    "title": "Interossei"
+   }
+  ]
+ },
+ {
+  "slug": "arm",
+  "title": "Shoulder & Arm",
+  "page": "arm-anatomy-quiz.html",
+  "data": "quiz-data-arm.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Scapula"
+   },
+   {
+    "key": "humerus",
+    "title": "Humerus"
+   },
+   {
+    "key": "shoulder-joint",
+    "title": "Shoulder Joint"
+   },
+   {
+    "key": "elbow-section",
+    "title": "Elbow - Section"
+   },
+   {
+    "key": "elbow-lateral",
+    "title": "Elbow - Outer Side"
+   },
+   {
+    "key": "elbow-medial",
+    "title": "Elbow - Inner Side"
+   },
+   {
+    "key": "girdle-front",
+    "title": "Shoulder Girdle Muscles - Front"
+   },
+   {
+    "key": "girdle-back",
+    "title": "Shoulder Girdle Muscles - Back"
+   },
+   {
+    "key": "shoulder-superficial",
+    "title": "Shoulder Muscles - Superficial"
+   },
+   {
+    "key": "shoulder-deep",
+    "title": "Shoulder Muscles - Deep"
+   },
+   {
+    "key": "upper-arm",
+    "title": "Upper Arm Muscles"
+   }
+  ]
+ },
+ {
+  "slug": "chest",
+  "title": "Chest & Lungs",
+  "page": "chest-anatomy-quiz.html",
+  "data": "quiz-data-chest.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Sternum & Rib Cage"
+   },
+   {
+    "key": "chest-muscles",
+    "title": "Chest Wall Muscles"
+   },
+   {
+    "key": "diaphragm",
+    "title": "Diaphragm"
+   },
+   {
+    "key": "respiratory",
+    "title": "Respiratory Organs"
+   },
+   {
+    "key": "lungs",
+    "title": "Lungs & Bronchi"
+   },
+   {
+    "key": "trachea",
+    "title": "Trachea"
+   },
+   {
+    "key": "larynx-front",
+    "title": "Larynx - Front"
+   },
+   {
+    "key": "larynx-side",
+    "title": "Larynx - Side"
+   }
+  ]
+ },
+ {
+  "slug": "organs",
+  "title": "Abdominal Organs",
+  "page": "organs-anatomy-quiz.html",
+  "data": "quiz-data-organs.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Digestive System"
+   },
+   {
+    "key": "stomach",
+    "title": "Stomach"
+   },
+   {
+    "key": "small-intestine",
+    "title": "Small Intestine"
+   },
+   {
+    "key": "large-intestine",
+    "title": "Large Intestine"
+   },
+   {
+    "key": "liver-pancreas",
+    "title": "Liver, Pancreas & Spleen"
+   },
+   {
+    "key": "gallbladder",
+    "title": "Gallbladder & Bile Ducts"
+   },
+   {
+    "key": "spleen",
+    "title": "Spleen"
+   },
+   {
+    "key": "kidney-position",
+    "title": "Kidney Position"
+   },
+   {
+    "key": "kidney",
+    "title": "Kidney"
+   },
+   {
+    "key": "bladder",
+    "title": "Urinary Bladder"
+   },
+   {
+    "key": "abdominal-wall",
+    "title": "Abdominal Wall Muscles"
+   },
+   {
+    "key": "posterior-abdomen",
+    "title": "Posterior Abdominal Muscles"
+   }
+  ]
+ },
+ {
+  "slug": "foot",
+  "title": "Foot & Ankle",
+  "page": "foot-anatomy-quiz.html",
+  "data": "quiz-data-foot.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Foot Bones - Top"
+   },
+   {
+    "key": "foot-medial",
+    "title": "Foot Bones - Inner Side"
+   },
+   {
+    "key": "foot-lateral",
+    "title": "Foot Bones - Outer Side"
+   },
+   {
+    "key": "ankle-medial",
+    "title": "Ankle - Inner Side"
+   },
+   {
+    "key": "ankle-lateral",
+    "title": "Ankle - Outer Side"
+   },
+   {
+    "key": "tibia-fibula",
+    "title": "Tibia & Fibula"
+   },
+   {
+    "key": "leg-front",
+    "title": "Leg Muscles - Front"
+   },
+   {
+    "key": "leg-deep",
+    "title": "Leg Muscles - Deep Back"
+   },
+   {
+    "key": "foot-dorsal",
+    "title": "Foot Muscles - Top"
+   },
+   {
+    "key": "sole",
+    "title": "Foot Muscles - Sole"
+   }
+  ]
+ },
+ {
+  "slug": "head",
+  "title": "Head & Neck",
+  "page": "head-anatomy-quiz.html",
+  "data": "quiz-data-head.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Skull - Side"
+   },
+   {
+    "key": "skull-front",
+    "title": "Skull - Front"
+   },
+   {
+    "key": "face-muscles",
+    "title": "Face Muscles"
+   },
+   {
+    "key": "eye",
+    "title": "Eye"
+   },
+   {
+    "key": "brain",
+    "title": "Cerebrum"
+   },
+   {
+    "key": "brainstem",
+    "title": "Brainstem"
+   }
+  ]
+ },
+ {
+  "slug": "spine",
+  "title": "Spine & Pelvis",
+  "page": "spine-anatomy-quiz.html",
+  "data": "quiz-data-spine.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Vertebral Column"
+   },
+   {
+    "key": "vertebra",
+    "title": "Vertebra"
+   },
+   {
+    "key": "pelvis",
+    "title": "Pelvis"
+   },
+   {
+    "key": "hip-bone",
+    "title": "Hip Bone"
+   },
+   {
+    "key": "femur",
+    "title": "Femur"
+   }
+  ]
+ },
+ {
+  "slug": "human",
+  "title": "Full Skeleton",
+  "page": "human-anatomy-quiz.html",
+  "data": "quiz-data-human.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Full Skeleton - Bones"
+   },
+   {
+    "key": "joints",
+    "title": "Full Skeleton - Joints"
+   },
+   {
+    "key": "upper-limb-bones",
+    "title": "Upper Limb - Bones"
+   },
+   {
+    "key": "upper-limb-joints",
+    "title": "Upper Limb - Joints"
+   }
+  ]
+ },
+ {
+  "slug": "heart",
+  "title": "Heart",
+  "page": "heart-anatomy-quiz.html",
+  "data": "quiz-data-heart.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Outside - Front"
+   },
+   {
+    "key": "posterior",
+    "title": "Outside - Back"
+   },
+   {
+    "key": "interior",
+    "title": "Inside"
+   },
+   {
+    "key": "diagram",
+    "title": "Simple Diagram"
+   }
+  ]
+ },
+ {
+  "slug": "knee",
+  "title": "Knee",
+  "page": "knee-anatomy-quiz.html",
+  "data": "quiz-data-knee.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "Joint: Bones, Ligaments & Tendons"
+   },
+   {
+    "key": "thigh-front",
+    "title": "Thigh Muscles - Front"
+   },
+   {
+    "key": "thigh-back",
+    "title": "Thigh Muscles - Back"
+   },
+   {
+    "key": "leg-back",
+    "title": "Calf Muscles - Back"
+   }
+  ]
+ },
+ {
+  "slug": "ear",
+  "title": "Ear",
+  "page": "ear-anatomy-quiz.html",
+  "data": "quiz-data-ear.js",
+  "sets": [
+   {
+    "key": "bones",
+    "title": "External Ear (Auricle)"
+   },
+   {
+    "key": "section",
+    "title": "Outer, Middle & Inner Ear"
+   }
+  ]
+ }
+];
+                        const box = document.getElementById('lh-regions');
+                        const onlyLeft = document.getElementById('lh-unfinished');
+                        const search = document.getElementById('lh-search');
+                        try { onlyLeft.checked = localStorage.getItem('lh-unfinished') === '1'; } catch (e) {}
+                        const hasShape = it => it.points && it.points.length >= 3;
+                        const isParked = it => !hasShape(it) && it.x === 4;
+                        const status = it => hasShape(it) ? 'traced' : (isParked(it) ? 'parked' : 'placed');
+                        const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+
+                        async function load(region) {
+                            const res = await fetch(region.data + '?t=' + Date.now());
+                            const w = {};
+                            new Function('window', await res.text())(w);
+                            const config = w.QUIZ_CONFIG;
+                            // the cloud copy (saved from the editor) wins when it is newer
+                            const cloud = window.AnatomyCloud ? await window.AnatomyCloud.syncConfig(config, region.page, 6000) : null;
+                            const quizzes = config.quizzes;
+                            let draft = null;
+                            try {
+                                const d = JSON.parse(localStorage.getItem('quiz-editor-draft:' + new URL(region.page, location.href).pathname));
+                                if (d && d.quizzes) draft = d;
+                            } catch (e) {}
+                            if (draft) Object.keys(draft.quizzes).forEach(k => { if (quizzes[k]) quizzes[k].items = draft.quizzes[k]; });
+                            return { quizzes, draft, cloud };
+                        }
+
+                        function render(data) {
+                            const q = search.value.trim().toLowerCase();
+                            let all = 0, traced = 0, placed = 0, setsLeft = 0;
+                            box.innerHTML = '';
+                            REGIONS.forEach((r, ri) => {
+                                const d = data[ri];
+                                if (!d) return;
+                                const sets = r.sets.filter(s => d.quizzes[s.key]);
+                                let rAll = 0, rDone = 0;
+                                const blocks = [];
+                                sets.forEach(s => {
+                                    const items = d.quizzes[s.key].items;
+                                    const n = items.length, t = items.filter(hasShape).length;
+                                    const p = items.filter(it => status(it) === 'placed').length;
+                                    all += n; traced += t; placed += p; rAll += n; rDone += t;
+                                    if (t < n) setsLeft++;
+                                    const hits = q ? items.filter(it => it.name.toLowerCase().includes(q)) : [];
+                                    if (onlyLeft.checked && t === n) return;
+                                    if (q && !hits.length) return;
+                                    const dev = r.page + '?dev=1&quiz=' + encodeURIComponent(s.key);
+                                    const play = r.page + '?quiz=' + encodeURIComponent(s.key);
+                                    blocks.push('<details class="lh-set"' + (q ? ' open' : '') + '><summary>' +
+                                        '<span class="lh-set-title">' + esc(s.title) + '</span>' +
+                                        '<span class="lh-count">' + t + ' / ' + n + ' traced' + (p ? ', ' + p + ' marker only' : '') + '</span>' +
+                                        '<a class="lh-btn primary" href="' + dev + '">Label</a>' +
+                                        '<a class="lh-btn ghost" href="' + play + '">Quiz</a></summary>' +
+                                        '<ul class="lh-items">' + items.map(it => '<li class="' + status(it) +
+                                            (q && it.name.toLowerCase().includes(q) ? ' hit' : '') + '"><span class="lh-dot"></span>' +
+                                            esc(it.name) + '</li>').join('') + '</ul></details>');
+                                });
+                                if (!blocks.length) return;
+                                const pct = rAll ? Math.round(100 * rDone / rAll) : 0;
+                                box.insertAdjacentHTML('beforeend', '<section class="lh-region"><header><h2><a href="' + r.page + '">' +
+                                    esc(r.title) + '</a></h2>' + (d.draft ? '<span class="lh-draft" title="Kept on this device, not in your account yet: open the page signed in to save it">not saved to account</span>'
+                                        : d.cloud && d.cloud.applied ? '<span class="lh-cloud" title="Playing from your account">saved ' + new Date(d.cloud.savedAt).toLocaleDateString() + '</span>' : '') +
+                                    '<span class="lh-count">' + rDone + ' / ' + rAll + '</span>' +
+                                    '<span class="lh-bar"><span style="width:' + pct + '%"></span></span></header>' + blocks.join('') + '</section>');
+                            });
+                            document.getElementById('lh-summary').innerHTML = traced + ' of ' + all + ' structures traced across ' +
+                                REGIONS.length + ' regions (' + (all ? Math.round(100 * traced / all) : 0) + '%). ' +
+                                setsLeft + ' sets still have structures to label.' +
+                                '<div class="lh-legend" style="margin:0.5rem 0 0"><span><span class="lh-dot" style="background:#2e7d46;border-color:#2e7d46"></span>traced</span>' +
+                                '<span><span class="lh-dot" style="background:#FDB515;border-color:#FDB515"></span>marker only</span>' +
+                                '<span><span class="lh-dot"></span>not placed yet</span></div>';
+                            if (!box.children.length) box.innerHTML = '<p>Nothing matches.</p>';
+                        }
+
+                        Promise.all(REGIONS.map(r => load(r).catch(() => null))).then(data => {
+                            render(data);
+                            onlyLeft.addEventListener('change', () => {
+                                try { localStorage.setItem('lh-unfinished', onlyLeft.checked ? '1' : '0'); } catch (e) {}
+                                render(data);
+                            });
+                            search.addEventListener('input', () => render(data));
+                        });
+
+                        // Sign-in: once per device; the editor pages share it.
+                        const acct = document.getElementById('lh-account');
+                        const C = window.AnatomyCloud;
+                        if (C) {
+                            C.onUser(u => {
+                                if (!u.ready) { acct.innerHTML = '<span>Checking sign-in&hellip;</span>'; return; }
+                                if (u.error) { acct.innerHTML = '<span class="lh-warn">' + esc(u.error) + '</span>'; return; }
+                                if (!u.user) {
+                                    acct.innerHTML = '<button type="button" class="lh-btn primary" id="lh-signin">Sign in with Google</button>' +
+                                        '<span>to save your labelling to your account (and use it on any device).</span><span class="lh-note" id="lh-msg"></span>';
+                                    document.getElementById('lh-signin').addEventListener('click', () => {
+                                        C.signIn().catch(err => {
+                                            const code = String(err && (err.code || err.message) || err);
+                                            document.getElementById('lh-msg').textContent = /popup-closed|cancelled-popup/.test(code) ? ''
+                                                : /popup-blocked/.test(code) ? 'The sign-in window was blocked: allow pop-ups for this site and try again.'
+                                                : /operation-not-allowed/.test(code) ? 'Google sign-in is not switched on yet (see ANATOMY-CLOUD-SETUP.md).'
+                                                : /unauthorized-domain/.test(code) ? 'Sign-in is not enabled for this web address (see ANATOMY-CLOUD-SETUP.md).'
+                                                : 'Sign-in failed: ' + code;
+                                        });
+                                    });
+                                    return;
+                                }
+                                acct.innerHTML = (u.editor ? '<span class="lh-ok">&#10003; Signed in as ' + esc(u.user.name) + '. Your labelling saves to your account.</span>'
+                                        : '<span class="lh-warn">' + esc(u.user.name) + ' is signed in but cannot save yet.</span>' +
+                                          '<p class="lh-note">One-time setup: in the Firebase console (Realtime Database &rarr; Data) add <code>anatomy/editors/' + esc(u.user.uid) + '</code> = <code>true</code>, then reload. See ANATOMY-CLOUD-SETUP.md.</p>') +
+                                    '<button type="button" class="lh-btn ghost" id="lh-signout">Sign out</button>';
+                                document.getElementById('lh-signout').addEventListener('click', () => C.signOut());
+                            });
+                        }
+                    })();
+                    </script>
+                </section>
+            </article>
+            <footer>
+                <div class="footer-credits">
+                    <p>&copy; 2026 Give a Paw &middot; Bioprinting@Berkeley</p>
+                    <p>Animal prosthetics documentation and open design records.</p>
+                    <p class="footer-attrib">Canine reference meshes by kenchoo and Gert-Jan van den Boom, used under Creative Commons. <a href="credits.html">Full credits and licenses</a>.</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+    <button class="mobile-toggle" id="mobile-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    <script src="script.js?v=57"></script>
+</body>
+</html>
