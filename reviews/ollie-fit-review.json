@@ -3,7 +3,7 @@
   "title": "Ollie: why the leg does not track",
   "subtitle": "Give a Paw",
   "intro": "Ollie's prosthetic leg does not move with him. It does not point where we want it to, it crosses over, and it drags on the floor. Below is the socket he wore, followed by the changes we are considering.",
-  "reviewerDefault": "Diego Suarez",
+  "reviewerDefault": "Derrick Campana",
   "returnEmail": "",
   "participantTools": [
     "pin",
@@ -212,6 +212,100 @@
       }
     },
     {
+      "id": "socket-proposal",
+      "kind": "stage",
+      "title": "Socket Proposal",
+      "context": "",
+      "sources": {
+        "original": {
+          "kind": "assembly",
+          "label": "Original socket",
+          "caption": "the socket Ollie wore",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "ollie-solid-animal.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "ollie-socket.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
+            }
+          ]
+        },
+        "proposals": {
+          "kind": "sweep",
+          "label": "Proposed sockets",
+          "tone": "proposed",
+          "caption": "October 14, on the scaled solid mesh",
+          "param": "Socket proposal",
+          "unit": "",
+          "files": {},
+          "extras": [
+            {
+              "value": "low",
+              "file": "ollie-socket-10-14-low.glb",
+              "label": "Low",
+              "short": "Low"
+            },
+            {
+              "value": "proposal",
+              "file": "ollie-socket-10-14.glb",
+              "label": "Proposal",
+              "short": "Proposal"
+            },
+            {
+              "value": "high",
+              "file": "ollie-socket-10-14-high.glb",
+              "label": "High",
+              "short": "High"
+            }
+          ],
+          "defaultValue": "proposal",
+          "color": "#e0a100",
+          "animal": {
+            "file": "ollie-solid-scaled-10-14.glb",
+            "label": "Solid animal (scaled 10-14)",
+            "color": "#496b94",
+            "opacity": 1,
+            "visible": true
+          }
+        }
+      },
+      "views": [
+        {
+          "key": "original",
+          "label": "Original socket",
+          "icon": "box",
+          "panes": [
+            "original"
+          ]
+        },
+        {
+          "key": "split",
+          "label": "Original vs proposals",
+          "icon": "columns-2",
+          "panes": [
+            "original",
+            "proposals"
+          ]
+        },
+        {
+          "key": "proposals",
+          "label": "Proposals",
+          "icon": "sliders-horizontal",
+          "panes": [
+            "proposals"
+          ]
+        }
+      ]
+    },
+    {
       "id": "scaling",
       "kind": "stage",
       "title": "Scaling down the socket",
@@ -358,8 +452,7 @@
     {
       "id": "over-the-back-chihuahua",
       "kind": "stage",
-      "title": "How far over the back (Chihuahua example)",
-      "context": "Tried on the Chihuahua first: the socket's top edge moved over the back. Ollie's version will be the third bar on the attachment surface slider.",
+      "title": "How far over the back",
       "sources": {
         "over": {
           "kind": "sweep",
@@ -3449,8 +3542,13 @@
         "picture": {
           "kind": "image",
           "label": "Picture",
-          "caption": "",
-          "images": []
+          "caption": "Measurement Photo",
+          "images": [
+            {
+              "src": "media/ollie-fit-2026-10/IMG_3574.jpg",
+              "caption": ""
+            }
+          ]
         },
         "leg": {
           "kind": "assembly",
@@ -3531,6 +3629,14 @@
           "panes": [
             "leg",
             "paws"
+          ]
+        },
+        {
+          "key": "picture",
+          "label": "Picture",
+          "icon": "image",
+          "panes": [
+            "picture"
           ]
         }
       ]
@@ -3688,8 +3794,8 @@
         },
         "model": {
           "kind": "assembly",
-          "label": "Billie's socket",
-          "caption": "",
+          "label": "Original socket",
+          "caption": "July 8",
           "layers": [
             {
               "key": "animal",
@@ -3713,6 +3819,28 @@
               "opacity": 0.9,
               "visible": false,
               "decal": true
+            }
+          ]
+        },
+        "model-new": {
+          "kind": "assembly",
+          "label": "New socket",
+          "caption": "August 10",
+          "tone": "proposed",
+          "layers": [
+            {
+              "key": "animal",
+              "label": "Solid animal",
+              "file": "billie-solid-full.glb",
+              "color": "#496b94",
+              "opacity": 1
+            },
+            {
+              "key": "socket",
+              "label": "Socket",
+              "file": "billie-socket-8-10.glb",
+              "color": "#b9c2cc",
+              "opacity": 1
             }
           ]
         }
@@ -3741,6 +3869,23 @@
           "icon": "box",
           "panes": [
             "model"
+          ]
+        },
+        {
+          "key": "compare",
+          "label": "Original vs new",
+          "icon": "columns-2",
+          "panes": [
+            "model",
+            "model-new"
+          ]
+        },
+        {
+          "key": "model-new",
+          "label": "New socket",
+          "icon": "box",
+          "panes": [
+            "model-new"
           ]
         }
       ],
