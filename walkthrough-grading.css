@@ -1,0 +1,120 @@
+/* Comparing the student's design with the experts' (walkthrough-grading.js), three layouts:
+   1 Overlay (dock under the viewer), 2 Side by side (review in the step column), 3 On the controls. */
+:root { --g-navy: #003262; --g-ink: #173958; --g-muted: #6a7a89; --g-line: #e1e7ec; --g-bg: #f3f6f8; --g-match: #18925f; --g-close: #c98700; --g-off: #c8453c; --g-you: #ff3fa4; --g-expert: #2463b5; }
+
+/* ---- shared pieces ---- */
+.grade-step { display: inline-block; padding: 2px 8px; border-radius: 10px; background: var(--g-navy); color: #fff; font-size: 0.68rem; font-weight: 800; white-space: nowrap; }
+.grade-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 5px; border-radius: 12px; font-size: 0.7rem; font-weight: 800; white-space: nowrap; }
+.grade-chip svg.lucide { width: 13px; height: 13px; }
+.grade-chip.is-match { background: #e3f5ec; color: var(--g-match); }
+.grade-chip.is-close { background: #fdf1d8; color: #9a6700; }
+.grade-chip.is-off { background: #fbe6e4; color: var(--g-off); }
+.grade-untouched { display: block; margin-top: 3px; color: #8a96a2; font-size: 0.74rem; font-style: italic; }
+.grade-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid #cbd6e0; border-radius: 8px; background: #fff; color: var(--g-ink); font: 700 0.78rem 'Inter', sans-serif; cursor: pointer; white-space: nowrap; }
+.grade-btn:hover:not(:disabled) { border-color: var(--g-navy); }
+.grade-btn:disabled { opacity: 0.4; cursor: default; }
+.grade-btn svg.lucide, .cmp-banner svg.lucide, .cmp-note svg.lucide, .cmp-split-tags svg.lucide { width: 15px; height: 15px; flex: none; }
+.grade-primary { border-color: var(--g-navy); background: var(--g-navy); color: #fff; }
+.grade-track { display: block; width: 100%; max-width: 420px; height: auto; margin: 4px 0 0; overflow: visible; }
+.grade-line { stroke: #dbe2e8; stroke-width: 2; }
+.grade-tick { fill: #c4ced7; }
+.grade-band { fill: #dcebf7; }
+.grade-expert { fill: #5f7488; stroke: #fff; stroke-width: 1.5; }
+.grade-ex-marker { fill: var(--g-navy); }
+.grade-you line { stroke: var(--g-you); stroke-width: 2.5; }
+.grade-you rect { fill: var(--g-you); }
+.grade-you text { fill: #fff; font: 800 10px 'Inter', sans-serif; text-anchor: middle; }
+.grade-label { fill: var(--g-muted); font: 600 10px 'Inter', sans-serif; }
+.grade-plane { display: grid; gap: 5px; margin: 8px 0 2px; max-width: 420px; }
+.grade-plane-row { display: grid; grid-template-columns: 16px repeat(3, minmax(0, 1fr)); gap: 5px; align-items: stretch; }
+.grade-plane-row > b { align-self: center; color: var(--g-ink); font-size: 0.8rem; }
+.grade-plane-cell { position: relative; display: grid; gap: 2px; padding: 4px 7px; border: 1px solid var(--g-line); border-radius: 7px; background: #fafbfc; text-align: left; }
+.grade-plane-cell em { color: var(--g-muted); font-size: 0.66rem; font-style: normal; }
+.grade-plane-cell.is-top { background: #eef5fb; border-color: #c7dcee; }
+.grade-plane-cell.is-you { border-color: var(--g-you); box-shadow: 0 0 0 1px var(--g-you); }
+.grade-plane-cell strong { position: absolute; top: -7px; right: 5px; padding: 0 5px; border-radius: 7px; background: var(--g-you); color: #fff; font-size: 0.58rem; }
+.grade-plane-dots { display: flex; gap: 3px; min-height: 8px; }
+.grade-plane-dots i { width: 8px; height: 8px; border-radius: 50%; background: #5f7488; }
+.grade-files { display: grid; gap: 5px; margin: 6px 0 2px; text-align: left; }
+.grade-file { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border-radius: 7px; background: #f6f8fa; }
+.grade-file > svg.lucide { width: 16px; height: 16px; margin-top: 1px; }
+.grade-file.is-ok > svg { color: var(--g-match); }
+.grade-file.is-bad { background: #fdf0ee; }
+.grade-file.is-bad > svg { color: var(--g-off); }
+.grade-file b { display: block; color: var(--g-ink); font-size: 0.8rem; }
+.grade-file small { color: var(--g-muted); font-size: 0.74rem; }
+.grade-mix { display: flex; overflow: hidden; height: 20px; border-radius: 6px; font-size: 0.68rem; font-weight: 800; }
+.grade-mix span { display: grid; place-items: center; color: #fff; white-space: nowrap; }
+.grade-mix .is-match { background: var(--g-match); }
+.grade-mix .is-close { background: var(--g-close); }
+.grade-mix .is-off { background: var(--g-off); }
+.cmp-agree { display: flex; align-items: center; gap: 6px; margin: 4px 0 4px; color: var(--g-ink); font-size: 0.8rem; font-weight: 700; }
+.cmp-text { margin: 0 0 6px; font-size: 0.86rem; }
+.cmp-why { margin: 0; padding: 7px 10px; border-radius: 8px; background: #f6f8fa; color: #3d5266; font-size: 0.8rem; }
+.cmp-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
+.cmp-title h3 { margin: 0; color: var(--g-ink); font-size: 1rem; font-weight: 800; }
+.cmp-kicker { display: inline-flex; align-items: center; gap: 6px; color: var(--g-muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.cmp-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 3px; vertical-align: -1px; }
+.cmp-swatch.is-yours { background: #5b8a85; }
+.cmp-swatch.is-experts { background: rgba(36, 99, 181, 0.55); outline: 1px solid var(--g-expert); }
+
+/* ---- the split viewer: yours on the left, the experts' on the right ---- */
+.cmp-split-tags { position: absolute; z-index: 30; inset: 0; pointer-events: none; }
+.cmp-split-tags[hidden] { display: none; }
+.cmp-split-tags span { position: absolute; top: 54px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 16px; color: #fff; font: 800 0.8rem 'Inter', sans-serif; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+.cmp-split-tags .is-yours { left: 25%; background: #3f6f6a; transform: translateX(-50%); }
+.cmp-split-tags .is-experts { left: 75%; background: var(--g-expert); transform: translateX(-50%); }
+.cmp-split-tags i { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: rgba(23, 57, 88, 0.35); }
+
+/* ---- 3: On the controls: banner at the top of the steps, notes under each control ---- */
+.cmp-banner { position: sticky; top: 0; z-index: 15; display: grid; gap: 8px; margin: 0 0 12px; padding: 12px 14px; border: 1px solid #cdd6df; border-radius: 12px; background: #fff; color: #22384d; font: 14px/1.45 'Inter', 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 6px 18px rgba(16, 36, 58, 0.1); }
+.cmp-banner-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cmp-banner-top .grade-btn { margin-left: auto; }
+.cmp-banner-row { display: flex; align-items: center; gap: 8px; }
+.cmp-banner-row .grade-mix { flex: 1; }
+.cmp-banner-row > b { color: var(--g-navy); font-size: 0.86rem; white-space: nowrap; }
+.cmp-banner-now { flex: 1; min-width: 0; overflow: hidden; color: var(--g-muted); font-size: 0.82rem; text-overflow: ellipsis; white-space: nowrap; }
+.cmp-banner-now b { color: var(--g-ink); }
+.cmp-banner-summary { display: none; gap: 4px; max-height: 300px; overflow-y: auto; }
+.cmp-banner.show-summary .cmp-banner-summary { display: grid; }
+.cmp-sum { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--g-line); border-radius: 8px; background: #fff; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cmp-sum b { overflow: hidden; color: var(--g-ink); font-size: 0.8rem; text-overflow: ellipsis; white-space: nowrap; }
+.cmp-sum small { color: var(--g-muted); font-size: 0.72rem; }
+.cmp-row-flag { position: relative; box-shadow: inset 4px 0 0 var(--g-match); border-radius: 6px; }
+.cmp-row-flag.is-close { box-shadow: inset 4px 0 0 var(--g-close); }
+.cmp-row-flag.is-off { box-shadow: inset 4px 0 0 var(--g-off); }
+.cmp-note { margin: 4px 0 10px; border-radius: 10px; background: #fff; color: #22384d; font: 14px/1.45 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+.cmp-note-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: 0; border-radius: 10px; background: #f6f8fa; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cmp-note-head b { color: var(--g-ink); font-size: 0.8rem; }
+.cmp-note-head span { margin-left: auto; color: var(--g-muted); font-size: 0.74rem; white-space: nowrap; }
+.cmp-note.open { padding: 10px 12px; border: 1px solid #cdd6df; border-left: 4px solid var(--g-off); box-shadow: 0 6px 16px rgba(16, 36, 58, 0.1); }
+.cmp-note.open.is-close { border-left-color: var(--g-close); }
+.cmp-note.open.is-match { border-left-color: var(--g-match); }
+.cmp-note.open .cmp-note-head { padding: 0 0 6px; background: none; cursor: default; }
+
+@media (max-width: 900px) {
+    .cmp-split-tags span { font-size: 0.7rem; padding: 4px 9px; }
+}
+
+/* The 3D movement intro stays out of the way while comparing. */
+body.cmp-active .controls-coach { display: none !important; }
+/* Layout 3 banner: compact, so it does not cover the step it is pointing at. */
+.cmp-banner { gap: 6px; padding: 8px 10px; margin-bottom: 10px; }
+.cmp-banner .grade-mix { height: 8px; }
+.cmp-banner .grade-mix span { font-size: 0; }
+.cmp-banner-row > b { font-size: 0.8rem; }
+.cmp-banner .grade-btn { min-height: 28px; padding: 0 9px; }
+.cmp-sum.active { border-color: var(--g-navy); box-shadow: inset 0 0 0 1px var(--g-navy); }
+
+/* Featured expert: gold dot in the pictures, a button and their take in the open note. */
+.grade-expert.is-featured { fill: #e0a100; stroke: #7a5300; stroke-width: 1.5; }
+.grade-plane-dots i.is-featured { background: #e0a100; box-shadow: 0 0 0 1.5px #7a5300; }
+.cmp-featured { margin: 8px 0 4px; }
+.cmp-featured-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid #e3c36b; border-radius: 16px; background: #fffaeb; color: #7a5000; font: 700 0.78rem 'Inter', sans-serif; cursor: pointer; }
+.cmp-featured-btn svg.lucide { width: 15px; height: 15px; fill: #fdb515; color: #a86e00; }
+.cmp-featured.is-on .cmp-featured-btn { border-color: #d99a00; background: #fdb515; color: #3f2d00; }
+.cmp-featured-body { margin-top: 8px; padding: 9px 11px; border: 1px solid #ecd08a; border-radius: 10px; background: #fffaeb; font-size: 0.84rem; }
+.cmp-featured-body p { margin: 0; }
+.cmp-featured-body small { color: #8a7444; }
+.cmp-featured-body blockquote { margin: 8px 0 0; padding: 6px 10px; border-left: 3px solid #e0a100; background: #fff; color: #3f2d00; white-space: pre-wrap; }
+.cmp-split-tags .is-experts.is-featured { background: #c98a00; }

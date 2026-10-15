@@ -30,6 +30,7 @@ function throttle(fn, ms) {
     };
 }
 const sanitize = value => JSON.parse(JSON.stringify(value ?? null));
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 const COLORS = ['#ff3fa4', '#2d9bf0', '#35c95d', '#ffb020', '#a259ff', '#ff5364', '#00b8a9'];
 function colorFor(uid) { let h = 0; for (const c of String(uid)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
 // Codes are the only thing that lets someone into a session, so they are random and long enough
@@ -294,6 +295,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
                             ${isLeader && id !== S.uid && member.view ? `<button type="button" class="rv-btn rv-mini" data-snap="${escapeHTML(id)}" title="Jump to what they are looking at (everyone following you comes along)">${icon('eye')} View</button>` : ''}
                             <span class="rv-live-notes">${noteCount(id)} note${noteCount(id) === 1 ? '' : 's'}</span>
                             ${id !== S.uid && noteCount(id) ? `<button type="button" class="rv-btn rv-mini" data-merge="${escapeHTML(id)}" title="Copy their pins and notes into yours">Merge</button>` : ''}
+                            ${isLeader && LOCAL_HOST && id !== S.uid && noteCount(id) ? `<button type="button" class="rv-btn rv-mini" data-judge="${escapeHTML(id)}" title="Save their slider picks and notes as an expert judge's response (Expert judges page)">${icon('award')} Save</button>` : ''}
                             ${isLeader && id !== S.uid ? `<button type="button" class="rv-btn rv-mini" data-promote="${escapeHTML(id)}" title="Hand presenting over">Present</button>` : ''}
                         </li>`).join('')}
                 </ul>
@@ -310,6 +312,7 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
             panel.querySelector('[data-lock]')?.addEventListener('click', () => S.transport.update('meta', { locked: !S.locked }));
             panel.querySelector('[data-leave]').addEventListener('click', leave);
             panel.querySelectorAll('[data-merge]').forEach(b => b.addEventListener('click', () => mergeNotes(b.dataset.merge)));
+            panel.querySelectorAll('[data-judge]').forEach(b => b.addEventListener('click', () => saveJudge(b.dataset.judge)));
             panel.querySelectorAll('[data-snap]').forEach(b => b.addEventListener('click', () => snapTo(b.dataset.snap)));
             panel.querySelectorAll('[data-promote]').forEach(b => b.addEventListener('click', () => S.transport.update('meta', { leaderUid: b.dataset.promote, leaderName: S.members[b.dataset.promote]?.name || 'Presenter' })));
         }
@@ -550,6 +553,26 @@ export function createLiveSession({ entries, layout, store, button, toast, getNa
     }
     const publishNotes = throttle(() => { if (S.transport) S.transport.set(`notes/${S.uid}`, { name: S.name, at: Date.now(), items: sanitize(store.data.items) }); }, 700);
     store.subscribe(() => { publishNotes(); if (S.role === 'leader') publishState(); });
+    // Presenting from this computer: save a member's answers as an expert judge's response (judges.html,
+    // stored by tools/range_server.py in judges/<review id>/, never published). Saving again replaces their
+    // answers and keeps what was typed about the judge (organisation, experience, ...).
+    async function saveJudge(memberId) {
+        const theirs = S.notes[memberId];
+        if (!theirs) return;
+        const name = String(theirs.name || S.members[memberId]?.name || 'Guest').trim();
+        const reviewId = getReviewId();
+        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'guest';
+        try {
+            const list = await fetch(`/__judges/list?review=${encodeURIComponent(reviewId)}`).then(r => r.json());
+            const existing = (list.judges || []).find(j => j.id === id) || {};
+            const judge = { ...existing, id, name: existing.name || name, reviewId, items: theirs.items || {}, updatedAt: new Date(theirs.at || Date.now()).toISOString(), source: 'Live session', meetingDate: existing.meetingDate || new Date().toLocaleDateString('en-CA') };
+            const response = await fetch('/__judges/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ review: reviewId, judge }) });
+            if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `error ${response.status}`);
+            toast(`Saved ${name}'s answers to Expert judges`);
+        } catch (error) {
+            toast(`Could not save ${name}'s answers: ${error.message}`);
+        }
+    }
     function mergeNotes(fromUid) {
         const theirs = S.notes[fromUid];
         if (!theirs) return;

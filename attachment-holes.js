@@ -7,8 +7,9 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     const animal = new THREE.Group();
     const handle = new THREE.Object3D();
     const points = [];
-    const visibility = { surface: true, animal: true, capsule: true, boundary: true, points: true };
-    const status = document.getElementById('attachment-hole-status');
+    const visibility = { surface: true, animal: true, capsule: true, attachment: true, points: true };
+    // The status line under the block was removed; messages now only go to the console on failure.
+    const status = { textContent: '' };
     const toolbar = document.getElementById('attachment-overlay-controls');
     const pickButton = document.getElementById('attachment-pick');
     const raycaster = new THREE.Raycaster();
@@ -18,29 +19,72 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     let initialized = false;
     let editing = false;
     let picking = false;
+    let preview = false;    // Steps 5 and 6: the placed parts show on the assembly, nothing else
     let bounds;
     let triangles = [];
     let sourceMesh = null;
     let sourceAnimal = null;
-    let templates;
+    let templates = null;   // { attachment, solid, capsule } for the current design
+    let design = null;
+    let index = null;       // which combinations nTop generated (sample-models/chi-attach/index.json)
+    let designRequest = 0;
     let down;
     let dragFrame = null;
+    const listeners = new Set();
+    const emit = reason => listeners.forEach(fn => fn(reason));
     root.add(surface, animal, handle);
     root.visible = false;
     scene.add(root);
 
-    const assetVersions = { Capsule: 2, AttachBdry: 1 };
-    const ready = Promise.all(['Capsule', 'AttachBdry'].map(name =>
-        loadGLB(`sample-models/attachment-holes/${name}.glb?v=${assetVersions[name]}`))).then(models => {
-        templates = models.map(model => model.scene);
-        templates.forEach(template => template.traverse(object => {
-            if (object.isMesh && !object.geometry.hasAttribute('normal')) object.geometry.computeVertexNormals();
-        }));
-        status.textContent = 'Attachment models ready';
-    }).catch(error => {
-        status.textContent = 'Attachment models could not be loaded. Refresh to retry.';
-        console.error(error);
-    });
+    // The parts come from the 10-13 notebook's attachment sweep (tools/convert_chi_attachments.py):
+    // the printed attachment (cylinder around the screw, with its hole) and the capsule (the screw
+    // shaft, which punches the hole). Both sit at the origin, base at z = 0, +Z out of the surface,
+    // in millimetres. They are placed on the surface and move live; nothing is cut in the browser.
+    const ASSET_DIR = 'sample-models/chi-attach/';
+    const DEFAULT_DESIGN = { attachDiameter: 4, normalWallDistance: 4, screwHeadDiameter: 8, screwShaftDiameter: 4 };
+    const templateCache = new Map();
+    const pad = value => String(value).padStart(2, '0');
+    function designFiles(d) {
+        const code = `a${pad(d.attachDiameter)}-w${pad(d.normalWallDistance)}-h${pad(d.screwHeadDiameter)}-s${pad(d.screwShaftDiameter)}`;
+        return { attachment: `att-${code}.glb`, capsule: d.screwShaftDiameter > 0 ? `cap-s${pad(d.screwShaftDiameter)}.glb` : null };
+    }
+    function template(file) {
+        if (!templateCache.has(file)) {
+            const promise = loadGLB(ASSET_DIR + file).then(gltf => {
+                const model = gltf.scene;
+                model.scale.setScalar(0.001);
+                model.traverse(object => {
+                    if (object.isMesh && !object.geometry.hasAttribute('normal')) object.geometry.computeVertexNormals();
+                });
+                return model;
+            });
+            promise.catch(() => templateCache.delete(file));
+            templateCache.set(file, promise);
+        }
+        return templateCache.get(file);
+    }
+    function designExists(d) {
+        if (!index) return true;
+        const key = [d.attachDiameter, d.normalWallDistance, d.screwHeadDiameter, d.screwShaftDiameter].join(',');
+        return index.attachment.some(combo => combo.join(',') === key);
+    }
+    async function setDesign(next) {
+        design = { ...next };
+        const files = designFiles(design);
+        const request = ++designRequest;
+        const [attachment, capsule] = await Promise.all([template(files.attachment), files.capsule ? template(files.capsule) : null]);
+        if (request !== designRequest) return false;
+        templates = { attachment, capsule };
+        points.forEach(rebuildAssembly);
+        syncVisibility();
+        emit('design');
+        return true;
+    }
+    const ready = fetch(ASSET_DIR + 'index.json', { cache: 'no-cache' })
+        .then(response => response.ok ? response.json() : null)
+        .catch(() => null)
+        .then(data => { index = data; return setDesign(DEFAULT_DESIGN); })
+        .catch(error => { console.error('Attachment models could not be loaded.', error); });
 
     function styledClone(source, color, opacity = 1) {
         const clone = source.clone(true);
@@ -61,17 +105,16 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         group.clear();
     }
 
+    const formatMm = meters => String(parseFloat((meters * 1000).toFixed(2)));
+
     function updateUI() {
         const point = points[selected];
         document.getElementById('attachment-point-count').textContent = points.length;
-        document.querySelector('.attachment-hole-editor').hidden = !point;
         document.querySelectorAll('[data-point-coordinate]').forEach(input => {
             const item = points[+input.dataset.pointIndex];
-            if (item) input.value = (item.position[input.dataset.pointCoordinate] * 1000).toFixed(2);
+            if (item) input.value = formatMm(item.position[input.dataset.pointCoordinate]);
         });
         if (!point) return;
-        document.getElementById('attachment-point-title').textContent = `Point ${selected}`;
-        document.getElementById('attachment-normal').textContent = point.normal.toArray().map(v => v.toFixed(3)).join(', ');
         document.querySelectorAll('[data-hole-select]').forEach(button => {
             button.classList.toggle('active', +button.dataset.holeSelect === selected);
             button.setAttribute('aria-pressed', String(+button.dataset.holeSelect === selected));
@@ -85,13 +128,13 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     }
 
     function syncVisibility() {
-        surface.visible = visibility.surface;
-        animal.visible = visibility.animal;
+        surface.visible = visibility.surface && !preview;
+        animal.visible = visibility.animal && !preview;
         points.forEach((point, index) => {
-            point.capsule.visible = visibility.capsule && point.capsuleVisible;
-            point.boundary.visible = visibility.boundary && point.boundaryVisible;
-            point.marker.visible = visibility.points;
-            point.arrow.visible = visibility.points && index === selected;
+            point.capsule.visible = visibility.capsule && point.capsuleVisible && (!preview || point.placed);
+            point.attachment.visible = visibility.attachment && point.attachmentVisible && (!preview || point.placed);
+            point.marker.visible = visibility.points && !preview;
+            point.arrow.visible = visibility.points && !preview && index === selected;
             point.marker.material.color.setHex(index === selected ? 0xfdb515 : 0x203951);
             point.marker.scale.setScalar(index === selected ? 1.3 : 1);
         });
@@ -101,21 +144,29 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         }
     }
 
+    function place(index, position, normal, moveHandle = true) {
+        const point = points[index];
+        if (!point) return;
+        point.position.copy(position);
+        point.normal.copy(normal);
+        point.assembly.position.copy(position);
+        // The exported assets are centered without changing their original local axes.
+        point.assembly.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+        point.marker.position.copy(position);
+        point.arrow.position.copy(position);
+        point.arrow.setDirection(normal);
+        if (index === selected && moveHandle) handle.position.copy(position);
+        if (index === selected) updateUI();
+    }
+
     function snap(index, query, moveHandle = true) {
         const point = points[index];
         if (!point || !triangles.length) return;
         const nearest = closestSurfacePoint(query, triangles, bounds);
-        point.position.copy(nearest.point);
-        point.normal.copy(nearest.normal);
-        point.assembly.position.copy(nearest.point);
-        // The exported assets are centered without changing their original local axes.
-        point.assembly.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), nearest.normal);
-        point.marker.position.copy(nearest.point);
-        point.arrow.position.copy(nearest.point);
-        point.arrow.setDirection(nearest.normal);
-        if (index === selected && moveHandle) handle.position.copy(nearest.point);
-        if (index === selected) updateUI();
+        point.placed = true;
+        place(index, nearest.point, nearest.normal, moveHandle);
         status.textContent = `Point ${index} snapped to attachment surface`;
+        if (moveHandle) emit('point'); // a drag reports once, from finishDrag
     }
 
     function select(index, showTriad = true) {
@@ -129,11 +180,23 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     }
 
 
+    // The three parts of one attachment point, from the current design's templates.
+    function partClone(kind) {
+        const look = { capsule: [0xec9b45, 0.55], attachment: [0x2baca4, 1] }[kind];
+        const source = templates?.[kind];
+        const clone = source ? styledClone(source, look[0], look[1]) : new THREE.Group();
+        clone.name = kind;
+        return clone;
+    }
+    function rebuildAssembly(point) {
+        clearOwnedObjects(point.assembly);
+        point.capsule = partClone('capsule');
+        point.attachment = partClone('attachment');
+        point.assembly.add(point.capsule, point.attachment);
+    }
+
     function createPoint() {
-        const capsule = styledClone(templates[0], 0xec9b45);
-        const boundary = styledClone(templates[1], 0x2baca4);
         const assembly = new THREE.Group();
-        assembly.add(capsule, boundary);
         const marker = new THREE.Mesh(new THREE.SphereGeometry(0.0018, 16, 12),
             new THREE.MeshBasicMaterial({ color: 0xfdb515 }));
         marker.userData.measureSurface = false;
@@ -142,8 +205,12 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         keepOverlayVisible(marker, 125);
         keepOverlayVisible(arrow, 124);
         root.add(assembly, marker, arrow);
-        points.push({ assembly, capsule, boundary, marker, arrow,
-            position: new THREE.Vector3(), normal: new THREE.Vector3(), capsuleVisible: true, boundaryVisible: true });
+        const point = { assembly, capsule: null, attachment: null, marker, arrow, placed: false,
+            position: new THREE.Vector3(), normal: new THREE.Vector3(0, 0, 1), capsuleVisible: true, attachmentVisible: true };
+        rebuildAssembly(point);
+        points.push(point);
+        // New points sit at the world origin (0, 0, 0) until they are typed, dragged, or picked onto the surface.
+        place(points.length - 1, new THREE.Vector3(), new THREE.Vector3(0, 0, 1), false);
 
     }
     function renderList() {
@@ -170,11 +237,12 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
                 renderList();
                 status.textContent = `${points.length} attachment points ready`;
                 if (points.length) select(selected); else { editing = false; updateUI(); syncVisibility(); }
+                emit('remove');
             });
             const label = document.createElement('button');
             label.type = 'button';
             label.dataset.holeSelect = index;
-            label.textContent = `⌖ ${index}:`;
+            label.innerHTML = `<svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>${index}:</span>`;
             label.setAttribute('aria-label', `Select point ${index}`);
             label.addEventListener('click', () => select(index));
             row.append(remove, label);
@@ -185,7 +253,7 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
                 input.dataset.pointIndex = index;
                 input.dataset.pointCoordinate = axis;
                 input.setAttribute('aria-label', `Point ${index} ${axis.toUpperCase()}`);
-                input.value = (point.position[axis] * 1000).toFixed(2);
+                input.value = formatMm(point.position[axis]);
                 input.addEventListener('focus', () => select(index));
                 const commit = () => {
                     if (input.value !== '' && Number.isFinite(+input.value)) {
@@ -193,7 +261,7 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
                         query[axis] = +input.value / 1000;
                         snap(index, query);
                     }
-                    input.value = (point.position[axis] * 1000).toFixed(2);
+                    input.value = formatMm(point.position[axis]);
                 };
                 input.addEventListener('change', commit);
                 input.addEventListener('keydown', event => { if (event.key === 'Enter') { commit(); input.blur(); } });
@@ -206,10 +274,7 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     }
     document.getElementById('attachment-add').addEventListener('click', () => {
         if (!templates || !bounds) return;
-        const query = points[selected]?.position.clone() || bounds.getCenter(new THREE.Vector3());
-        query.x += 0.01;
         createPoint();
-        snap(points.length - 1, query);
         renderList();
         select(points.length - 1);
         document.querySelector(`[data-point-index="${selected}"]`)?.focus();
@@ -226,21 +291,17 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         surface.updateMatrixWorld(true);
         bounds = new THREE.Box3().setFromObject(surface);
         triangles = collectSurfaceTriangles(surface);
-        const center = bounds.getCenter(new THREE.Vector3());
-        const size = bounds.getSize(new THREE.Vector3());
         if (!initialized) {
-            for (let index = 0; index < 6; index++) createPoint();
+            // Only point 0 exists to begin with; the student adds the rest with the + button.
+            createPoint();
             initialized = true;
         }
         renderList();
-        points.forEach((point, index) => {
-            // Six editable starting positions around the upper attachment surface.
-            const angle = index * Math.PI / 3 + Math.PI / 6;
-            snap(index, new THREE.Vector3(center.x + Math.cos(angle) * size.x * 0.65,
-                center.y + Math.sin(angle) * size.y * 0.65, bounds.min.z + size.z * 0.72));
-        });
+        // Points already placed follow the new surface; unplaced ones stay at the origin.
+        points.forEach((point, index) => { if (point.placed) snap(index, point.position.clone(), false); });
         select(selected, false);
         status.textContent = `${points.length} attachment points ready`;
+        emit('rebuild');
     }
 
     function setPicking(value) {
@@ -252,8 +313,16 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         syncVisibility();
     }
 
+    // Steps 5 and 6 show the placed attachments on the assembly without the surface, markers or tools.
+    function setPreview(value) {
+        preview = value;
+        root.visible = active || preview;
+        syncVisibility();
+    }
+
     function setActive(value, surfaceSource, animalSource) {
         active = value;
+        preview = false;
         root.visible = value;
         toolbar.hidden = !value;
         if (!value) {
@@ -327,9 +396,11 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         }
     });
 
-    return { root, ready, rebuild, setActive, syncVisibility,
+    return { root, ready, rebuild, setActive, setPreview, syncVisibility, setDesign, designExists,
+        get design() { return design; },
         finishDrag: () => { if (active) snap(selected, handle.position); },
         cancelPicking: () => setPicking(false),
         measurementRoots: () => [surface, animal, ...points.map(point => point.assembly)],
+        onChange: fn => listeners.add(fn),
     };
 }

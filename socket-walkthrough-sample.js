@@ -5,7 +5,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { createAttachmentHoles } from './attachment-holes.js?v=3';
+import { withModelFallback } from './model-base.js?v=2';
+import { createAttachmentHoles } from './attachment-holes.js?v=9';
+import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=2';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -55,12 +58,18 @@ const rimLight = new THREE.DirectionalLight(0xffe7bd, 0.85);
 rimLight.position.set(3, 1, 2);
 scene.add(rimLight);
 
-const grid = new THREE.GridHelper(2.4, 24, 0xaeb8c4, 0xd8dee5);
-grid.rotation.x = Math.PI / 2;
-grid.material.transparent = true;
-grid.material.opacity = 0.58;
-grid.material.depthWrite = false;
-scene.add(grid);
+// GridHelper lies in XZ by default; rotate it into the other two world planes.
+const gridPlanes = { xy: [Math.PI / 2, 0, 0], xz: [0, 0, 0], yz: [0, 0, Math.PI / 2] };
+Object.entries(gridPlanes).forEach(([key, rotation]) => {
+    const plane = new THREE.GridHelper(2.4, 24, 0xaeb8c4, 0xd8dee5);
+    plane.rotation.set(...rotation);
+    plane.material.transparent = true;
+    plane.material.opacity = 0.58;
+    plane.material.depthWrite = false;
+    plane.visible = key === 'xy';
+    scene.add(plane);
+    gridPlanes[key] = plane;
+});
 
 const importRoot = new THREE.Group();
 const planeRoot = new THREE.Group();
@@ -71,11 +80,11 @@ scene.add(importRoot, planeRoot, interfaceRoot, measurementRoot);
 const layers = {
     solidAnimal: {
         label: 'Solid animal', color: '#496b94', group: new THREE.Group(), visible: true,
-        file: 'sample-models/chihuahua-original.obj?v=4x', type: 'obj', opacity: 0.28, baseUnit: 'm', importUnit: 'm',
+        file: 'sample-models/chihuahua-1015-solid.glb', type: 'glb', opacity: 0.28, baseUnit: 'mm', importUnit: 'mm', scalable: true,
     },
     attachment: {
         label: 'Attachment mesh', color: '#169c8c', group: new THREE.Group(), visible: true,
-        file: 'sample-models/chihuahua-farback-1.stl?v=4x', type: 'stl', opacity: 0.88, baseUnit: 'm', importUnit: 'm',
+        file: 'sample-models/chihuahua-1015-surface.glb', type: 'glb', opacity: 0.88, baseUnit: 'mm', importUnit: 'mm', scalable: true,
     },
     mechanical: {
         label: 'Mechanical interface', color: '#df7544', group: new THREE.Group(), visible: false,
@@ -91,40 +100,25 @@ Object.values(layers).forEach(layer => {
     importRoot.add(layer.group);
 });
 
-const modelCatalog = {
-    chihuahua: {
-        label: 'Chihuahua', slug: 'chihuahua',
-        solid: { label: 'Chihuahua original', file: 'sample-models/chihuahua-original.obj?v=4x', type: 'obj', units: 'm' },
-    },
-    greyhound: {
-        label: 'Greyhound', slug: 'greyhound',
-        solid: { label: 'Greyhound original', file: 'sample-models/greyhound-solid.obj', type: 'obj', units: 'm' },
-    },
-    'german-shepherd': {
-        label: 'German Shepherd', slug: 'german-shepherd',
-        solid: { label: 'German Shepherd original', file: 'sample-models/german-shepherd-solid.obj', type: 'obj', units: 'm' },
-    },
+// Step ids follow the nTop notebook (10-13): 1 import and scale; 2a interface position, 2b pelvic
+// plane, 2c interface plane, 2d position interface; 3 socket latticing; 4a attachment points,
+// 4b hole parameters; 5 blending; 6 export. The 3D stages are shared: 2b and 3 draw the pelvic
+// scene, 2a / 2c / 2d / 5 / 6 the interface scene, and 4a / 4b the attachment holes.
+const PELVIC_STEPS = ['2a', '3'];
+const INTERFACE_STEPS = ['2c', '2b', '2d', '5', '6'];
+const ATTACHMENT_STEPS = ['4a', '4b'];
+const BLEND_STEPS = ['5', '6'];
+const isPelvicStep = step => PELVIC_STEPS.includes(step);
+const isInterfaceStep = step => INTERFACE_STEPS.includes(step);
+const isAttachmentStep = step => ATTACHMENT_STEPS.includes(step);
+
+// Each Import Mesh node points at one catalog entry; see import-catalog.js for the folder layout.
+const importSelection = {
+    solidAnimal: filesForRole('solidAnimal')[0],
+    attachment: filesForRole('attachment')[0],
+    mechanical: filesForRole('mechanical')[0],
+    solidInterface: filesForRole('solidInterface')[0],
 };
-
-const attachmentCategoryLabels = {
-    farback: 'Far back',
-    forward: 'Forward',
-    leghole: 'Leg hole',
-    toolow: 'Too low',
-};
-
-const modelPickerState = { breed: 'chihuahua', category: 'farback', variation: 1 };
-
-function attachmentCatalogEntry() {
-    const breed = modelCatalog[modelPickerState.breed];
-    const category = modelPickerState.category;
-    const variation = modelPickerState.variation;
-    return {
-        label: `${breed.label} · ${attachmentCategoryLabels[category]} · ${variation}`,
-        file: `sample-models/${breed.slug}-${category}-${variation}.stl${breed.slug === 'chihuahua' ? '?v=4x' : ''}`,
-        type: 'stl',
-    };
-}
 
 const pelvicBody = new THREE.Group();
 const pelvicAttach = new THREE.Group();
@@ -137,9 +131,6 @@ const overlayGroups = {
     point: new THREE.Group(),
     normal: new THREE.Group(),
     plane: new THREE.Group(),
-    triadX: new THREE.Group(),
-    triadY: new THREE.Group(),
-    triadZ: new THREE.Group(),
 };
 Object.values(overlayGroups).forEach(group => overlayRoot.add(group));
 
@@ -181,6 +172,40 @@ const interfaceLayerTargets = {
 interfaceLayerTargets.socket = socketPreviewRoot;
 let positionMechanicalVisible = false;
 const interfaceLayerVisibility = Object.fromEntries(Object.keys(interfaceLayerTargets).map(key => [key, true]));
+// Step 2d keeps its own visibility so it can open on the mechanical interface alone.
+const orientationLayerVisibility = { animal: false, mechanical: true, solid: false, socket: false, target: false };
+// Steps 5 and 6 show the blended assembly: animal, socket and both oriented interfaces.
+const blendLayerVisibility = { animal: true, mechanical: true, solid: true, socket: true, target: false };
+
+function interfaceLayerVisibleIn(stage, key) {
+    if (stage === '2c' && key === 'mechanical') return positionMechanicalVisible;
+    if (stage === '2d' && key in orientationLayerVisibility) return orientationLayerVisibility[key];
+    if (BLEND_STEPS.includes(stage) && key in blendLayerVisibility) return blendLayerVisibility[key];
+    return interfaceLayerVisibility[key];
+}
+
+function interfaceLayerVisible(key) {
+    return interfaceLayerVisibleIn(activeStep, key);
+}
+
+// Split view shows Step 2c (left, main canvas) beside Step 2b (right, second canvas). The second
+// pane is created the first time it is used.
+const SPLIT_STEPS = ['2c', '2b'];
+const splitNarrow = window.matchMedia('(max-width: 880px)');
+let splitEnabled = false;
+let splitFramed = false;
+let splitReturnStep = '2c';
+
+function splitPaired(step) {
+    return splitEnabled && !splitNarrow.matches && SPLIT_STEPS.includes(step);
+}
+
+function setInterfaceLayerVisible(key, visible) {
+    if (activeStep === '2c' && key === 'mechanical') positionMechanicalVisible = visible;
+    else if (activeStep === '2d' && key in orientationLayerVisibility) orientationLayerVisibility[key] = visible;
+    else if (BLEND_STEPS.includes(activeStep) && key in blendLayerVisibility) blendLayerVisibility[key] = visible;
+    else interfaceLayerVisibility[key] = visible;
+}
 const interfaceLayerGroups = {
     mechSolid: ['mechanical', 'solid'],
     interfacePlane: ['point', 'normal', 'plane'],
@@ -233,7 +258,7 @@ positionTransformHelper.traverse(object => {
 });
 positionTransform.addEventListener('dragging-changed', event => {
     controls.enabled = !event.value;
-    if (activeStep === '4') {
+    if (isAttachmentStep(activeStep)) {
         if (!event.value) attachmentHoles.finishDrag();
         return;
     }
@@ -250,9 +275,10 @@ gltfLoader.setDRACOLoader(draco);
 const stlLoader = new STLLoader();
 const objLoader = new OBJLoader();
 
-const loadGLB = file => new Promise((resolve, reject) => gltfLoader.load(file, resolve, undefined, reject));
-const loadSTL = file => new Promise((resolve, reject) => stlLoader.load(file, resolve, undefined, reject));
-const loadOBJ = file => new Promise((resolve, reject) => objLoader.load(file, resolve, undefined, reject));
+// Sweep files come from the model bucket when model-base.js names one, else from the site.
+const loadGLB = withModelFallback(file => new Promise((resolve, reject) => gltfLoader.load(file, resolve, undefined, reject)));
+const loadSTL = withModelFallback(file => new Promise((resolve, reject) => stlLoader.load(file, resolve, undefined, reject)));
+const loadOBJ = withModelFallback(file => new Promise((resolve, reject) => objLoader.load(file, resolve, undefined, reject)));
 
 function normalizeMillimeterExport(object) {
     const box = new THREE.Box3().setFromObject(object);
@@ -261,10 +287,13 @@ function normalizeMillimeterExport(object) {
 
 const UNIT_TO_METERS = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 };
 
+// Step 1 "Scale Factor": the nTop Imports block scales the animal scan (not the interfaces) by it.
+let scaleFactor = 0.95; // the 10-13 notebook's value; the 10-15 socket sweeps were run at it
+
 function applyImportUnitScale(layer) {
     const base = UNIT_TO_METERS[layer.baseUnit] || 1;
     const selected = UNIT_TO_METERS[layer.importUnit] || base;
-    layer.group.scale.setScalar(selected / base);
+    layer.group.scale.setScalar(selected / base * (layer.scalable ? scaleFactor : 1));
     layer.group.updateMatrixWorld(true);
 }
 
@@ -318,6 +347,8 @@ async function replaceImportLayer(key, model) {
     layer.type = model.type;
     applyImportUnitScale(layer);
     layer.group.visible = layer.visible && activeStep === '1';
+    const select = document.querySelector('[data-import-unit="' + key + '"]');
+    if (select) select.value = layer.importUnit;
 }
 
 const bodyLayer = { color: '#b99c75', opacity: 0.2 };
@@ -367,41 +398,33 @@ function preparePelvic(gltf, target, materialConfig) {
     target.add(object);
 }
 
-const socketParameterState = {
-    socketThickness: 10,
-    boundaryThickness: 10,
-    pointCount: 100,
-    pelvicThickness: 0,
-    pelvicDistance: 50,
-};
-const POINT_COUNT_VALUES = [10, 20, 40, 60, 80, 100, 120, 140, 160, 180,
-    200, 220, 240, 260, 280, 300, 320, 340, 360, 380, 400];
+// Step 3 sockets come from two nTop sweeps on the 10-15 Chihuahua (tools/convert_chi_socket_sweeps.py):
+// the thickness pair (min x max, 0..20 mm each) at weighting 0.6 / 35 points, and the density pair
+// (weighting 0..1 x point density 1..60) at thickness 6 / 12. Moving a slider in one pair puts the other
+// pair back at those baseline values, because that is the only combination that was generated.
+const socketParameterState = { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 35 };
 const parameterValues = {
-    socketThickness: Array.from({ length: 11 }, (_, index) => index * 2),
-    boundaryThickness: Array.from({ length: 11 }, (_, index) => index * 2),
-    pointCount: POINT_COUNT_VALUES,
-    pelvicThickness: Array.from({ length: 16 }, (_, index) => index * 2),
-    pelvicDistance: [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100,
-        110, 120, 130, 140, 150, 160, 170, 180, 190, 200],
+    minThickness: Array.from({ length: 21 }, (_, index) => index),
+    maxThickness: Array.from({ length: 21 }, (_, index) => index),
+    spatialWeighting: Array.from({ length: 11 }, (_, index) => index / 10),
+    pointDensity: [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 35, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60],
 };
-const socketParameterDefaults = {
-    socketThickness: 10,
-    boundaryThickness: 10,
-    pointCount: 100,
-    pelvicThickness: 0,
-    pelvicDistance: 50,
-};
+const socketParameterDefaults = { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 35 };
+const SWEEP_GROUPS = { thickness: ['minThickness', 'maxThickness'], density: ['spatialWeighting', 'pointDensity'] };
+const sweepGroupOf = key => Object.keys(SWEEP_GROUPS).find(group => SWEEP_GROUPS[group].includes(key));
+// The value the student last chose on each Step 3 slider and which ones they changed. Read by the expert grading panel.
+const socketParameterChoices = { ...socketParameterDefaults };
+const socketParameterTouched = new Set();
 const socketParameterModelMeta = {
-    socketThickness: { directory: 'socket-thickness', label: 'socket thickness', unit: ' mm' },
-    boundaryThickness: { directory: 'boundary-thickness', label: 'boundary thickness', unit: ' mm' },
-    pointCount: { label: 'lattice point count', unit: ' points' },
-    pelvicThickness: { directory: 'pelvic-thickness', label: 'pelvic thickness', unit: ' mm' },
-    pelvicDistance: { directory: 'pelvic-distance', label: 'pelvic fade distance', unit: ' mm' },
+    minThickness: { label: 'min lattice thickness', unit: ' mm' },
+    maxThickness: { label: 'max lattice thickness', unit: ' mm' },
+    spatialWeighting: { label: 'spatial weighting', unit: '' },
+    pointDensity: { label: 'lattice point density', unit: '' },
 };
 const socketModelPromises = new Map();
-const pelvicPlaneModelPromises = new Map();
 let socketModelRequest = 0;
-let activeSocketParameter = 'pointCount';
+let activeSocketParameter = 'pointDensity';
+let currentSocketFile = null; // the nTop mesh in the viewer; Step 6 exports it
 const PELVIC_PLANE_PRESETS = {
     'x-min': { label: 'X minimum face', pick: [0, 1, 1], normal: [1, 0, 0] },
     'x-max': { label: 'X maximum face', pick: [2, 1, 1], normal: [-1, 0, 0] },
@@ -442,19 +465,24 @@ function clearPelvicOverlays() {
     boundsLines = null;
 }
 
-function pointCountModelFile(value) {
-    return `sample-models/point-count-test/point-count-${String(value).padStart(3, '0')}.glb?v=4x`;
+// The density sweep runs the point density at 1, 2, 4, 6 ... 60; the 35 baseline exists only at
+// weighting 0.6. Away from 0.6, 35 becomes 34 (the nearest generated value).
+function resolveSweepState(state, group) {
+    const resolved = { ...socketParameterDefaults, ...state };
+    if (group === 'density' && resolved.pointDensity === 35 && Math.abs(resolved.spatialWeighting - 0.6) > 1e-9) resolved.pointDensity = 34;
+    return resolved;
+}
+
+// The socket for the current pair of values; the other pair is at its baseline.
+function socketModelFile(state = socketParameterState, group = sweepGroupOf(activeSocketParameter)) {
+    const pad = value => String(value).padStart(2, '0');
+    const s = resolveSweepState(state, group);
+    if (group === 'thickness') return `sample-models/chi-socket/t${pad(s.minThickness)}-${pad(s.maxThickness)}.glb`;
+    return `sample-models/chi-socket/w${pad(Math.round(s.spatialWeighting * 10))}-d${pad(s.pointDensity)}.glb`;
 }
 
 function socketParameterModelFile(key, value) {
-    if (key === 'pointCount') return pointCountModelFile(value);
-    const directory = socketParameterModelMeta[key].directory;
-    const fileValue = String(value).padStart(3, '0');
-    return `sample-models/step-2b/${directory}/${directory}-${fileValue}.glb?v=${key === 'pelvicThickness' ? 'distance50' : 'step2b2'}`;
-}
-
-function pelvicPlaneModelFile(preset) {
-    return `sample-models/pelvic-plane-test/pelvic-plane-${preset}.glb?v=90mm`;
+    return socketModelFile({ ...socketParameterState, [key]: value }, sweepGroupOf(key));
 }
 
 function prepareSocketPreviewObject(object) {
@@ -476,32 +504,23 @@ function prepareSocketPreviewObject(object) {
 }
 
 function socketModelPromise(key, value) {
-    const cacheKey = `${key}:${value}`;
-    if (!socketModelPromises.has(cacheKey)) {
-        socketModelPromises.set(cacheKey, loadGLB(socketParameterModelFile(key, value)).then(gltf => {
-            return prepareSocketPreviewObject(gltf.scene);
-        }));
+    const file = socketParameterModelFile(key, value);
+    if (!socketModelPromises.has(file)) {
+        const promise = loadGLB(file).then(gltf => prepareSocketPreviewObject(gltf.scene));
+        promise.catch(() => socketModelPromises.delete(file)); // a failed download can be retried
+        socketModelPromises.set(file, promise);
     }
-    return socketModelPromises.get(cacheKey);
-}
-
-function pelvicPlaneModelPromise(preset) {
-    if (!pelvicPlaneModelPromises.has(preset)) {
-        pelvicPlaneModelPromises.set(preset, loadGLB(pelvicPlaneModelFile(preset)).then(gltf => {
-            return prepareSocketPreviewObject(gltf.scene);
-        }));
-    }
-    return pelvicPlaneModelPromises.get(preset);
+    return socketModelPromises.get(file);
 }
 
 function hasSocketModelLibrary() {
-    return modelPickerState.breed === 'chihuahua' && modelPickerState.category === 'farback'
-        && modelPickerState.variation === 1;
+    return importSelection.attachment.category === 'socket';
 }
 
 function showSourceModelsOnly(status) {
     if (hasSocketModelLibrary()) return false;
     socketPreviewRoot.clear();
+    currentSocketFile = null;
     status.hidden = false;
     status.textContent = 'Source models only. Socket results are not generated for this selection yet.';
     return true;
@@ -519,8 +538,13 @@ async function loadSocketParameterModel(key, value) {
         if (request !== socketModelRequest) return;
         socketPreviewRoot.clear();
         socketPreviewRoot.add(object);
+        currentSocketFile = socketParameterModelFile(key, value);
+        // The other pair is at its baseline in this file; keep the sliders honest about that.
+        resetSocketParametersForSweep(key);
         socketParameterState[key] = value;
         activeSocketParameter = key;
+        const resolved = resolveSweepState(socketParameterState, sweepGroupOf(key));
+        if (resolved.pointDensity !== socketParameterState.pointDensity) setSocketParameterControl('pointDensity', resolved.pointDensity);
         status.textContent = '';
         status.hidden = true;
         applyPelvicStageVisibility();
@@ -537,34 +561,14 @@ async function loadSocketParameterModel(key, value) {
     }
 }
 
-function loadSocketPreviewModel(value) {
-    return loadSocketParameterModel('pointCount', value);
-}
-
-async function loadPelvicPlaneTestModel(preset) {
-    const request = ++socketModelRequest;
-    const config = PELVIC_PLANE_PRESETS[preset];
-    const status = document.querySelector('[data-plane-test-status]');
-    if (showSourceModelsOnly(status)) return;
-    status.hidden = false;
-    status.textContent = `Loading ${config.label} nTop mesh`;
-    try {
-        const object = await pelvicPlaneModelPromise(preset);
-        if (request !== socketModelRequest) return;
-        socketPreviewRoot.clear();
-        socketPreviewRoot.add(object);
-        status.textContent = '';
-        status.hidden = true;
-        applyPelvicStageVisibility();
-    } catch (error) {
-        if (request !== socketModelRequest) return;
-        status.textContent = `Could not load the ${config.label} nTop mesh`;
-        console.error(error);
-    }
+// Step 2a used to swap demo sockets per pelvic-plane face; the 10-13 socket block does not take the
+// plane, so the current socket is shown there instead.
+function loadPelvicPlaneTestModel() {
+    return loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
 }
 
 function buildSocketPreview() {
-    loadSocketPreviewModel(socketParameterState.pointCount);
+    loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
 }
 
 function rebuildPelvicScene() {
@@ -585,13 +589,39 @@ let activeStep = '1';
 let importBounds = null;
 let pelvicBounds = null;
 const planeState = { pick: [1, 2, 1], normal: [0, -1, 0] };
-const interfacePlaneState = { pick: [1, 2, 1], normal: [0, -1, 0] };
+
+function randomPlanePick() {
+    const pick = [0, 0, 0];
+    do {
+        for (let axis = 0; axis < 3; axis++) pick[axis] = Math.floor(Math.random() * 3);
+    } while (pick.every(value => value === 1) || (pick[0] === 1 && pick[1] === 2 && pick[2] === 1));
+    return pick;
+}
+
+// Students start from a scrambled plane so they have to set it themselves, as they would in nTop.
+function randomizePelvicPlane() {
+    planeState.pick = randomPlanePick();
+    const faceAxes = planeState.pick.map((value, axis) => axis).filter(axis => planeState.pick[axis] !== 1);
+    activePelvicPlaneAxis = faceAxes[Math.floor(Math.random() * faceAxes.length)];
+    const faceValue = planeState.pick[activePelvicPlaneAxis];
+    planeState.normal = [0, 0, 0];
+    planeState.normal[activePelvicPlaneAxis] = faceValue === 0 ? 1 : -1;
+    activePelvicPlanePreset = `${'xyz'[activePelvicPlaneAxis]}-${faceValue === 0 ? 'min' : 'max'}`;
+    document.querySelectorAll('[data-axis]').forEach(select => { select.value = String(planeState.pick[+select.dataset.axis]); });
+    document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => { slider.value = String(planeState.pick[+slider.dataset.pelvicAxisSlider]); });
+    document.querySelectorAll('[data-normal]').forEach(input => { input.value = String(planeState.normal[+input.dataset.normal]); });
+    const planeStatus = document.querySelector('[data-plane-test-status]');
+}
+randomizePelvicPlane();
+const interfacePlaneState = { pick: randomPlanePick(), normal: [0, -1, 0] };
+document.querySelectorAll('[data-interface-axis]').forEach(select => { select.value = String(interfacePlaneState.pick[+select.dataset.interfaceAxis]); });
+document.querySelectorAll('[data-interface-axis-slider]').forEach(slider => { slider.value = String(interfacePlaneState.pick[+slider.dataset.interfaceAxisSlider]); });
 const interfacePositionState = new THREE.Vector3();
 const orientationState = {
-    lateral: 180,
-    medial: -179,
-    rotation: 13,
-    adjust: [0, 5, 0],
+    lateral: 0,
+    medial: 0,
+    rotation: 0,
+    adjust: [0, 0, 0],
 };
 let interfacePositionFollowsPlane = true;
 let interfaceBounds = null;
@@ -620,7 +650,11 @@ function resize() {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
 }
-new ResizeObserver(resize).observe(stage);
+new ResizeObserver(() => {
+    resize();
+    // Draw straight away so dragging a divider does not flash an empty canvas.
+    renderer.render(scene, camera);
+}).observe(stage);
 resize();
 
 function setRailWidth(clientX) {
@@ -655,9 +689,14 @@ resizerEl.addEventListener('keydown', event => {
     setRailWidth(app.getBoundingClientRect().left + railWidth + (event.key === 'ArrowLeft' ? -24 : 24));
 });
 
+// The expert comparison can take over drawing the main view (e.g. "yours" and "the experts'" side by side).
+let renderOverride = null;
 renderer.setAnimationLoop(() => {
+    viewerControls.update();
     controls.update();
-    renderer.render(scene, camera);
+    if (renderOverride) renderOverride();
+    else renderer.render(scene, camera);
+    renderSplitPane();
 });
 
 function frameObject(root, direction = new THREE.Vector3(-1.4, -1.8, 0.9)) {
@@ -675,8 +714,11 @@ function frameObject(root, direction = new THREE.Vector3(-1.4, -1.8, 0.9)) {
     camera.far = Math.max(radius * 80, 100);
     camera.updateProjectionMatrix();
     controls.update();
-    grid.position.set(center.x, center.y, box.min.z - size.z * 0.03);
-    grid.scale.setScalar(Math.max(size.x, size.y, size.z, 0.2));
+    const span = Math.max(size.x, size.y, size.z, 0.2);
+    gridPlanes.xy.position.set(center.x, center.y, box.min.z - size.z * 0.03);
+    gridPlanes.xz.position.set(center.x, 0, center.z);
+    gridPlanes.yz.position.set(0, center.y, center.z);
+    Object.values(gridPlanes).forEach(plane => plane.scale.setScalar(span));
 }
 
 const measureRaycaster = new THREE.Raycaster();
@@ -684,13 +726,13 @@ const measurePointer = new THREE.Vector2();
 const measurementPoints = [];
 let measurementLine = null;
 let measureMode = false;
-let measurePointerDown = null;
+let measurePane = 'main'; // the pane the current measurement was made in
 
 function measurementRoots() {
-    if (activeStep === '4') return attachmentHoles.measurementRoots();
+    if (isAttachmentStep(activeStep)) return attachmentHoles.measurementRoots();
     if (activeStep === '1') return Object.values(layers).filter(layer => layer.group.visible).map(layer => layer.group);
-    if (activeStep.startsWith('2')) return [pelvicBody, pelvicAttach, socketPreviewRoot].filter(root => root.visible);
-    if (activeStep.startsWith('3')) return [interfaceAnimal, interfaceReferenceMechanical, orientedAssembly, socketPreviewRoot].filter(root => root.visible);
+    if (isPelvicStep(activeStep)) return [pelvicBody, pelvicAttach, socketPreviewRoot].filter(root => root.visible);
+    if (isInterfaceStep(activeStep)) return [interfaceAnimal, interfaceReferenceMechanical, orientedAssembly, socketPreviewRoot].filter(root => root.visible);
     return [];
 }
 
@@ -712,7 +754,7 @@ function visibleMeasurementMeshes() {
 
 function measurementMarkerRadius() {
     const box = new THREE.Box3();
-    measurementRoots().forEach(root => box.expandByObject(root));
+    (measurePane === 'split' ? [interfaceReferenceMechanical] : measurementRoots()).forEach(root => box.expandByObject(root));
     if (box.isEmpty()) return 0.004;
     return THREE.MathUtils.clamp(box.getSize(new THREE.Vector3()).length() * 0.012, 0.0008, 0.02);
 }
@@ -733,6 +775,8 @@ function updateMeasurementReadout() {
 function clearMeasurement() {
     measurementPoints.length = 0;
     measurementRoot.clear();
+    measurementRoot.visible = true;
+    measurePane = 'main';
     measurementLine = null;
     updateMeasurementReadout();
 }
@@ -769,13 +813,19 @@ function addMeasurementPoint(point) {
     updateMeasurementReadout();
 }
 
-function pickMeasurementPoint(event) {
-    const rect = canvas.getBoundingClientRect();
+function pickMeasurementPoint(event, pane) {
+    const split = pane === 'split';
+    const rect = (split ? splitCanvas : canvas).getBoundingClientRect();
     measurePointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     measurePointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    measureRaycaster.setFromCamera(measurePointer, camera);
-    const hit = measureRaycaster.intersectObjects(visibleMeasurementMeshes(), false)[0];
-    if (hit) addMeasurementPoint(hit.point);
+    measureRaycaster.setFromCamera(measurePointer, split ? splitCamera : camera);
+    const hit = measureRaycaster.intersectObjects(split ? splitPickMeshes() : visibleMeasurementMeshes(), false)[0];
+    if (!hit) return;
+    // The two panes show different things, so a measurement stays in the pane it was started in.
+    if (measurePane !== pane) clearMeasurement();
+    measurePane = pane;
+    measurementRoot.visible = !split;
+    addMeasurementPoint(hit.point);
 }
 
 function setMeasureMode(enabled) {
@@ -784,24 +834,28 @@ function setMeasureMode(enabled) {
     measureButtonEl.setAttribute('aria-label', enabled ? 'Close measurement tool' : 'Measure between two points');
     measurePanelEl.hidden = !enabled;
     stage.classList.toggle('is-measuring', enabled);
+    splitPaneEl.classList.toggle('is-measuring', enabled);
     if (!enabled) clearMeasurement();
-    if (activeStep === '4') {
+    if (isAttachmentStep(activeStep)) {
         if (enabled) attachmentHoles.cancelPicking();
         attachmentHoles.syncVisibility();
     }
 }
 
-canvas.addEventListener('pointerdown', event => {
-    if (!measureMode || event.button !== 0) return;
-    measurePointerDown = { x: event.clientX, y: event.clientY };
-});
-
-canvas.addEventListener('pointerup', event => {
-    if (!measureMode || !measurePointerDown || event.button !== 0) return;
-    const movement = Math.hypot(event.clientX - measurePointerDown.x, event.clientY - measurePointerDown.y);
-    measurePointerDown = null;
-    if (movement <= 5) pickMeasurementPoint(event);
-});
+function bindMeasureClicks(target, pane) {
+    let pointerDown = null;
+    target.addEventListener('pointerdown', event => {
+        if (!measureMode || event.button !== 0) return;
+        pointerDown = { x: event.clientX, y: event.clientY };
+    });
+    target.addEventListener('pointerup', event => {
+        if (!measureMode || !pointerDown || event.button !== 0) return;
+        const movement = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+        pointerDown = null;
+        if (movement <= 5) pickMeasurementPoint(event, pane);
+    });
+}
+bindMeasureClicks(canvas, 'main');
 
 measureButtonEl.addEventListener('click', () => setMeasureMode(!measureMode));
 document.getElementById('clear-measurement').addEventListener('click', clearMeasurement);
@@ -856,45 +910,6 @@ function buildPlaneOverlays() {
     });
     overlayGroups.normal.add(normalArrow);
 
-    const triadOrigin = pelvicBounds.min.clone().addScalar(-diag * 0.06);
-    const triadLength = Math.max(size.x, size.y, size.z) * 0.28;
-    const triadColors = [NTOP_AXIS_COLORS.x, NTOP_AXIS_COLORS.y, NTOP_AXIS_COLORS.z];
-    const triadLabels = ['X', 'Y', 'Z'];
-    const triadDirections = [
-        new THREE.Vector3(1, 0, 0),
-        new THREE.Vector3(0, 1, 0),
-        new THREE.Vector3(0, 0, 1),
-    ];
-    const triadTargets = [overlayGroups.triadX, overlayGroups.triadY, overlayGroups.triadZ];
-    triadDirections.forEach((direction, index) => {
-        const axis = new THREE.ArrowHelper(direction, triadOrigin, triadLength, triadColors[index], triadLength * 0.18, triadLength * 0.09);
-        [axis.line, axis.cone].forEach(part => {
-            part.material.transparent = true;
-            part.material.opacity = 1;
-            part.material.depthTest = false;
-            part.material.depthWrite = false;
-            part.material.toneMapped = false;
-            part.renderOrder = 40;
-        });
-        triadTargets[index].add(axis);
-
-        const labelCanvas = document.createElement('canvas');
-        labelCanvas.width = 96;
-        labelCanvas.height = 48;
-        const context = labelCanvas.getContext('2d');
-        context.font = '700 34px Inter, Arial, sans-serif';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillStyle = '#' + triadColors[index].toString(16).padStart(6, '0');
-        context.fillText(triadLabels[index], 48, 25);
-        const texture = new THREE.CanvasTexture(labelCanvas);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false }));
-        label.position.copy(triadOrigin).addScaledVector(direction, triadLength * 1.16);
-        label.scale.set(diag * 0.052, diag * 0.026, 1);
-        label.renderOrder = 41;
-        triadTargets[index].add(label);
-    });
     updatePlane();
 }
 
@@ -959,6 +974,7 @@ function cloneForInterface(layer) {
 }
 
 function buildInterfaceScene() {
+    splitFramed = false;
     positionTransform.detach();
     [interfaceAnimal, interfaceReferenceMechanical, interfaceMechanical, interfaceSolid,
         ...Object.values(interfaceOverlayGroups)].forEach(group => group.clear());
@@ -966,7 +982,7 @@ function buildInterfaceScene() {
     orientedAssembly.quaternion.identity();
     orientedAssembly.updateMatrixWorld(true);
     interfaceAnimal.add(cloneForInterface(layers.solidAnimal));
-    interfaceReferenceMechanical.add(cloneForInterface(layers.mechanical));
+    interfaceReferenceMechanical.add(cloneForInterface(layers.solidInterface)); // Step 2b picks its plane on the solid interface
     interfaceMechanical.add(cloneForInterface(layers.mechanical));
     interfaceSolid.add(cloneForInterface(layers.solidInterface));
     interfaceRoot.updateMatrixWorld(true);
@@ -1111,7 +1127,6 @@ function updateInterfacePlane() {
     interfacePlaneMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), data.normal);
     interfacePlaneOutline.quaternion.copy(interfacePlaneMesh.quaternion);
     interfaceNormalArrow.setDirection(data.normal);
-    interfaceAxisTriad.position.copy(data.point);
     interfacePlaneMesh.visible = interfacePlaneOutline.visible = interfaceNormalArrow.visible = data.valid;
     if (interfacePositionFollowsPlane) {
         setInterfacePositionFromQuery(data.point);
@@ -1145,8 +1160,8 @@ function updateInterfaceOrientation() {
         .multiply(basisQuaternion(sourceX, sourceY, interfacePlane.normal).invert());
 
     const toRadians = THREE.MathUtils.degToRad;
-    const lateral = new THREE.Quaternion().setFromAxisAngle(targetY, toRadians(orientationState.lateral - 180));
-    const medial = new THREE.Quaternion().setFromAxisAngle(targetNormal, toRadians(orientationState.medial - 180));
+    const lateral = new THREE.Quaternion().setFromAxisAngle(targetY, toRadians(orientationState.lateral));
+    const medial = new THREE.Quaternion().setFromAxisAngle(targetNormal, toRadians(orientationState.medial));
     const preSpinQuaternion = medial.multiply(lateral).multiply(base).normalize();
 
     // A mesh surface normal is the discrete equivalent of the solid-interface field gradient.
@@ -1191,15 +1206,16 @@ function syncPlaneVisibility(key, visible) {
     document.querySelectorAll('input[data-view-layer="' + key + '"]').forEach(input => { input.checked = visible; });
     syncLayerMenus();
     applyPelvicStageVisibility();
-    if (activeStep.startsWith('2')) renderLegend();
+    if (isPelvicStep(activeStep)) renderLegend();
 }
 
 function applyPelvicStageVisibility() {
-    if (!activeStep.startsWith('2')) return;
+    if (!isPelvicStep(activeStep)) return;
     overlayControlsEl.dataset.stage = activeStep;
-    const isSocketStage = activeStep === '2b';
+    const isSocketStage = activeStep === '3';
     Object.entries(planeLayerTargets).forEach(([key, target]) => {
-        const stageAllows = key === 'box' ? !isSocketStage : true;
+        // Step 3's Socket block takes the attachment surface, not the pelvic plane, so the plane guides stay in 2b.
+        const stageAllows = ['box', 'point', 'normal', 'plane'].includes(key) ? !isSocketStage : true;
         target.visible = planeLayerVisibility[key] && stageAllows;
     });
     pelvicAttach.traverse(child => {
@@ -1212,37 +1228,36 @@ function applyPelvicStageVisibility() {
 }
 
 function syncInterfaceLayerMenus() {
-    interfaceOverlayControlsEl.querySelectorAll('.workflow-layer-menu').forEach(menu => {
+    document.querySelectorAll('[data-layer-menu="interface-plane"]').forEach(menu => {
         const inputs = Array.from(menu.querySelectorAll('input[data-interface-layer]'));
-        menu.querySelector('summary').classList.toggle('active', inputs.some(input => interfaceLayerVisibility[input.dataset.interfaceLayer]));
+        menu.querySelector('summary').classList.toggle('active', inputs.some(input => interfaceLayerVisible(input.dataset.interfaceLayer)));
     });
     setVisibilityButton(
         document.getElementById('interface-plane-visibility'),
-        ['point', 'normal', 'plane'].some(key => interfaceLayerVisibility[key]),
+        ['point', 'normal', 'plane'].some(key => interfaceLayerVisible(key)),
     );
-    setVisibilityButton(document.getElementById('interface-position-visibility'), interfaceLayerVisibility.target);
+    setVisibilityButton(document.getElementById('interface-position-visibility'), interfaceLayerVisible('target'));
     document.querySelectorAll('[data-interface-group]').forEach(button => {
         const keys = interfaceLayerGroups[button.dataset.interfaceGroup] || [];
-        setVisibilityButton(button, keys.some(key => interfaceLayerVisibility[key]));
+        setVisibilityButton(button, keys.some(key => interfaceLayerVisible(key)));
     });
 }
 
 function syncInterfaceVisibility(key, visible) {
     const target = interfaceLayerTargets[key];
     if (!target) return;
-    if (activeStep === '3a' && key === 'mechanical') positionMechanicalVisible = visible;
-    else interfaceLayerVisibility[key] = visible;
+    setInterfaceLayerVisible(key, visible);
     target.visible = visible;
     document.querySelectorAll('button[data-interface-layer="' + key + '"]').forEach(button => setVisibilityButton(button, visible));
     document.querySelectorAll('input[data-interface-layer="' + key + '"]').forEach(input => { input.checked = visible; });
     syncInterfaceLayerMenus();
     applyInterfaceStageVisibility();
-    if (activeStep.startsWith('3')) renderLegend();
+    if (isInterfaceStep(activeStep)) renderLegend();
 }
 
 function syncInterfaceGroupVisibility(group, visible) {
     (interfaceLayerGroups[group] || []).forEach(key => {
-        interfaceLayerVisibility[key] = visible;
+        setInterfaceLayerVisible(key, visible);
         document.querySelectorAll('button[data-interface-layer="' + key + '"]').forEach(button => setVisibilityButton(button, visible));
         document.querySelectorAll('input[data-interface-layer="' + key + '"]').forEach(input => { input.checked = visible; });
     });
@@ -1250,36 +1265,29 @@ function syncInterfaceGroupVisibility(group, visible) {
     applyInterfaceStageVisibility();
 }
 
-const interfaceAxisTriad = new THREE.Group();
-[new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1)].forEach((axis, index) => {
-    interfaceAxisTriad.add(new THREE.ArrowHelper(axis, new THREE.Vector3(), 0.04, [0xe65050,0x58b85a,0x398fe6][index], 0.008, 0.004));
-});
-keepOverlayVisible(interfaceAxisTriad, 130);
-interfaceRoot.add(interfaceAxisTriad);
-
-function applyInterfaceStageVisibility() {
-    if (!activeStep.startsWith('3')) return;
-    const isPlane = activeStep === '3b';
-    const isPosition = activeStep === '3a';
-    const isOrientation = activeStep === '3c';
+// Scene-only visibility for one interface stage; the split pane calls this for the stage it previews.
+function applyInterfaceSceneVisibility(stage) {
+    const isPlane = stage === '2b';
     interfaceLayerTargets.reference.visible = isPlane && interfaceLayerVisibility.reference;
-    interfaceLayerTargets.animal.visible = (isPosition || isOrientation) && interfaceLayerVisibility.animal;
-    ['mechanical', 'solid', 'target'].forEach(key => {
-        interfaceLayerTargets[key].visible = (isPosition || isOrientation) && interfaceLayerVisibility[key];
+    ['animal', 'mechanical', 'solid', 'target'].forEach(key => {
+        interfaceLayerTargets[key].visible = !isPlane && interfaceLayerVisibleIn(stage, key);
     });
     ['surfaceNormal', 'frame'].forEach(key => { interfaceLayerTargets[key].visible = false; });
     interfaceLayerTargets.box.visible = isPlane && interfaceLayerVisibility.box;
     ['point', 'normal', 'plane'].forEach(key => {
         interfaceLayerTargets[key].visible = isPlane && interfaceLayerVisibility[key];
     });
-    if (isPosition) {
-        interfaceLayerTargets.mechanical.visible = positionMechanicalVisible;
-        interfaceLayerTargets.solid.visible = false;
-    }
-    document.querySelectorAll('button[data-interface-layer="mechanical"]').forEach(button => setVisibilityButton(button, isPosition ? positionMechanicalVisible : interfaceLayerVisibility.mechanical));
-    interfaceLayerTargets.socket.visible = !isPlane && interfaceLayerVisibility.socket;
-    interfaceAxisTriad.visible = isPlane;
-    positionTransform.enabled = activeStep === '3a' && interfaceLayerVisibility.target;
+    if (stage === '2c') interfaceLayerTargets.solid.visible = false;
+    interfaceLayerTargets.socket.visible = !isPlane && interfaceLayerVisibleIn(stage, 'socket');
+}
+
+function applyInterfaceStageVisibility() {
+    if (!isInterfaceStep(activeStep)) return;
+    applyInterfaceSceneVisibility(activeStep);
+    ['animal', 'mechanical', 'solid', 'target', 'socket'].forEach(key => {
+        document.querySelectorAll('button[data-interface-layer="' + key + '"]').forEach(button => setVisibilityButton(button, interfaceLayerVisible(key)));
+    });
+    positionTransform.enabled = activeStep === '2c' && interfaceLayerVisible('target');
     positionTransformHelper.visible = positionTransform.enabled;
     interfaceOverlayControlsEl.dataset.stage = activeStep;
 }
@@ -1304,9 +1312,6 @@ function highlightTargetsForControl(control) {
     }
     if (control.dataset.highlightPlaneGroup === 'plane') {
         return ['point', 'normal', 'plane'].map(key => planeLayerTargets[key]);
-    }
-    if (control.dataset.highlightPlaneGroup === 'triad') {
-        return ['triadX', 'triadY', 'triadZ'].map(key => planeLayerTargets[key]);
     }
     return [];
 }
@@ -1383,156 +1388,217 @@ function catalogFileName(file) {
     return file.split('/').pop().split('?')[0];
 }
 
-function updateModelPickerUI() {
-    const breed = modelCatalog[modelPickerState.breed];
-    document.getElementById('animal-model').value = modelPickerState.breed;
-    const attachment = attachmentCatalogEntry();
-    document.querySelectorAll('[data-model-breed]').forEach(button => {
-        button.classList.toggle('active', button.dataset.modelBreed === modelPickerState.breed);
+function syncImportPathLabels() {
+    Object.entries(importSelection).forEach(([role, entry]) => {
+        const output = document.querySelector('[data-path-label="' + role + '"]');
+        if (!output) return;
+        output.textContent = entry.name;
+        output.title = entry.pathLabel;
+        const select = document.querySelector('[data-import-unit="' + role + '"]');
+        if (select) select.value = layers[role].importUnit;
     });
-    document.querySelectorAll('[data-attachment-category]').forEach(button => {
-        button.classList.toggle('active', button.dataset.attachmentCategory === modelPickerState.category);
-    });
-    document.querySelectorAll('[data-attachment-variation]').forEach(button => {
-        button.classList.toggle('active', +button.dataset.attachmentVariation === modelPickerState.variation);
-    });
-    const solidPath = document.querySelector('[data-path-label="solidAnimal"]');
-    const attachmentPath = document.querySelector('[data-path-label="attachment"]');
-    solidPath.textContent = catalogFileName(breed.solid.file);
-    solidPath.closest('button').title = breed.solid.file;
-    attachmentPath.textContent = catalogFileName(attachment.file);
-    attachmentPath.closest('button').title = attachment.file;
-    document.querySelector('[data-solid-model-name]').textContent = breed.solid.label;
-    document.querySelector('[data-attachment-model-name]').textContent = attachment.label;
-    document.querySelector('[data-import-unit="solidAnimal"]').value = layers.solidAnimal.importUnit;
-    document.querySelector('[data-import-unit="attachment"]').value = layers.attachment.importUnit;
+    syncImportAlerts();
 }
 
-async function refreshCatalogModels({ solid = false, attachment = false } = {}) {
-    const breed = modelCatalog[modelPickerState.breed];
-    const jobs = [];
-    if (solid) jobs.push(replaceImportLayer('solidAnimal', breed.solid));
-    if (attachment) jobs.push(replaceImportLayer('attachment', attachmentCatalogEntry()));
-    if (!jobs.length) return;
+const importStatusEl = document.getElementById('import-status');
+const importAlertsEl = document.getElementById('import-alerts');
+const importAlertChipEl = document.getElementById('import-alert-chip');
+const IMPORT_WARN_ICON = '<svg class="import-warn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 22 20.5H2Z"/><path d="M12 10v5"/><circle cx="12" cy="17.6" r="0.6"/></svg>';
+let importAlertSignature = '[]';
+
+// Files that only work as a set: both interfaces come from one dog, and an attachment surface
+// is cut from one scan.
+function importMismatches() {
+    const { solidAnimal, attachment, mechanical, solidInterface } = importSelection;
+    const breedLabel = slug => IMPORT_BREEDS.find(breed => breed.slug === slug)?.label || slug;
+    const found = [];
+    if (mechanical.sizeClass !== solidInterface.sizeClass) {
+        found.push({
+            key: 'interface', chip: 'Interface mismatch', title: 'Interfaces do not match',
+            detail: `Mechanical: ${mechanical.label} · Solid: ${solidInterface.label}`,
+            notes: {
+                mechanical: `Does not pair with ${solidInterface.name}.`,
+                solidInterface: `Does not pair with ${mechanical.name}.`,
+            },
+        });
+    }
+    if (attachment.breed !== solidAnimal.breed) {
+        found.push({
+            key: 'scan', chip: 'Scan mismatch', title: 'Scan and attachment surface do not match',
+            detail: `Solid animal: ${breedLabel(solidAnimal.breed)} · Attachment surface: ${breedLabel(attachment.breed)}`,
+            notes: {
+                solidAnimal: `${attachment.name} was cut from a different scan.`,
+                attachment: `Cut from the ${breedLabel(attachment.breed)} scan. Pick one from the ${breedLabel(solidAnimal.breed)} folder.`,
+            },
+        });
+    }
+    return found;
+}
+
+function syncImportAlerts() {
+    const mismatches = importMismatches();
+    const signature = JSON.stringify(mismatches);
+    if (signature === importAlertSignature) return;
+    const previousKeys = JSON.parse(importAlertSignature).map(item => item.key);
+    importAlertSignature = signature;
+    const notes = Object.assign({}, ...mismatches.map(item => item.notes));
+    Object.keys(importSelection).forEach(role => {
+        const node = document.querySelector('.workflow-node[data-model="' + role + '"]');
+        const note = node.querySelector('[data-import-note]');
+        node.classList.toggle('has-mismatch', role in notes);
+        node.querySelector('.workflow-node-type').textContent = role in notes ? 'Mismatch' : 'Import Mesh';
+        note.hidden = !(role in notes);
+        note.textContent = notes[role] || '';
+    });
+    importStatusEl.classList.toggle('is-warning', mismatches.length > 0);
+    importStatusEl.innerHTML = mismatches.length ? IMPORT_WARN_ICON + ' Mismatch' : '<i data-lucide="circle-check" aria-hidden="true"></i> Ready';
+    importAlertsEl.hidden = !mismatches.length;
+    importAlertsEl.innerHTML = mismatches.map(item => `<p>${IMPORT_WARN_ICON}<strong>${item.title}</strong><span>${item.detail}</span></p>`).join('');
+    importAlertChipEl.hidden = !mismatches.length;
+    importAlertChipEl.querySelector('span').textContent = mismatches.length > 1 ? mismatches.length + ' import mismatches' : mismatches[0]?.chip || '';
+    importAlertChipEl.title = mismatches.map(item => item.title + ' (' + item.detail + ')').join('\n');
+    // Pulse the chip when a new mismatch appears, not when one is fixed.
+    if (mismatches.some(item => !previousKeys.includes(item.key))) {
+        importAlertChipEl.classList.remove('is-pulsing');
+        void importAlertChipEl.offsetWidth;
+        importAlertChipEl.classList.add('is-pulsing');
+    }
+    window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+}
+
+importAlertChipEl.addEventListener('click', () => {
+    const node = document.querySelector('.workflow-node.has-mismatch');
+    if (node) node.open = true;
+    showStep('1', true);
+});
+
+async function loadImportSelection(role, entry) {
+    const layer = layers[role];
+    const previous = importSelection[role];
+    importSelection[role] = entry;
+    clearImportStage();
+    syncImportPathLabels();
     loaderEl.hidden = false;
     loaderEl.classList.remove('error');
-    loaderEl.querySelector('p').textContent = 'Loading model preview…';
+    loaderEl.querySelector('p').textContent = 'Importing ' + entry.name + '…';
     try {
-        await Promise.all(jobs);
+        layer.baseUnit = layer.importUnit = entry.units;
+        await replaceImportLayer(role, entry);
+        syncImportVisibility(role, true);
         importBounds = new THREE.Box3().setFromObject(importRoot);
         rebuildPelvicScene();
         buildInterfaceScene();
-        updateModelPickerUI();
+        syncImportPathLabels();
+        clearMeasurement();
         showStep(activeStep);
         loaderEl.hidden = true;
-        requestAnimationFrame(() => frameObject(importRoot));
     } catch (error) {
+        importSelection[role] = previous;
+        syncImportPathLabels();
         loaderEl.classList.add('error');
-        loaderEl.querySelector('p').textContent = 'This model preview could not be loaded.';
+        loaderEl.querySelector('p').textContent = 'This model could not be loaded.';
         console.error(error);
     }
 }
 
-document.querySelectorAll('[data-model-picker]').forEach(trigger => {
-    trigger.addEventListener('click', () => {
-        const kind = trigger.dataset.modelPicker;
-        const panel = document.querySelector('[data-picker-panel="' + kind + '"]');
-        const shouldOpen = panel.hidden;
-        document.querySelectorAll('[data-picker-panel]').forEach(other => { other.hidden = true; });
-        document.querySelectorAll('[data-model-picker]').forEach(other => other.setAttribute('aria-expanded', 'false'));
-        panel.hidden = !shouldOpen;
-        trigger.setAttribute('aria-expanded', String(shouldOpen));
-    });
-});
+// ---- Import explorer: nTop-style folder dropdown under each Path field ----------------------
 
-document.getElementById('animal-model').addEventListener('change', event => {
-    modelPickerState.breed = event.currentTarget.value;
-    updateModelPickerUI();
-    refreshCatalogModels({ solid: true, attachment: true });
-});
+const importExplorerFolders = Object.fromEntries(Object.keys(importSelection).map(role => [role, startFolder(role)]));
+const importGhost = new THREE.Group();
+importGhost.visible = false;
+scene.add(importGhost);
+const importGhostHint = document.getElementById('import-preview-hint');
+let importStage = null; // { role, entry }
+let importGhostToken = 0;
 
-document.querySelectorAll('[data-model-breed]').forEach(button => {
-    button.addEventListener('click', () => {
-        if (modelPickerState.breed === button.dataset.modelBreed) return;
-        modelPickerState.breed = button.dataset.modelBreed;
-        updateModelPickerUI();
-        refreshCatalogModels({ solid: true, attachment: true });
-    });
-});
+function clearImportStage() {
+    importStage = null;
+    importGhostToken++;
+    importGhost.clear();
+    importGhost.visible = false;
+    importGhostHint.hidden = true;
+    document.querySelectorAll('[data-import-explorer]:not([hidden])').forEach(renderImportExplorer);
+}
 
-document.querySelectorAll('[data-attachment-category]').forEach(button => {
-    button.addEventListener('click', () => {
-        if (modelPickerState.category === button.dataset.attachmentCategory) return;
-        modelPickerState.category = button.dataset.attachmentCategory;
-        updateModelPickerUI();
-        refreshCatalogModels({ attachment: true });
-    });
-});
-
-document.querySelectorAll('[data-attachment-variation]').forEach(button => {
-    button.addEventListener('click', () => {
-        const variation = +button.dataset.attachmentVariation;
-        if (modelPickerState.variation === variation) return;
-        modelPickerState.variation = variation;
-        updateModelPickerUI();
-        refreshCatalogModels({ attachment: true });
-    });
-});
-
-
-const interfaceCatalog = {
-    large: {
-        mechanical: { file: 'billie-mechanical-interface.glb', type: 'glb' },
-        solidInterface: { file: 'billie-solid-interface.stl', type: 'stl' },
-    },
-    small: {
-        mechanical: { file: 'sample-models/interfaces/small-mechanical.stl', type: 'stl' },
-        solidInterface: { file: 'sample-models/interfaces/small-solid.stl', type: 'stl' },
-    },
-};
-let selectedInterfaceSize = 'large';
-document.getElementById('interface-size').addEventListener('change', async event => {
-    const select = event.currentTarget;
-    const nextSize = select.value;
-    const status = document.getElementById('interface-size-status');
-    select.disabled = true;
-    status.hidden = false;
-    status.textContent = 'Loading interface...';
+async function stageImport(role, entry) {
+    importStage = { role, entry };
+    const token = ++importGhostToken;
+    importGhostHint.hidden = false;
+    importGhostHint.innerHTML = '<strong>Previewing</strong> ' + entry.name + ' <span>double-click it or press Load to import</span>';
+    document.querySelectorAll('[data-import-explorer]:not([hidden])').forEach(renderImportExplorer);
     try {
-        // Stage both files before replacing either half of the matched pair.
-        const staged = await Promise.all(Object.entries(interfaceCatalog[nextSize]).map(async ([key, model]) => {
-            const layer = { ...layers[key], ...model, group: new THREE.Group() };
-            await loadImportLayer(layer);
-            return [key, layer];
-        }));
-        for (const [key, stagedLayer] of staged) {
-            const layer = layers[key];
-            layer.group.clear();
-            while (stagedLayer.group.children.length) layer.group.add(stagedLayer.group.children[0]);
-            layer.file = stagedLayer.file;
-            layer.type = stagedLayer.type;
-            layer.baseUnit = layer.importUnit = 'mm';
-            applyImportUnitScale(layer);
-            document.querySelector('[data-import-unit="' + key + '"]').value = 'mm';
-            const output = document.querySelector('[data-interface-path="' + key + '"]');
-            output.textContent = catalogFileName(layer.file);
-            output.title = layer.file;
-        }
-        syncImportVisibility('mechanical', true);
-        syncImportVisibility('solidInterface', true);
-        selectedInterfaceSize = nextSize;
-        buildInterfaceScene();
-        clearMeasurement();
-        importBounds = new THREE.Box3().setFromObject(importRoot);
-        showStep(activeStep);
-        status.hidden = true;
+        const gltf = await loadGLB(entry.preview);
+        if (token !== importGhostToken) return;
+        const object = gltf.scene;
+        normalizeMillimeterExport(object);
+        object.traverse(child => {
+            if (!child.isMesh) return;
+            child.material = new THREE.MeshStandardMaterial({
+                color: 0xff3fa4, transparent: true, opacity: 0.55, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide,
+            });
+            child.userData.measureSurface = false;
+        });
+        importGhost.clear();
+        importGhost.add(object);
+        importGhost.visible = activeStep === '1';
     } catch (error) {
-        select.value = selectedInterfaceSize;
-        status.textContent = 'Could not load the interface. Please try again.';
         console.error(error);
-    } finally {
-        select.disabled = false;
     }
+}
+
+function renderImportExplorer(explorer) {
+    const role = explorer.dataset.importExplorer;
+    const current = importExplorerFolders[role];
+    const entries = folderEntries(current);
+    const staged = importStage?.role === role ? importStage.entry : null;
+    explorer.innerHTML = `
+        <div class="import-crumbs">${current.path.map((name, index) => `${index ? '<i data-lucide="chevron-right" aria-hidden="true"></i>' : ''}<button type="button" data-crumb="${current.path.slice(0, index + 1).join('|')}">${name}</button>`).join('')}</div>
+        <div class="import-entries" role="listbox" aria-label="${IMPORT_ROLES[role].short} files">${entries.map((entry, index) => entry.kind === 'folder'
+            ? `<button type="button" class="import-entry folder" data-index="${index}"><i data-lucide="folder" aria-hidden="true"></i><strong>${entry.name}</strong><small>${entry.children.length} items</small></button>`
+            : `<button type="button" class="import-entry ${entry.role === role ? '' : 'dim'} ${importSelection[role] === entry ? 'loaded' : ''} ${staged === entry ? 'staged' : ''}" data-index="${index}" role="option" aria-selected="${staged === entry}" title="${entry.role === role ? entry.label : 'This is a ' + IMPORT_ROLES[entry.role].short.toLowerCase() + ' mesh'}"><i data-lucide="box" aria-hidden="true"></i><strong>${entry.name}</strong><small>${formatBytes(entry.bytes)}</small></button>`).join('')}</div>
+        ${staged ? `<div class="import-stage-bar"><span title="${staged.pathLabel}">${staged.label} · ${staged.ext} · ${formatBytes(staged.bytes)}</span><button type="button" class="import-load" data-stage-load ${staged.role === role ? '' : 'disabled'}>Load</button><button type="button" data-stage-cancel aria-label="Cancel preview">&times;</button></div>` : ''}`;
+    explorer.querySelectorAll('[data-crumb]').forEach(button => button.addEventListener('click', () => {
+        importExplorerFolders[role] = resolveImportPath(button.dataset.crumb.split('|'));
+        renderImportExplorer(explorer);
+    }));
+    explorer.querySelectorAll('.import-entry').forEach(row => {
+        const entry = entries[+row.dataset.index];
+        row.addEventListener('click', () => {
+            if (entry.kind === 'folder') {
+                importExplorerFolders[role] = entry;
+                renderImportExplorer(explorer);
+                return;
+            }
+            if (importStage?.entry === entry) return;
+            stageImport(role, entry);
+        });
+        row.addEventListener('dblclick', () => {
+            if (entry.kind === 'file' && entry.role === role) loadImportSelection(role, entry);
+        });
+    });
+    explorer.querySelector('[data-stage-load]')?.addEventListener('click', () => loadImportSelection(role, staged));
+    explorer.querySelector('[data-stage-cancel]')?.addEventListener('click', clearImportStage);
+    window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+}
+
+function toggleImportExplorer(role, open) {
+    document.querySelectorAll('[data-import-explorer]').forEach(explorer => {
+        const isTarget = explorer.dataset.importExplorer === role;
+        const show = isTarget ? open : false;
+        explorer.hidden = !show;
+        document.querySelector('[data-import-browse="' + explorer.dataset.importExplorer + '"]').setAttribute('aria-expanded', String(show));
+        if (show) renderImportExplorer(explorer);
+    });
+    if (!open || importStage?.role !== role) clearImportStage();
+}
+
+document.querySelectorAll('[data-import-browse]').forEach(button => {
+    button.addEventListener('click', () => {
+        toggleImportExplorer(button.dataset.importBrowse, button.getAttribute('aria-expanded') !== 'true');
+    });
+});
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && importStage) clearImportStage();
 });
 
 document.querySelectorAll('[data-import-unit]').forEach(select => {
@@ -1547,30 +1613,135 @@ document.querySelectorAll('[data-import-unit]').forEach(select => {
         buildInterfaceScene();
         clearMeasurement();
         if (activeStep === '1') requestAnimationFrame(() => frameObject(importRoot));
-        if (activeStep.startsWith('2')) requestAnimationFrame(() => frameObject(planeRoot));
+        if (isPelvicStep(activeStep)) requestAnimationFrame(() => frameObject(planeRoot));
     });
 });
 
-updateModelPickerUI();
+syncImportPathLabels();
+
+// ---- Step 1 scale factor ----------------------------------------------------------------------
+const scaleFactorInput = document.getElementById('scale-factor');
+const scaleNoteEl = document.getElementById('scale-note');
+function setScaleFactor(value) {
+    scaleFactor = value;
+    scaleFactorInput.value = String(value);
+    Object.values(layers).forEach(applyImportUnitScale);
+    importBounds = new THREE.Box3().setFromObject(importRoot);
+    rebuildPelvicScene();
+    buildInterfaceScene();
+    clearMeasurement();
+    scaleNoteEl.hidden = value === 1;
+    scaleNoteEl.textContent = value === 1 ? '' : `Animal scan scaled by ${value}. The sample sockets were generated for the unscaled scan, so the socket preview stays at scale 1.`;
+    if (activeStep === '1') requestAnimationFrame(() => frameObject(importRoot));
+    if (isPelvicStep(activeStep)) requestAnimationFrame(() => frameObject(planeRoot));
+}
+{
+    const commit = () => {
+        const value = Number(scaleFactorInput.value);
+        if (scaleFactorInput.value === '' || !Number.isFinite(value) || value < 0.5 || value > 2) { scaleFactorInput.value = String(scaleFactor); return; }
+        if (value !== scaleFactor) setScaleFactor(Math.round(value * 1000) / 1000);
+    };
+    scaleFactorInput.addEventListener('change', commit);
+    scaleFactorInput.addEventListener('keydown', event => { if (event.key === 'Enter') { commit(); scaleFactorInput.blur(); } });
+}
+
+// ---- Design values without nTop sweeps yet (Steps 3, 4b, 5, 6) ---------------------------------
+// They are recorded and shown, and a note says the preview mesh does not change for them.
+const designValues = { socket: {}, attachment: {}, blend: {}, export: {} };
+function designFieldValue(input) {
+    if (input.type === 'checkbox') return input.checked;
+    if (input.tagName === 'SELECT' || input.type === 'text') return input.value;
+    const value = Number(input.value);
+    return Number.isFinite(value) ? value : null;
+}
+function formatDesignValue(value, unit) {
+    if (typeof value === 'boolean') return value ? 'on' : 'off';
+    return `${value}${unit ? ' ' + unit : ''}`;
+}
+function syncDesignMirrors(path) {
+    const [group, key] = path.split('.');
+    document.querySelectorAll(`[data-mirror-output="${path}"]`).forEach(output => {
+        const unit = output.closest('.workflow-source-row')?.querySelector('small')?.textContent || 'mm';
+        output.textContent = `${output.textContent.split(' · ')[0]} · ${formatDesignValue(designValues[group][key], unit)}`;
+    });
+}
+document.querySelectorAll('[data-design-field]').forEach(input => {
+    const [group, key] = input.dataset.designField.split('.');
+    designValues[group][key] = designFieldValue(input);
+    const unit = input.parentElement.querySelector('small')?.textContent || '';
+    const commit = () => {
+        const value = designFieldValue(input);
+        if (value === null) { input.value = String(designValues[group][key]); return; }
+        if (value === designValues[group][key]) return;
+        designValues[group][key] = value;
+        if (input.dataset.mirror) syncDesignMirrors(input.dataset.mirror);
+        const note = input.closest('.workflow-step')?.querySelector('[data-pending-note]');
+        if (note && 'pending' in input.dataset) {
+            note.hidden = false;
+            note.textContent = `${input.dataset.designLabel} set to ${formatDesignValue(value, unit)}. nTop meshes for this value are not generated yet, so the preview does not change.`;
+        }
+    };
+    input.addEventListener('change', commit);
+    input.addEventListener('keydown', event => { if (event.key === 'Enter' && input.type !== 'checkbox') { commit(); input.blur(); } });
+});
+
+// ---- Step 6 export: download the nTop socket mesh shown in the viewer ---------------------------
+const exportPathInput = document.getElementById('export-path');
+const exportRunButton = document.getElementById('export-run');
+document.getElementById('export-browse').addEventListener('click', () => { exportPathInput.focus(); exportPathInput.select(); });
+exportRunButton.addEventListener('click', async () => {
+    const note = document.querySelector('#workflow-step-6 [data-pending-note]');
+    note.hidden = false;
+    if (!currentSocketFile) {
+        note.textContent = 'No socket mesh is loaded for this selection, so there is nothing to export yet.';
+        return;
+    }
+    const base = (exportPathInput.value.trim().split(/[\\/]/).pop() || '').replace(/\.[a-z0-9]+$/i, '').replace(/[^\w.-]+/g, '_') || 'socket';
+    exportRunButton.disabled = true;
+    note.textContent = 'Preparing the mesh…';
+    try {
+        const blob = await (await fetch(currentSocketFile)).blob();
+        const url = URL.createObjectURL(blob);
+        const link = Object.assign(document.createElement('a'), { href: url, download: `${base}.glb` });
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        note.textContent = `Exported ${base}.glb: the nTop socket mesh shown in the viewer (${designValues.export.units}). Tolerance, sharpen and remesh are applied when nTop meshes the implicit, not here.`;
+    } catch (error) {
+        note.textContent = 'The mesh could not be downloaded. Try again.';
+        console.error(error);
+    }
+    exportRunButton.disabled = false;
+});
 
 function showStep(step, shouldScroll = false) {
     clearViewerHighlight();
     clearMeasurement();
-    activeStep = String(step);
+    const requested = String(step);
+    // In split view Step 2c keeps the main canvas (it owns the drag handle) and Step 2b is drawn
+    // in the second pane, so either step lands on the same paired layout.
+    const paired = splitPaired(requested);
+    if (paired && shouldScroll) splitReturnStep = requested;
+    activeStep = paired ? '2c' : requested;
     const isImport = activeStep === '1';
-    const isPelvic = activeStep.startsWith('2');
-    const isInterface = activeStep.startsWith('3');
-    const isAttachment = activeStep === '4';
+    const isPelvic = isPelvicStep(activeStep);
+    const isInterface = isInterfaceStep(activeStep);
+    const isAttachment = isAttachmentStep(activeStep);
     const titles = {
         '1': 'Imported mesh assembly',
         '2a': 'Pelvic plane location',
-        '2b': 'Socket lattice parameters',
-        '3b': 'Interface plane location',
-        '3a': 'Interface target position',
-        '3c': 'Oriented mechanical interface',
-        '4': 'Attachment Holes',
+        '3': 'Socket lattice parameters',
+        '2b': 'Interface plane location',
+        '2c': 'Interface target position',
+        '2d': 'Oriented interface',
+        '4a': 'Attachment points',
+        '4b': 'Attachment holes',
+        '5': 'Blended socket assembly',
+        '6': 'Mesh for export',
     };
     importRoot.visible = isImport;
+    importGhost.visible = isImport && importGhost.children.length > 0;
     planeRoot.visible = isPelvic;
     (isAttachment ? attachmentHoles.root : isInterface ? interfaceRoot : planeRoot).add(socketPreviewRoot);
     if (isAttachment) {
@@ -1583,6 +1754,7 @@ function showStep(step, shouldScroll = false) {
     positionTransform.enabled = false;
     positionTransformHelper.visible = false;
     attachmentHoles.setActive(isAttachment, layers.attachment.group, layers.solidAnimal.group);
+    attachmentHoles.setPreview(BLEND_STEPS.includes(activeStep));
     if (isPelvic) {
         applyPelvicStageVisibility();
         if (activeStep === '2a') {
@@ -1599,21 +1771,32 @@ function showStep(step, shouldScroll = false) {
         positionTransform.enabled = false;
         positionTransformHelper.visible = false;
     }
-    viewerStepEl.textContent = 'Step ' + activeStep;
-    viewerTitleEl.textContent = titles[activeStep];
-    document.querySelectorAll('.workflow-step').forEach(section => section.classList.toggle('active', section.dataset.step === activeStep));
+    viewerStepEl.textContent = paired ? 'Steps 2b + 2c' : 'Step ' + activeStep;
+    viewerTitleEl.textContent = paired ? 'Interface position and plane' : titles[activeStep];
+    document.querySelectorAll('.workflow-step').forEach(section => {
+        section.classList.toggle('active', section.dataset.step === activeStep || (paired && SPLIT_STEPS.includes(section.dataset.step)));
+    });
     const major = activeStep.charAt(0);
     document.querySelectorAll('.workflow-progress-step').forEach(button => button.classList.toggle('active', button.dataset.goStep.charAt(0) === major));
     renderLegend();
-    const viewRoot = isAttachment ? attachmentHoles.root : isImport ? importRoot : isPelvic ? planeRoot : activeStep === '3b' ? interfaceReferenceMechanical : interfaceRoot;
-    requestAnimationFrame(() => frameObject(viewRoot));
+    syncSplitLayout();
+    requestAnimationFrame(frameActiveStep);
     if (shouldScroll) {
-        const section = document.getElementById('workflow-step-' + activeStep);
-        const scroll = document.getElementById('workflow-scroll');
-        const top = section.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
-        scroll.scrollTo({ top, behavior: 'smooth' });
+        // The pair scrolls to its first section (the interface plane, Step 2b).
+        const section = document.getElementById('workflow-step-' + (paired ? '2b' : activeStep));
+        const offset = () => section.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top;
+        scrollEl.scrollTo({ top: offset() + scrollEl.scrollTop, behavior: 'smooth' });
+        // The socket loading note above can show for a moment and shift the layout mid-scroll;
+        // settle on the heading once it has gone.
+        const settledStep = activeStep;
+        clearTimeout(stepScrollTimer);
+        stepScrollTimer = setTimeout(() => {
+            const drift = offset();
+            if (activeStep === settledStep && drift && Math.abs(drift) < 60) scrollEl.scrollTo({ top: drift + scrollEl.scrollTop, behavior: 'smooth' });
+        }, 700);
     }
 }
+let stepScrollTimer = null;
 
 document.addEventListener('click', event => {
     const eye = event.target.closest('[data-toggle-model]');
@@ -1642,14 +1825,14 @@ document.addEventListener('click', event => {
         event.stopPropagation();
         const group = interfaceGroupButton.dataset.interfaceGroup;
         const keys = interfaceLayerGroups[group] || [];
-        const next = !keys.some(key => interfaceLayerVisibility[key]);
+        const next = !keys.some(key => interfaceLayerVisible(key));
         syncInterfaceGroupVisibility(group, next);
         return;
     }
     const interfaceLayerButton = event.target.closest('button[data-interface-layer]');
     if (interfaceLayerButton) {
         const key = interfaceLayerButton.dataset.interfaceLayer;
-        syncInterfaceVisibility(key, !(activeStep === '3a' && key === 'mechanical' ? positionMechanicalVisible : interfaceLayerVisibility[key]));
+        syncInterfaceVisibility(key, !interfaceLayerVisible(key));
         return;
     }
     const stepButton = event.target.closest('[data-go-step]');
@@ -1659,8 +1842,8 @@ document.addEventListener('click', event => {
 document.querySelectorAll('.workflow-node').forEach(node => {
     node.addEventListener('toggle', () => {
         if (!node.open) {
-            node.querySelectorAll('[data-picker-panel]').forEach(panel => { panel.hidden = true; });
-            node.querySelectorAll('[data-model-picker]').forEach(trigger => trigger.setAttribute('aria-expanded', 'false'));
+            const role = node.dataset.model;
+            if (role && !node.querySelector('[data-import-explorer]')?.hidden) toggleImportExplorer(role, false);
             return;
         }
         document.querySelectorAll('.workflow-node[open]').forEach(other => {
@@ -1733,7 +1916,7 @@ document.querySelectorAll('[data-interface-axis-slider]').forEach(slider => {
     });
 });
 
-const interfacePlaneBlock = document.querySelector('#workflow-step-3b .workflow-plane-block');
+const interfacePlaneBlock = document.querySelector('#workflow-step-2b .workflow-plane-block');
 const interfacePlaneModeButton = document.getElementById('interface-plane-control-mode');
 interfacePlaneModeButton.addEventListener('click', () => {
     const sliderMode = !interfacePlaneBlock.classList.contains('slider-mode');
@@ -1795,19 +1978,34 @@ function setSocketParameterControl(key, value) {
     input.setAttribute('aria-valuetext', value + ', model slot ' + (index + 1) + ' of ' + parameterValues[key].length);
 }
 
+// Moving one pair puts the other pair back at the baseline the sweep was run at.
 function resetSocketParametersForSweep(activeKey) {
-    const values = { ...socketParameterDefaults };
-    if (activeKey === 'pelvicDistance') values.pelvicThickness = 10;
-    Object.entries(values).forEach(([key, value]) => {
-        if (key !== activeKey) setSocketParameterControl(key, value);
+    const group = sweepGroupOf(activeKey);
+    Object.entries(socketParameterDefaults).forEach(([key, value]) => {
+        if (sweepGroupOf(key) !== group) setSocketParameterControl(key, value);
     });
 }
+
+// Sliders by default; the switch shows typed values, which snap to the nearest generated socket.
+const socketBlockEl = document.querySelector('#workflow-step-3 .workflow-parameter-block');
+const socketModeButton = document.getElementById('socket-control-mode');
+socketBlockEl.classList.add('slider-mode');
+socketModeButton.addEventListener('click', () => {
+    const sliderMode = !socketBlockEl.classList.contains('slider-mode');
+    socketBlockEl.classList.toggle('slider-mode', sliderMode);
+    socketModeButton.setAttribute('aria-pressed', String(sliderMode));
+    socketModeButton.setAttribute('aria-label', sliderMode ? 'Use typed values' : 'Use sliders');
+    socketModeButton.title = sliderMode ? 'Switch to typed values (snaps to the nearest generated socket)' : 'Switch to sliders';
+});
+
 
 document.querySelectorAll('[data-socket-param]').forEach(input => {
     const updateParameter = () => {
         const key = input.dataset.socketParam;
         const index = +input.value;
         const value = parameterValues[key][index];
+        socketParameterChoices[key] = value;
+        socketParameterTouched.add(key);
         resetSocketParametersForSweep(key);
         setSocketParameterControl(key, value);
         loadSocketParameterModel(key, value);
@@ -1827,10 +2025,6 @@ document.addEventListener('click', event => {
     document.querySelectorAll('.workflow-layer-menu[open]').forEach(menu => {
         if (!menu.contains(event.target)) menu.removeAttribute('open');
     });
-    if (!event.target.closest('.workflow-path-field')) {
-        document.querySelectorAll('[data-picker-panel]').forEach(panel => { panel.hidden = true; });
-        document.querySelectorAll('[data-model-picker]').forEach(trigger => trigger.setAttribute('aria-expanded', 'false'));
-    }
 });
 
 document.getElementById('pelvic-plane-visibility').addEventListener('click', () => {
@@ -1840,21 +2034,255 @@ document.getElementById('pelvic-plane-visibility').addEventListener('click', () 
 });
 document.getElementById('interface-plane-visibility').addEventListener('click', () => {
     const guideKeys = ['point', 'normal', 'plane'];
-    const next = !guideKeys.some(key => interfaceLayerVisibility[key]);
+    const next = !guideKeys.some(key => interfaceLayerVisible(key));
     guideKeys.forEach(key => syncInterfaceVisibility(key, next));
 });
 document.getElementById('interface-position-visibility').addEventListener('click', () => {
-    syncInterfaceVisibility('target', !interfaceLayerVisibility.target);
+    syncInterfaceVisibility('target', !interfaceLayerVisible('target'));
 });
 
-document.getElementById('toggle-grid').addEventListener('click', event => {
-    grid.visible = !grid.visible;
-    event.currentTarget.classList.toggle('active', grid.visible);
-    event.currentTarget.setAttribute('aria-label', grid.visible ? 'Hide grid' : 'Show grid');
+document.querySelectorAll('[data-grid-plane]').forEach(input => {
+    input.addEventListener('change', () => {
+        gridPlanes[input.dataset.gridPlane].visible = input.checked;
+        const anyVisible = Object.values(gridPlanes).some(plane => plane.visible);
+        document.querySelector('#grid-menu > summary').classList.toggle('active', anyVisible);
+    });
 });
-document.getElementById('reset-view').addEventListener('click', () => {
-    frameObject(activeStep === '4' ? attachmentHoles.root : activeStep === '1' ? importRoot : activeStep.startsWith('2') ? planeRoot : activeStep === '3b' ? interfaceReferenceMechanical : interfaceRoot);
+document.getElementById('toggle-view-cube').addEventListener('click', event => {
+    const visible = !event.currentTarget.classList.contains('active');
+    viewerControls.setCubeVisible(visible);
+    splitView?.setCubeVisible(visible);
+    event.currentTarget.classList.toggle('active', visible);
+    event.currentTarget.setAttribute('aria-pressed', String(visible));
+    event.currentTarget.setAttribute('aria-label', (visible ? 'Hide' : 'Show') + ' view cube');
 });
+
+function viewRootForStep() {
+    if (isAttachmentStep(activeStep)) return attachmentHoles.root;
+    if (activeStep === '1') return importRoot;
+    if (isPelvicStep(activeStep)) return planeRoot;
+    if (activeStep === '2b') return interfaceReferenceMechanical;
+    // Step 2d opens on the interface alone, so frame it rather than the hidden animal.
+    if (activeStep === '2d' && !interfaceLayerVisible('animal')) return orientedAssembly;
+    return interfaceRoot;
+}
+
+function frameActiveStep() {
+    frameObject(viewRootForStep());
+}
+
+// Fit (the toolbar button or F) refits every pane that is showing.
+function fitViews() {
+    frameActiveStep();
+    if (splitPaired(activeStep)) frameSplitPane();
+}
+document.getElementById('reset-view').addEventListener('click', fitViews);
+
+// Orbit picks land on real model surfaces, not on guides, gizmos, or measurement markers.
+function navigationPickMeshes() {
+    const excluded = new Set([positionTransformHelper, measurementRoot, importGhost, planeMesh, interfacePlaneMesh]);
+    const meshes = [];
+    (function visit(object) {
+        if (!object.visible || excluded.has(object)) return;
+        if (object.isMesh && object.material?.depthTest !== false) meshes.push(object);
+        object.children.forEach(visit);
+    })(scene);
+    return meshes;
+}
+
+// ---- Split view: Step 2c and Step 2b side by side --------------------------------------------
+// Step 2c keeps the main canvas on the left, with its drag handle. A second canvas on the right
+// renders the same scene with Step 2b's visibility, so plane edits show up on the animal as they
+// happen. Each pane has its own camera, view cube, and layer toggles.
+
+const viewerEl = document.querySelector('.workflow-viewer');
+const scrollEl = document.getElementById('workflow-scroll');
+const splitPaneEl = document.getElementById('split-pane');
+const splitCanvas = document.getElementById('split-canvas');
+const splitDividerEl = document.getElementById('split-divider');
+const splitToggleEl = document.getElementById('toggle-split');
+const splitMainTagEl = document.getElementById('split-main-tag');
+const viewerToolbarEl = document.querySelector('.viewer-toolbar');
+const splitGrid = { position: new THREE.Vector3(), scale: 1 };
+let splitRenderer = null;
+let splitCamera = null;
+let splitControls = null;
+let splitView = null;
+let splitRatio = 0.5;
+
+function resizeSplitPane() {
+    if (!splitRenderer) return;
+    const width = splitPaneEl.clientWidth;
+    const height = splitPaneEl.clientHeight;
+    if (!width || !height) return;
+    splitRenderer.setSize(width, height, false);
+    splitCamera.aspect = width / height;
+    splitCamera.updateProjectionMatrix();
+}
+
+// Orbit and measure picks in the second pane land on the reference interface. It is hidden in
+// the shared scene between this pane's renders, so it is collected without a visibility check.
+function splitPickMeshes() {
+    const meshes = [];
+    if (!interfaceLayerVisibility.reference) return meshes;
+    interfaceReferenceMechanical.traverse(object => { if (object.isMesh) meshes.push(object); });
+    return meshes;
+}
+
+function ensureSplitRenderer() {
+    if (splitRenderer) return;
+    splitRenderer = new THREE.WebGLRenderer({ canvas: splitCanvas, antialias: true });
+    splitRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    splitRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    splitCamera = new THREE.PerspectiveCamera(34, 1, 0.001, 10000);
+    splitCamera.up.set(0, 0, 1);
+    splitControls = new OrbitControls(splitCamera, splitCanvas);
+    splitControls.enableDamping = true;
+    splitControls.dampingFactor = 0.07;
+    splitControls.screenSpacePanning = true;
+    // Same nTop navigation and view cube as the main pane.
+    splitView = createPaneView({
+        camera: splitCamera, controls: splitControls, canvas: splitCanvas, stage: splitPaneEl,
+        cubeWrap: document.getElementById('split-cube-wrap'),
+        cubeCanvas: document.getElementById('split-cube'),
+        axisColors: NTOP_AXIS_COLORS,
+        pickMeshes: splitPickMeshes,
+    });
+    splitView.setCubeVisible(document.getElementById('toggle-view-cube').classList.contains('active'));
+    bindMeasureClicks(splitCanvas, 'split');
+    new ResizeObserver(() => {
+        resizeSplitPane();
+        renderSplitPane();
+    }).observe(splitPaneEl);
+}
+
+function frameSplitPane() {
+    if (!splitCamera) return;
+    const box = new THREE.Box3().setFromObject(interfaceReferenceMechanical);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const radius = Math.max(size.length() / 2, 0.01);
+    const verticalFov = THREE.MathUtils.degToRad(splitCamera.fov);
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * splitCamera.aspect);
+    const distance = radius / Math.sin(Math.min(verticalFov, horizontalFov) / 2) * 1.08;
+    splitControls.target.copy(center);
+    splitCamera.position.copy(center).add(new THREE.Vector3(-1.4, -1.8, 0.9).normalize().multiplyScalar(distance));
+    splitCamera.near = Math.max(radius / 100, 0.0001);
+    splitCamera.far = Math.max(radius * 80, 100);
+    splitCamera.updateProjectionMatrix();
+    splitControls.update();
+    splitGrid.position.set(center.x, center.y, box.min.z - size.z * 0.03);
+    splitGrid.scale = Math.max(size.x, size.y, size.z, 0.2);
+    splitFramed = true;
+}
+
+function syncSplitLayout() {
+    const paired = splitPaired(activeStep);
+    const pairOn = splitEnabled && !splitNarrow.matches;
+    splitToggleEl.hidden = !SPLIT_STEPS.includes(activeStep) || splitNarrow.matches;
+    splitToggleEl.classList.toggle('active', splitEnabled);
+    splitToggleEl.setAttribute('aria-pressed', String(splitEnabled));
+    viewerEl.classList.toggle('is-split', paired);
+    // Both steps stay compact in the sidebar for as long as split view is on, so they fit together.
+    scrollEl.classList.toggle('is-split-pair', pairOn);
+    splitPaneEl.hidden = splitDividerEl.hidden = splitMainTagEl.hidden = !paired;
+    // The main stage is the right-hand pane in split view, so the tools stay on the outer right edge.
+    const toolbarHome = stage;
+    if (viewerToolbarEl.parentElement !== toolbarHome) {
+        const focused = viewerToolbarEl.contains(document.activeElement) ? document.activeElement : null;
+        toolbarHome.append(viewerToolbarEl);
+        focused?.focus();
+    }
+    // The stage just changed width; size the main view now so the next framing uses the right aspect.
+    resize();
+    if (!paired) return;
+    ensureSplitRenderer();
+    resizeSplitPane();
+    if (!splitFramed) requestAnimationFrame(() => { resizeSplitPane(); frameSplitPane(); });
+}
+
+function renderSplitPane() {
+    if (!splitRenderer || !splitPaired(activeStep)) return;
+    if (!splitFramed) frameSplitPane();
+    splitView.update(performance.now());
+    splitControls.update();
+    // Borrow the shared scene: show Step 2b, draw it, then put the main stage back.
+    const touched = [...new Set(Object.values(interfaceLayerTargets)), positionTransformHelper, measurementRoot, gridPlanes.xz, gridPlanes.yz];
+    const savedVisibility = touched.map(object => object.visible);
+    const savedGridPosition = gridPlanes.xy.position.clone();
+    const savedGridScale = gridPlanes.xy.scale.x;
+    applyInterfaceSceneVisibility('2b');
+    positionTransformHelper.visible = gridPlanes.xz.visible = gridPlanes.yz.visible = false;
+    measurementRoot.visible = measurePane === 'split';
+    gridPlanes.xy.position.copy(splitGrid.position);
+    gridPlanes.xy.scale.setScalar(splitGrid.scale);
+    splitRenderer.render(scene, splitCamera);
+    touched.forEach((object, index) => { object.visible = savedVisibility[index]; });
+    gridPlanes.xy.position.copy(savedGridPosition);
+    gridPlanes.xy.scale.setScalar(savedGridScale);
+}
+
+splitToggleEl.addEventListener('click', () => {
+    splitEnabled = !splitEnabled;
+    if (splitEnabled) {
+        const enteredFrom = activeStep;
+        // The position view needs the interface on the animal for plane changes to be visible.
+        positionMechanicalVisible = true;
+        showStep('2c', true);
+        splitReturnStep = enteredFrom;
+    } else {
+        showStep(splitReturnStep, true);
+    }
+});
+splitNarrow.addEventListener('change', () => showStep(activeStep));
+
+// Dragging the divider resizes both panes; double-click evens them out again.
+function setSplitRatio(ratio) {
+    splitRatio = THREE.MathUtils.clamp(ratio, 0.25, 0.75);
+    viewerEl.style.setProperty('--split-left', splitRatio + 'fr');
+    viewerEl.style.setProperty('--split-right', (1 - splitRatio) + 'fr');
+    splitDividerEl.setAttribute('aria-valuenow', Math.round(splitRatio * 100));
+}
+
+splitDividerEl.addEventListener('pointerdown', event => {
+    event.preventDefault();
+    viewerEl.classList.add('is-split-resizing');
+    splitDividerEl.setPointerCapture(event.pointerId);
+});
+splitDividerEl.addEventListener('pointermove', event => {
+    if (!viewerEl.classList.contains('is-split-resizing')) return;
+    const bounds = viewerEl.getBoundingClientRect();
+    setSplitRatio((event.clientX - bounds.left) / bounds.width);
+});
+splitDividerEl.addEventListener('pointerup', event => {
+    viewerEl.classList.remove('is-split-resizing');
+    if (splitDividerEl.hasPointerCapture(event.pointerId)) splitDividerEl.releasePointerCapture(event.pointerId);
+});
+splitDividerEl.addEventListener('pointercancel', () => viewerEl.classList.remove('is-split-resizing'));
+splitDividerEl.addEventListener('dblclick', () => setSplitRatio(0.5));
+splitDividerEl.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    setSplitRatio(splitRatio + (event.key === 'ArrowLeft' ? -0.03 : 0.03));
+});
+
+const viewerControls = createViewerControls({
+    camera, controls, canvas, stage,
+    cubeWrap: document.getElementById('view-cube-wrap'),
+    cubeCanvas: document.getElementById('view-cube'),
+    helpButton: document.getElementById('viewer-help'),
+    // Same guide as the design review page: a close button, it puts itself away after the last
+    // gesture, and it shrinks into the "How to move" button at the bottom left of the view.
+    dismissible: true,
+    closeOnLastGesture: true,
+    collapseTarget: () => { const b = document.getElementById('move-help'); return b && b.offsetParent ? b : null; },
+    axisColors: NTOP_AXIS_COLORS,
+    pickMeshes: navigationPickMeshes,
+    isGizmoHovered: () => !!positionTransform.axis,
+    frameView: fitViews,
+});
+document.getElementById('move-help').addEventListener('click', () => viewerControls.startIntro({ force: true }));
 
 const attachmentHoles = createAttachmentHoles({ scene, camera, canvas,
     transform: positionTransform, transformHelper: positionTransformHelper,
@@ -1862,9 +2290,70 @@ const attachmentHoles = createAttachmentHoles({ scene, camera, canvas,
     isMeasuring: () => measureMode,
 });
 
+// ---- Step 4b: the attachment sweep (10-15) ---------------------------------------------------------
+// Four swept inputs; screw head height (5), nozzle (0.6) and hole depth (12) were fixed in the sweep.
+const attachmentValues = { attachDiameter: [0, 4, 8, 12, 16], normalWallDistance: [0, 4, 8, 12], screwHeadDiameter: [0, 4, 8, 12], screwShaftDiameter: [0, 4, 8, 12] };
+const attachmentDesign = { attachDiameter: 4, normalWallDistance: 4, screwHeadDiameter: 8, screwShaftDiameter: 4 };
+const attachmentBlockEl = document.getElementById('attachment-block');
+const attachmentModeButton = document.getElementById('attachment-control-mode');
+attachmentBlockEl.classList.add('slider-mode');
+attachmentModeButton.addEventListener('click', () => {
+    const sliderMode = !attachmentBlockEl.classList.contains('slider-mode');
+    attachmentBlockEl.classList.toggle('slider-mode', sliderMode);
+    attachmentModeButton.setAttribute('aria-pressed', String(sliderMode));
+    attachmentModeButton.setAttribute('aria-label', sliderMode ? 'Use typed values' : 'Use sliders');
+    attachmentModeButton.title = sliderMode ? 'Switch to typed values (snaps to the nearest generated attachment)' : 'Switch to sliders';
+});
+function setAttachmentControl(key, value) {
+    const input = document.querySelector('[data-attach-param="' + key + '"]');
+    const index = attachmentValues[key].indexOf(value);
+    if (!input || index < 0) return;
+    input.value = String(index);
+    document.querySelector('[data-attach-output="' + key + '"]').value = value;
+    input.setAttribute('aria-valuetext', value + ' mm');
+}
+function attachmentStatus(text) {
+    const el = document.querySelector('[data-attach-status]');
+    el.textContent = text;
+    el.hidden = !text;
+}
+let attachmentDesignRequest = 0;
+async function applyAttachmentDesign() {
+    const request = ++attachmentDesignRequest;
+    if (!attachmentHoles.designExists(attachmentDesign)) {
+        attachmentStatus(`nTop did not generate attach ${attachmentDesign.attachDiameter} / wall ${attachmentDesign.normalWallDistance} / head ${attachmentDesign.screwHeadDiameter} / shaft ${attachmentDesign.screwShaftDiameter}; the last generated attachment stays in the view.`);
+        return;
+    }
+    attachmentStatus('Loading nTop attachment…');
+    try {
+        const applied = await attachmentHoles.setDesign(attachmentDesign);
+        if (request !== attachmentDesignRequest) return;
+        if (applied) attachmentStatus('');
+    } catch (error) {
+        if (request !== attachmentDesignRequest) return;
+        attachmentStatus('Could not load that attachment.');
+        console.error(error);
+    }
+}
+document.querySelectorAll('[data-attach-param]').forEach(input => {
+    setAttachmentControl(input.dataset.attachParam, attachmentDesign[input.dataset.attachParam]);
+    input.addEventListener('input', () => {
+        const key = input.dataset.attachParam;
+        const value = attachmentValues[key][+input.value];
+        attachmentDesign[key] = value;
+        setAttachmentControl(key, value);
+        applyAttachmentDesign();
+    });
+});
+
+
 const stepObserver = new IntersectionObserver(entries => {
     const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-    if (visible) showStep(visible.target.dataset.step);
+    if (!visible) return;
+    const step = visible.target.dataset.step;
+    // Scrolling within the step already shown, or within the split pair, must not reset the view.
+    if (step === activeStep || (splitPaired(step) && splitPaired(activeStep))) return;
+    showStep(step);
 }, { root: document.getElementById('workflow-scroll'), threshold: [0.35, 0.6] });
 document.querySelectorAll('.workflow-step').forEach(step => stepObserver.observe(step));
 
@@ -1879,8 +2368,8 @@ Promise.all([
     Object.keys(layers).forEach(key => syncImportVisibility(key, layers[key].visible));
     loaderEl.hidden = true;
     showStep('1');
-    document.getElementById('interface-size').disabled = false;
-    document.getElementById('animal-model').disabled = false;
+    // showStep frames the model on the next animation frame; the intro starts from that view.
+    requestAnimationFrame(() => requestAnimationFrame(() => viewerControls.startIntro()));
 }).catch(error => {
     loaderEl.classList.add('error');
     loaderEl.querySelector('p').textContent = 'A model could not be loaded. Refresh the page to try again.';
@@ -1891,7 +2380,7 @@ renderLegend();
 window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
 
 // Typed values use the same update path as their paired slider.
-for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
+for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['attach-output', 'attach-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
     document.querySelectorAll(`[data-${outputAttr}]`).forEach(field => {
         const key = field.getAttribute(`data-${outputAttr}`);
         const slider = document.querySelector(`[data-${sliderAttr}="${key}"]`);
@@ -1899,8 +2388,8 @@ for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['orie
         const commit = () => {
             const value = Number(field.value);
             if (field.value === '' || !Number.isFinite(value)) { slider.dispatchEvent(new Event('input')); return; }
-            if (outputAttr === 'param-output') {
-                const values = parameterValues[key];
+            if (outputAttr === 'param-output' || outputAttr === 'attach-output') {
+                const values = outputAttr === 'param-output' ? parameterValues[key] : attachmentValues[key];
                 slider.value = values.reduce((best, v, i) => Math.abs(v-value) < Math.abs(values[best]-value) ? i : best, 0);
             } else slider.value = Math.round(Math.max(+slider.min, Math.min(+slider.max, value)));
             slider.dispatchEvent(new Event('input'));
@@ -1936,3 +2425,155 @@ document.getElementById('pelvic-plane-control-mode').addEventListener('click', e
     event.currentTarget.setAttribute('aria-pressed', enabled);
     event.currentTarget.setAttribute('aria-label', enabled ? 'Use nTop menu controls' : 'Use slider controls');
 });
+
+// For the expert comparison (walkthrough-grading.js): the student's answers, the files they imported, and a way
+// to show any value on the model (the experts' choice or the student's) and then put the student's work back.
+function applyPelvicPlane(pick, normal) {
+    planeState.pick = pick.map(Number);
+    let axis = normal ? normal.findIndex(n => Number(n) !== 0) : -1;
+    if (axis < 0 || planeState.pick[axis] === 1) axis = planeState.pick.findIndex(v => v !== 1);
+    if (axis < 0) { planeState.pick[1] = 2; axis = 1; }
+    activePelvicPlaneAxis = axis;
+    const face = planeState.pick[axis];
+    planeState.normal = [0, 0, 0];
+    planeState.normal[axis] = face === 0 ? 1 : -1;
+    activePelvicPlanePreset = `${'xyz'[axis]}-${face === 0 ? 'min' : 'max'}`;
+    document.querySelectorAll('[data-axis]').forEach(select => { select.value = String(planeState.pick[+select.dataset.axis]); });
+    document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => { slider.value = String(planeState.pick[+slider.dataset.pelvicAxisSlider]); });
+    document.querySelectorAll('[data-normal]').forEach(input => { input.value = String(planeState.normal[+input.dataset.normal]); });
+    updatePlane();
+    loadPelvicPlaneTestModel(activePelvicPlanePreset);
+}
+function applyInterfacePlane(pick, normal) {
+    interfacePlaneState.pick = pick.map(Number);
+    if (normal) interfacePlaneState.normal = normal.map(Number);
+    document.querySelectorAll('[data-interface-axis]').forEach(select => { select.value = String(interfacePlaneState.pick[+select.dataset.interfaceAxis]); });
+    document.querySelectorAll('[data-interface-axis-slider]').forEach(slider => { slider.value = String(interfacePlaneState.pick[+slider.dataset.interfaceAxisSlider]); });
+    document.querySelectorAll('[data-interface-normal]').forEach(input => { input.value = String(interfacePlaneState.normal[+input.dataset.interfaceNormal]); });
+    updateInterfacePlane();
+}
+function applyOrientation(values) {
+    Object.entries(values).forEach(([key, value]) => {
+        if (!(key in orientationState) || key === 'adjust') return;
+        orientationState[key] = Number(value);
+        const input = document.querySelector(`[data-orient="${key}"]`);
+        if (input) input.value = String(value);
+        const output = document.querySelector(`[data-orient-output="${key}"]`);
+        if (output) output.value = String(value);
+    });
+    updateInterfaceOrientation();
+}
+function showSocketValue(key, value) {
+    resetSocketParametersForSweep(key);
+    setSocketParameterControl(key, value);
+    return loadSocketParameterModel(key, value);
+}
+// Show a value on the model; resolves once the model for it is in the scene.
+function showValue(key, value) {
+    if (key === 'pelvicPlane') applyPelvicPlane(value.pick, value.normal);
+    else if (key === 'interfacePlane') applyInterfacePlane(value.pick, value.normal);
+    else if (key === 'lateral' || key === 'medial' || key === 'rotation') applyOrientation({ [key]: value });
+    else if (key in parameterValues) return showSocketValue(key, value);
+    return Promise.resolve();
+}
+
+// The experts' version as a "ghost": show their value, copy what it draws (in world space), then show the
+// student's value again. Both are then in the scene at once; the ghost can be see-through blue (overlay) or
+// keep the model's own look (side by side, where the student's part is hidden in the experts' half).
+const ghostRoot = new THREE.Group();
+ghostRoot.name = 'expert-ghost';
+scene.add(ghostRoot);
+let ghostParts = [];
+const GHOST_COLOR = new THREE.Color(0x2463b5);
+function ghostTargets(key) {
+    if (key === 'pelvicPlane') return [planeMesh, planeOutline, normalArrow].filter(Boolean);
+    if (key === 'interfacePlane') return [interfacePlaneMesh, interfacePlaneOutline, interfaceNormalArrow].filter(Boolean);
+    if (key === 'lateral' || key === 'medial' || key === 'rotation') return [orientedAssembly];
+    if (key in parameterValues) return [socketPreviewRoot];
+    return [];
+}
+function shownInScene(object) {
+    for (let node = object; node; node = node.parent) if (!node.visible) return false;
+    return true;
+}
+function clearGhost() {
+    ghostRoot.clear();
+    ghostParts = [];
+}
+function setGhostLook(look, opacity = 0.42) {
+    ghostParts.forEach(({ part, solid, ghost }) => {
+        part.material = look === 'solid' ? solid : ghost;
+        if (look !== 'solid') ghost.opacity = opacity;
+    });
+}
+async function captureGhost(key, expertValue, studentValue) {
+    clearGhost();
+    await showValue(key, expertValue);
+    ghostTargets(key).forEach(object => {
+        if (!shownInScene(object)) return;
+        object.updateWorldMatrix(true, true);
+        const copy = object.clone(true);
+        object.matrixWorld.decompose(copy.position, copy.quaternion, copy.scale);
+        copy.visible = true;
+        copy.traverse(part => {
+            if (!part.material) return;
+            const solid = part.material;
+            const ghost = (Array.isArray(solid) ? solid[0] : solid).clone();
+            ghost.transparent = true;
+            ghost.opacity = 0.42;
+            ghost.depthWrite = false;
+            if (ghost.color) ghost.color.copy(GHOST_COLOR);
+            if ('vertexColors' in ghost) ghost.vertexColors = false;
+            if (ghost.emissive) ghost.emissive.setHex(0x0b2a55);
+            ghost.needsUpdate = true;
+            ghostParts.push({ part, solid, ghost });
+            part.material = ghost;
+            part.renderOrder = Math.max(part.renderOrder || 0, 35);
+        });
+        ghostRoot.add(copy);
+    });
+    await showValue(key, studentValue);
+}
+
+window.gapWalkthrough = {
+    answers: () => ({
+        pelvicPlane: { pick: [...planeState.pick], normal: [...planeState.normal] },
+        interfacePlane: { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
+        ...socketParameterChoices,
+        lateral: orientationState.lateral,
+        medial: orientationState.medial,
+        rotation: orientationState.rotation,
+    }),
+    touched: () => new Set(socketParameterTouched),
+    imports: () => ({ selection: Object.fromEntries(Object.entries(importSelection).map(([role, entry]) => [role, { ...entry }])), mismatches: importMismatches() }),
+    parameterValues,
+    design: designValues,
+    attachment: attachmentDesign,
+    defaults: { ...socketParameterDefaults },
+    goToStep: step => showStep(step, true),
+    // Show a value on the model: 'pelvicPlane' / 'interfacePlane' take {pick, normal}, the angles a number,
+    // the Step 3 sliders one of their values.
+    show: showValue,
+    ghost: { capture: captureGhost, clear: clearGhost, setLook: setGhostLook, targets: ghostTargets, root: ghostRoot },
+    three: { THREE, scene, camera, renderer, canvas, controls },
+    setRender(fn) { renderOverride = fn || null; },
+    snapshot: () => ({
+        pelvicPlane: { pick: [...planeState.pick], normal: [...planeState.normal] },
+        interfacePlane: { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
+        orientation: { lateral: orientationState.lateral, medial: orientationState.medial, rotation: orientationState.rotation },
+        sliders: { ...socketParameterState },
+        activeSocket: activeSocketParameter,
+        step: activeStep,
+    }),
+    restore(snap) {
+        clearGhost();
+        renderOverride = null;
+        applyPelvicPlane(snap.pelvicPlane.pick, snap.pelvicPlane.normal);
+        applyInterfacePlane(snap.interfacePlane.pick, snap.interfacePlane.normal);
+        applyOrientation(snap.orientation);
+        Object.entries(snap.sliders).forEach(([key, value]) => setSocketParameterControl(key, value));
+        showStep(snap.step, true);
+        if (snap.activeSocket in parameterValues) loadSocketParameterModel(snap.activeSocket, snap.sliders[snap.activeSocket]);
+    },
+};
+window.dispatchEvent(new Event('gap-walkthrough-ready'));

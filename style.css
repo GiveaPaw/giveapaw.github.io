@@ -4420,10 +4420,10 @@ body.workflow-body {
 }
 
 .workflow-overlay-controls[hidden] { display: none; }
-#interface-overlay-controls[data-stage="3a"] > :not(.interface-stage-3a),
-#interface-overlay-controls[data-stage="3b"] > :not(.interface-stage-3b),
-#interface-overlay-controls[data-stage="3c"] > :not(.interface-stage-3c) { display: none; }
-#workflow-overlay-controls[data-stage="2b"] .pelvic-stage-2a { display: none; }
+#interface-overlay-controls[data-stage="2c"] > :not(.interface-stage-2c),
+#interface-overlay-controls[data-stage="2b"] > :not(.interface-stage-2b),
+#interface-overlay-controls[data-stage="2d"] > :not(.interface-stage-2d) { display: none; }
+#workflow-overlay-controls[data-stage="3"] .pelvic-stage-2a { display: none; }
 
 .workflow-layer-toggle {
     display: inline-flex;
@@ -4713,3 +4713,43 @@ button.workflow-legend-item { cursor: pointer; }
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
+
+/* Socket Creation FAQ (ntop-socket-creation.html#faq) */
+.faq h3 {
+    margin: 1.6rem 0 0.6rem;
+    font-size: 1.05rem;
+    color: #003262;
+}
+.faq-item {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
+    background: #fff;
+    overflow: hidden;
+}
+.faq-item > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.8rem 1.1rem;
+    font-weight: 600;
+    color: #002676;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+    line-height: 1.4;
+}
+.faq-item > summary::-webkit-details-marker { display: none; }
+.faq-item > summary::after {
+    content: "\25BE";
+    flex: none;
+    color: var(--color-text-light);
+    transition: transform 0.2s ease;
+}
+.faq-item[open] > summary::after { transform: rotate(180deg); }
+.faq-item > summary:hover { background: #f4f6f8; }
+.faq-item[open] > summary { border-bottom: 1px solid var(--color-border); background: #f9fafb; }
+.faq-body { padding: 0.6rem 1.1rem 0.9rem; }
+.faq-body p, .faq-body ol { margin: 0.4rem 0; }
+.faq-body ol { padding-left: 1.3rem; }
+.faq-body li { margin-bottom: 0.35rem; }

@@ -1,0 +1,325 @@
+{
+  "case": "Chihuahua socket walkthrough",
+  "sample": true,
+  "sampleNote": "Sample expert answers and feedback text, only for trying the comparison. Write the real answers in the answer key editor (grading-editor.html) before students use this.",
+  "experts": [
+    {
+      "id": "e1",
+      "name": "Expert 1",
+      "role": "",
+      "include": true
+    },
+    {
+      "id": "e2",
+      "name": "Expert 2",
+      "role": "",
+      "include": true
+    },
+    {
+      "id": "e3",
+      "name": "Expert 3",
+      "role": "",
+      "include": true
+    },
+    {
+      "id": "e4",
+      "name": "Expert 4",
+      "role": "",
+      "include": true
+    },
+    {
+      "id": "e5",
+      "name": "Expert 5",
+      "role": "",
+      "include": true
+    }
+  ],
+  "steps": {
+    "1": "Imported files",
+    "2a": "Pelvic plane",
+    "2b": "Socket lattice parameters",
+    "3b": "Interface plane",
+    "3c": "Interface orientation"
+  },
+  "params": [
+    {
+      "key": "imports",
+      "step": "1",
+      "label": "Imported files",
+      "type": "imports",
+      "weight": 1,
+      "expected": {
+        "solidAnimal": {
+          "breed": "chihuahua-1015"
+        },
+        "attachment": {
+          "breed": "chihuahua-1015",
+          "category": "socket"
+        },
+        "mechanical": {
+          "sizeClass": "large"
+        },
+        "solidInterface": {
+          "sizeClass": "large"
+        }
+      },
+      "off": "Some of the files you imported are not the ones this case uses, or they do not belong together.",
+      "comments": {}
+    },
+    {
+      "key": "pelvicPlane",
+      "step": "2a",
+      "label": "Pelvic plane",
+      "type": "plane",
+      "weight": 1.5,
+      "answers": {
+        "e1": "1,2,1",
+        "e2": "1,2,1",
+        "e3": "1,2,1",
+        "e4": "1,2,2",
+        "e5": "1,2,1"
+      },
+      "off": "The plane is not where most experts put it. It should sit across the back of the pelvis, where the socket starts to thicken.",
+      "comments": {}
+    },
+    {
+      "key": "minThickness",
+      "step": "3",
+      "label": "Min lattice thickness",
+      "type": "discrete",
+      "unit": "mm",
+      "weight": 1,
+      "answers": {
+        "e1": 6,
+        "e2": 4,
+        "e3": 6,
+        "e4": 8,
+        "e5": 6
+      },
+      "low": "Thinner struts than the experts chose. Thin struts save weight but flex, and they can crack where the straps pull.",
+      "high": "Thicker struts than the experts chose. Thick struts are stiff but heavy and trap heat against a small dog.",
+      "comments": {},
+      "values": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ]
+    },
+    {
+      "key": "maxThickness",
+      "step": "3",
+      "label": "Max lattice thickness",
+      "type": "discrete",
+      "unit": "mm",
+      "weight": 1,
+      "answers": {
+        "e1": 12,
+        "e2": 10,
+        "e3": 12,
+        "e4": 14,
+        "e5": 12
+      },
+      "low": "A thinner maximum than the experts chose, so the load-bearing areas may not stiffen enough.",
+      "high": "A thicker maximum than the experts chose, adding weight where the socket should stay light.",
+      "comments": {},
+      "values": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ]
+    },
+    {
+      "key": "spatialWeighting",
+      "step": "3",
+      "label": "Spatial weighting",
+      "type": "discrete",
+      "unit": "",
+      "weight": 1,
+      "answers": {
+        "e1": 0.6,
+        "e2": 0.5,
+        "e3": 0.6,
+        "e4": 0.7,
+        "e5": 0.6
+      },
+      "low": "Less weighting toward the loaded areas than the experts chose, so thickness is spread more evenly.",
+      "high": "More weighting toward the loaded areas than the experts chose, so the rest of the socket stays thin.",
+      "comments": {},
+      "values": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+        1.0
+      ]
+    },
+    {
+      "key": "pointDensity",
+      "step": "3",
+      "label": "Lattice point density",
+      "type": "discrete",
+      "unit": "",
+      "weight": 1,
+      "answers": {
+        "e1": 35,
+        "e2": 30,
+        "e3": 35,
+        "e4": 40,
+        "e5": 35
+      },
+      "low": "A lower lattice point density than the experts chose. Bigger openings are lighter and cooler, but the shell gets floppy.",
+      "high": "A higher lattice point density than the experts chose. A dense lattice is stiffer but heavier and traps more heat.",
+      "comments": {},
+      "values": [
+        1,
+        2,
+        4,
+        6,
+        8,
+        10,
+        12,
+        14,
+        16,
+        18,
+        20,
+        22,
+        24,
+        26,
+        28,
+        30,
+        32,
+        34,
+        35,
+        36,
+        38,
+        40,
+        42,
+        44,
+        46,
+        48,
+        50,
+        52,
+        54,
+        56,
+        58,
+        60
+      ]
+    },
+    {
+      "key": "interfacePlane",
+      "step": "2b",
+      "label": "Interface plane",
+      "type": "plane",
+      "weight": 1.5,
+      "answers": {
+        "e1": "1,2,1",
+        "e2": "1,2,1",
+        "e3": "1,1,1",
+        "e4": "1,2,1",
+        "e5": "1,2,1"
+      },
+      "off": "The interface plane is not where most experts put it. Check which face of the scan the leg mount should sit on.",
+      "comments": {}
+    },
+    {
+      "key": "lateral",
+      "step": "2d",
+      "label": "Lateral angle",
+      "type": "angle",
+      "unit": "°",
+      "tolerance": 8,
+      "weight": 1,
+      "answers": {
+        "e1": 0,
+        "e2": 5,
+        "e3": -5,
+        "e4": 0,
+        "e5": 10
+      },
+      "low": "Tilted further one way than the experts. A big sideways tilt pushes the leg out from under the body.",
+      "high": "Tilted further the other way than the experts. A big sideways tilt pushes the leg out from under the body.",
+      "comments": {}
+    },
+    {
+      "key": "medial",
+      "step": "2d",
+      "label": "Medial angle",
+      "type": "angle",
+      "unit": "°",
+      "tolerance": 8,
+      "weight": 1,
+      "answers": {
+        "e1": 0,
+        "e2": 0,
+        "e3": 5,
+        "e4": -5,
+        "e5": 0
+      },
+      "low": "Angled more toward the midline than the experts. Too much and the leg crosses under the body.",
+      "high": "Angled more away from the midline than the experts. Too much and the paw splays outward.",
+      "comments": {}
+    },
+    {
+      "key": "rotation",
+      "step": "2d",
+      "label": "Interface rotation",
+      "type": "angle",
+      "unit": "°",
+      "tolerance": 10,
+      "weight": 0.75,
+      "answers": {
+        "e1": 0,
+        "e2": 15,
+        "e3": 0,
+        "e4": -10,
+        "e5": 5
+      },
+      "low": "Turned more one way than the experts. The paw would point off the walking line.",
+      "high": "Turned more the other way than the experts. The paw would point off the walking line.",
+      "comments": {}
+    }
+  ],
+  "featured": "e1"
+}

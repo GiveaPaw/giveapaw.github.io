@@ -7,7 +7,8 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { createViewerControls } from './viewer-controls.js?v=9';
 import { review as builtinReview } from './design-review-content.js?v=1';
 import { driveConfig } from './drive-config.js?v=1';
-import { createLiveSession } from './live-session.js?v=11';
+import { withModelFallback } from './model-base.js?v=2';
+import { createLiveSession } from './live-session.js?v=13';
 import { createPaintTool, createLegTool, createGuide } from './review-tools.js?v=12';
 
 // The active review: the built-in manifest, or one loaded from ?review=drive:<id> | draft:<key> | <same-site .json path>.
@@ -264,14 +265,15 @@ function fileType(name) {
     const ext = (clean.split('.').pop() || '').toLowerCase();
     return ext === 'stl' ? 'stl' : ext === 'obj' ? 'obj' : 'glb';
 }
-function loadMesh(file) {
+// Sweep files come from the model bucket when model-base.js names one, else from the site.
+const loadMesh = withModelFallback(file => {
     const type = fileType(file);
     return new Promise((resolve, reject) => {
         if (type === 'stl') stlLoader.load(file, geometry => resolve(new THREE.Mesh(geometry)), undefined, reject);
         else if (type === 'obj') objLoader.load(file, resolve, undefined, reject);
         else gltfLoader.load(file, gltf => resolve(gltf.scene), undefined, reject);
     });
-}
+});
 // Wraps a mesh so it scales about its own centre instead of the world origin.
 function scaledAboutCentre(object, factor) {
     const centre = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3());
