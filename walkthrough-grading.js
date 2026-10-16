@@ -1,5 +1,4 @@
-// Comparing a student's socket design with the experts' ("expert spread": where the student's answer sits
-// among every expert's answer, no grade), built into the walkthrough:
+// Comparing a student's socket design with the worked solution for this case, built into the walkthrough:
 //   - the 3D viewer splits into "Yours" and "The experts'" with one linked camera (the experts' version is
 //     copied from the walkthrough's own models into a ghost layer, and the canvas is drawn twice per frame);
 //   - the feedback sits under the student's own controls in the step column: every graded control gets a
@@ -10,11 +9,13 @@
 // ghost / render hooks from window.gapWalkthrough (socket-walkthrough-sample.js).
 
 const params = new URLSearchParams(location.search);
-const KEY_URL = params.get('answerKey') || 'grading/chihuahua-answer-key.json';
+const KEY_URL = params.get('answerKey') || 'grading/ollie-answer-key.json';
 const AXES = ['X', 'Y', 'Z'];
 const SPOTS = ['minimum', 'centroid', 'maximum'];
 const ROLE_LABEL = { solidAnimal: 'Solid animal', attachment: 'Attachment surface', mechanical: 'Mechanical interface', solidInterface: 'Solid interface' };
-const BREED_LABEL = { 'chihuahua-1015': 'Chihuahua (10-15)', chihuahua: 'Chihuahua', greyhound: 'Greyhound', 'german-shepherd': 'German Shepherd' };
+const BREED_LABEL = { ollie: 'Ollie', 'chihuahua-1015': 'Chihuahua (10-15)', chihuahua: 'Chihuahua', greyhound: 'Greyhound', 'german-shepherd': 'German Shepherd' };
+const PASSTHROUGH = ['imports', 'point3', 'points'];   // answers that are not one value on a track
+const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const CATEGORY_LABEL = { socket: 'Socket', farback: 'Far back', forward: 'Forward', leghole: 'Leg hole', toolow: 'Too low' };
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,20 +42,20 @@ function prepareKey(raw) {
     raw.shownExperts = shown;
     featured = shown.find(e => e.id === raw.featured) || null;
     raw.params.forEach(param => {
-        if (param.type === 'imports') return;
+        if (PASSTHROUGH.includes(param.type)) return;
         const byId = Array.isArray(param.answers) ? Object.fromEntries(param.answers.map((v, i) => [experts[i]?.id, v])) : (param.answers || {});
         param.byExpert = byId;
         param.answerBy = shown.filter(e => byId[e.id] !== undefined && byId[e.id] !== null && byId[e.id] !== '').map(e => ({ expert: e, value: byId[e.id] }));
         param.answers = param.answerBy.map(a => a.value);
         param.featuredAt = featured ? param.answerBy.findIndex(a => a.expert.id === featured.id) : -1;
     });
-    raw.params = raw.params.filter(param => param.type === 'imports' || param.answers.length);
+    raw.params = raw.params.filter(param => PASSTHROUGH.includes(param.type) || param.answers.length);
     return raw;
 }
 
 // ---- one decision compared with the experts --------------------------------------------------------------
 function wantText(want) {
-    if (want.sizeClass) return `${want.sizeClass === 'large' ? 'Large dog (Billie)' : 'Small dog (Ollie)'} interface`;
+    if (want.sizeClass) return `${want.sizeClass === 'large' ? 'large' : 'small'} interface`;
     return [want.breed && `${BREED_LABEL[want.breed] || want.breed} scan`, want.category && `${CATEGORY_LABEL[want.category] || want.category} surface`].filter(Boolean).join(', ');
 }
 function evaluate(param, answers, touched, imports) {
@@ -74,13 +75,59 @@ function evaluate(param, answers, touched, imports) {
     const base = { param, value, touched: param.step !== '3' || touched.has(param.key) };
     if (param.type === 'plane') {
         const mine = value.pick.join(',');
-        const [top, topCount] = mostCommon(param.answers);
+        const [top] = mostCommon(param.answers);
         const axesMatched = mine.split(',').filter((v, i) => v === top.split(',')[i]).length;
+        const wantNormal = param.normal ? param.normal.split(',').map(Number) : null;
+        const myNormal = (value.normal || [0, 0, 0]).map(Number);
+        const normalOk = !wantNormal || wantNormal.every((n, i) => Math.abs(n - myNormal[i]) < 1e-6);
+        const pickOk = mine === top;
         return {
-            ...base, status: mine === top ? 'match' : axesMatched === 2 ? 'close' : 'off',
-            yours: planeText(mine), expert: planeText(top), expertDetail: `${topCount} of ${param.answers.length} experts`,
-            agreeText: `${param.answers.filter(a => a === mine).length} of ${param.answers.length} experts chose exactly this plane`,
-            mine, top, studentShow: { pick: value.pick, normal: value.normal }, expertShow: { pick: top.split(',').map(Number), normal: null },
+            ...base, status: pickOk && normalOk ? 'match' : pickOk || axesMatched === 2 ? 'close' : 'off',
+            yours: `${planeText(mine)} · normal ${myNormal.map(fmt).join(', ')}`,
+            expert: `${planeText(top)}${wantNormal ? ` · normal ${wantNormal.map(fmt).join(', ')}` : ''}`,
+            expertDetail: pickOk && !normalOk ? 'the right face, the other normal' : '',
+            agreeText: pickOk && normalOk ? 'Exactly the plane the solution uses'
+                : pickOk ? 'The right face, but the normal points the other way'
+                : `${axesMatched} of 3 axes match the solution`,
+            mine, top, normalOk, studentShow: { pick: value.pick, normal: value.normal }, expertShow: { pick: top.split(',').map(Number), normal: wantNormal },
+        };
+    }
+    // One point in the scan frame, in millimetres.
+    if (param.type === 'point3') {
+        const mine = (value || [0, 0, 0]).map(Number);
+        const want = param.answer.map(Number);
+        const t = param.tolerance || 5;
+        const d = distance(mine, want);
+        return {
+            ...base, status: d <= t ? 'match' : d <= t * 3 ? 'close' : 'off',
+            yours: `${mine.map(fmt).join(', ')} mm`, expert: `${want.map(fmt).join(', ')} mm`,
+            expertDetail: `within ${fmt(t)} mm counts as a match`,
+            agreeText: `${fmt(d)} mm from the solution`,
+            mine, want, t, d,
+        };
+    }
+    // A list of points: each point of the solution is paired with the nearest point the student placed.
+    if (param.type === 'points') {
+        const mine = (value || []).map(point => point.position.map(Number));
+        const want = param.answer.map(point => point.map(Number));
+        const t = param.tolerance || 10;
+        const pairs = want.map(target => {
+            let at = -1;
+            let best = Infinity;
+            mine.forEach((point, index) => { const d = distance(point, target); if (d < best) { best = d; at = index; } });
+            return { want: target, at, d: best };
+        });
+        const hit = pairs.filter(pair => pair.d <= t).length;
+        const spare = mine.length - want.length;
+        const found = pairs.filter(pair => Number.isFinite(pair.d));
+        const mean = found.length ? found.reduce((sum, pair) => sum + pair.d, 0) / found.length : Infinity;
+        return {
+            ...base, status: hit === want.length && spare === 0 ? 'match' : hit >= Math.ceil(want.length / 2) ? 'close' : 'off',
+            yours: `${mine.length} point${mine.length === 1 ? '' : 's'}${Number.isFinite(mean) ? `, ${fmt(mean)} mm out on average` : ''}`,
+            expert: `${want.length} points`,
+            expertDetail: `within ${fmt(t)} mm counts as a match`,
+            agreeText: `${hit} of ${want.length} of the solution's points have one of yours within ${fmt(t)} mm${spare > 0 ? `, and you placed ${spare} more` : spare < 0 ? `, and you are ${-spare} short` : ''}`,
+            mine, want, pairs, t, hit, spare, mean,
         };
     }
     if (param.type === 'angle') {
@@ -91,8 +138,8 @@ function evaluate(param, answers, touched, imports) {
         const med = median(ex);
         return {
             ...base, status: beyond === 0 ? 'match' : beyond <= t ? 'close' : 'off',
-            yours: `${fmt(v)}${param.unit}`, expert: `${fmt(med)}${param.unit}`, expertDetail: `range ${fmt(lo)} to ${fmt(hi)}${param.unit}`,
-            agreeText: `${ex.filter(e => Math.abs(e - v) <= t).length} of ${ex.length} experts within ${t}${param.unit} of you`,
+            yours: `${fmt(v)}${param.unit}`, expert: `${fmt(med)}${param.unit}`, expertDetail: `within ${fmt(t)}${param.unit} counts as a match`,
+            agreeText: `${fmt(Math.abs(wrapAngle(v - med)))}${param.unit} from the solution`,
             direction: v < lo ? 'low' : v > hi ? 'high' : 'in', v, lo, hi, t, ex, studentShow: v, expertShow: med,
         };
     }
@@ -106,8 +153,8 @@ function evaluate(param, answers, touched, imports) {
     const expertValue = values[idx(median(param.answers.map(Number)))];
     return {
         ...base, status: outside === 0 ? 'match' : outside === 1 ? 'close' : 'off',
-        yours: `${value}${unit}`, expert: `${expertValue}${unit}`, expertDetail: `range ${values[lo]} to ${values[hi]}${unit}`,
-        agreeText: `${exIdx.filter(e => Math.abs(e - mineIdx) <= 1).length} of ${param.answers.length} experts within one slider step of you`,
+        yours: `${value}${unit}`, expert: `${expertValue}${unit}`, expertDetail: outside === 0 ? 'the value the solution uses' : `${outside} slider step${outside === 1 ? '' : 's'} away`,
+        agreeText: outside === 0 ? 'The value the solution uses' : `${outside} slider step${outside === 1 ? '' : 's'} from the solution`,
         direction: mineIdx < lo ? 'low' : mineIdx > hi ? 'high' : 'in', values, mineIdx, exIdx, lo, hi,
         studentShow: values[mineIdx], expertShow: expertValue,
     };
@@ -130,14 +177,14 @@ function featuredFor(r) {
 }
 const evaluateAll = () => { const answers = W.answers(), touched = W.touched(), imports = W.imports(); return key.params.map(p => evaluate(p, answers, touched, imports)); };
 function feedbackText(r) {
-    if (r.status === 'match') return r.param.type === 'plane' ? 'Same plane as most experts.' : r.param.type === 'imports' ? 'The right files, and they belong together.' : 'Inside the range the experts chose.';
-    if (r.param.type === 'plane' || r.param.type === 'imports') return r.param.off || 'Different from the experts.';
-    return (r.direction === 'low' ? r.param.low : r.param.high) || (r.direction === 'low' ? 'Lower than the experts chose.' : 'Higher than the experts chose.');
+    if (r.status === 'match') return r.param.type === 'imports' ? 'The right files, and they belong together.' : 'The same as the solution.';
+    if (['plane', 'imports', 'point3', 'points'].includes(r.param.type)) return r.param.off || 'Different from the solution.';
+    return (r.direction === 'low' ? r.param.low : r.param.high) || (r.direction === 'low' ? 'Lower than the solution.' : 'Higher than the solution.');
 }
 const STATUS = { match: { short: 'Match', icon: 'circle-check' }, close: { short: 'Close', icon: 'circle-dot' }, off: { short: 'Different', icon: 'circle-alert' } };
 const chip = status => `<span class="grade-chip is-${status}">${icon(STATUS[status].icon)} ${STATUS[status].short}</span>`;
 const untouched = r => r.touched ? '' : '<small class="grade-untouched">You kept the starting value.</small>';
-const canShow = r => r.param.type !== 'imports';
+const canShow = r => !PASSTHROUGH.includes(r.param.type);
 function mixBar(results) {
     const n = { match: 0, close: 0, off: 0 };
     results.forEach(r => { n[r.status]++; });
@@ -148,7 +195,7 @@ function mixBar(results) {
 function you(x, base) {
     return `<g class="grade-you"><line x1="${x}" x2="${x}" y1="${base - 44}" y2="${base + 12}"/><rect x="${x - 17}" y="${base - 62}" width="34" height="17" rx="8.5"/><text x="${x}" y="${base - 50}">You</text></g>`;
 }
-const expertsMarker = (x, base) => `<path class="grade-ex-marker" d="M${x} ${base + 11} l-5 8 h10 z"><title>Most experts</title></path>`;
+const expertsMarker = (x, base) => `<path class="grade-ex-marker" d="M${x} ${base + 11} l-5 8 h10 z"><title>The solution</title></path>`;
 function trackSVG(r) {
     const W0 = 340, pad = 16, base = 70;
     const frame = inner => `<svg class="grade-track" viewBox="0 ${base - 70} ${W0} 104" role="img">${inner}</svg>`;
@@ -179,7 +226,24 @@ function importList(r) {
     return `<span class="grade-files">${r.rows.map(row => `<span class="grade-file ${row.ok ? 'is-ok' : 'is-bad'}">${icon(row.ok ? 'circle-check' : 'circle-x')}<span><b>${escapeHTML(row.label)}</b><small>Yours: ${escapeHTML(row.got)}${row.ok ? '' : ` · this case uses the ${escapeHTML(row.want)}`}</small></span></span>`).join('')}
         ${r.mismatches.map(m => `<span class="grade-file is-bad">${icon('triangle-alert')}<span><b>${escapeHTML(m.title)}</b><small>${escapeHTML(m.detail)}</small></span></span>`).join('')}</span>`;
 }
-const picture = r => r.param.type === 'imports' ? importList(r) : r.param.type === 'plane' ? planeGrid(r) : trackSVG(r);
+function pointPicture(r) {
+    return `<span class="grade-files">${['X', 'Y', 'Z'].map((axis, i) => {
+        const off = r.mine[i] - r.want[i];
+        const ok = Math.abs(off) <= r.t;
+        return `<span class="grade-file ${ok ? 'is-ok' : 'is-bad'}">${icon(ok ? 'circle-check' : 'circle-x')}<span><b>${axis} ${fmt(r.mine[i])} mm</b><small>Solution ${fmt(r.want[i])} mm · ${off >= 0 ? '+' : ''}${fmt(off)} mm</small></span></span>`;
+    }).join('')}</span>`;
+}
+function pointsPicture(r) {
+    return `<span class="grade-files">${r.pairs.map((pair, i) => {
+        const ok = pair.d <= r.t;
+        return `<span class="grade-file ${ok ? 'is-ok' : 'is-bad'}">${icon(ok ? 'circle-check' : 'circle-x')}<span><b>Point ${i + 1} · ${pair.want.map(fmt).join(', ')} mm</b><small>${pair.at < 0 ? 'You have not placed a point near it' : `Your point ${pair.at} is ${fmt(pair.d)} mm away`}</small></span></span>`;
+    }).join('')}</span>`;
+}
+const picture = r => r.param.type === 'imports' ? importList(r)
+    : r.param.type === 'plane' ? planeGrid(r)
+    : r.param.type === 'point3' ? pointPicture(r)
+    : r.param.type === 'points' ? pointsPicture(r)
+    : trackSVG(r);
 function featuredHTML(r) {
     const f = featuredFor(r);
     if (!f) return '';
@@ -189,7 +253,7 @@ function featuredHTML(r) {
         ${on ? `<div class="cmp-featured-body"><p><b>${escapeHTML(featured.name)}</b>${featured.role ? ` <small>${escapeHTML(featured.role)}</small>` : ''} chose <b>${escapeHTML(f.label)}</b> <span class="grade-chip ${f.same ? 'is-match' : 'is-off'}">${f.same ? 'Same as yours' : 'Different from yours'}</span></p>${f.comment ? `<blockquote>${escapeHTML(f.comment)}</blockquote>` : ''}</div>` : ''}
     </div>`;
 }
-const detailHTML = r => `${picture(r)}<p class="cmp-agree">${icon('users')} ${escapeHTML(r.agreeText)}.</p><p class="cmp-text">${escapeHTML(feedbackText(r))}</p>${featuredHTML(r)}${untouched(r)}`;
+const detailHTML = r => `${picture(r)}<p class="cmp-agree">${icon('target')} ${escapeHTML(r.agreeText)}.</p><p class="cmp-text">${escapeHTML(feedbackText(r))}</p>${r.param.note ? `<p class="cmp-text">The solution: ${escapeHTML(r.param.note)}</p>` : ''}${featuredHTML(r)}${untouched(r)}`;
 
 // ---- comparing ---------------------------------------------------------------------------------------------------
 const S = { active: false, results: [], list: [], current: null, token: 0, featured: false };
@@ -324,7 +388,7 @@ function setTags(r) {
     if (!tags || !canShow(r)) return;
     tags.querySelector('.is-yours').innerHTML = `${icon('user')} Yours · ${escapeHTML(r.yours)}`;
     const f = S.featured ? featuredFor(r) : null;
-    tags.querySelector('.is-experts').innerHTML = f ? `${icon('star')} ${escapeHTML(featured.name)}'s choice · ${escapeHTML(f.label)}` : `${icon('users')} The experts' · ${escapeHTML(r.expert)}`;
+    tags.querySelector('.is-experts').innerHTML = f ? `${icon('star')} ${escapeHTML(featured.name)}'s choice · ${escapeHTML(f.label)}` : `${icon('target')} Solution · ${escapeHTML(r.expert)}`;
     tags.querySelector('.is-experts').classList.toggle('is-featured', !!f);
     refreshIcons();
 }
@@ -334,6 +398,8 @@ function anchorFor(param) {
     if (param.type === 'imports') return document.querySelector('#workflow-step-1 .workflow-block');
     if (param.key === 'pelvicPlane') return document.querySelector('#workflow-step-2a .workflow-plane-block');
     if (param.key === 'interfacePlane') return document.querySelector('#workflow-step-2b .workflow-plane-block');
+    if (param.key === 'interfacePosition') return document.querySelector('#workflow-step-2c .workflow-position-block');
+    if (param.key === 'attachmentPoints') return document.querySelector('#workflow-step-4a .attachment-holes-block');
     if (param.type === 'angle') return document.querySelector(`[data-orient="${param.key}"]`)?.closest('label');
     return document.querySelector(`[data-socket-param="${param.key}"]`)?.closest('label');
 }
@@ -350,8 +416,8 @@ function renderNotes(r, scroll = true) {
         anchor.classList.add('cmp-row-flag', `is-${x.status}`);
         const note = el('div', `cmp-note is-${x.status}${x.param.key === r.param.key ? ' open' : ''}`);
         note.innerHTML = x.param.key === r.param.key
-            ? `<div class="cmp-note-head">${chip(x.status)}<b>${escapeHTML(x.param.label)}</b><span>Experts: ${escapeHTML(x.expert)}</span></div>${detailHTML(x)}`
-            : `<button type="button" class="cmp-note-head" data-note>${chip(x.status)}<b>${escapeHTML(x.param.label)}</b><span>Experts: ${escapeHTML(x.expert)}</span>${icon('chevron-down')}</button>`;
+            ? `<div class="cmp-note-head">${chip(x.status)}<b>${escapeHTML(x.param.label)}</b><span>Solution: ${escapeHTML(x.expert)}</span></div>${detailHTML(x)}`
+            : `<button type="button" class="cmp-note-head" data-note>${chip(x.status)}<b>${escapeHTML(x.param.label)}</b><span>Solution: ${escapeHTML(x.expert)}</span>${icon('chevron-down')}</button>`;
         note.querySelector('[data-note]')?.addEventListener('click', () => select(x));
         note.querySelector('[data-featured]')?.addEventListener('click', () => { S.featured = !S.featured; select(S.current); });
         anchor.after(note);
@@ -364,8 +430,8 @@ function renderBanner(r) {
     const { n, html } = mixBar(S.results);
     const i = S.list.indexOf(r);
     const open = banner.classList.contains('show-summary');
-    banner.innerHTML = `<div class="cmp-banner-top"><span class="cmp-kicker">${icon('award')} Compared with the experts</span><button type="button" class="grade-btn" data-done>${icon('check')} Done</button></div>
-        <div class="cmp-banner-row"><b>${n.match} of ${S.results.length} inside the experts' range</b>${html}</div>
+    banner.innerHTML = `<div class="cmp-banner-top"><span class="cmp-kicker">${icon('award')} How close you got</span><button type="button" class="grade-btn" data-done>${icon('check')} Done</button></div>
+        <div class="cmp-banner-row"><b>${n.match} of ${S.results.length} match the solution</b>${html}</div>
         <div class="cmp-banner-row"><button type="button" class="grade-btn" data-prev ${i <= 0 ? 'disabled' : ''} aria-label="Previous difference">${icon('arrow-left')}</button><span class="cmp-banner-now">${i >= 0 ? `Difference ${i + 1} of ${S.list.length}: ` : ''}<b>${escapeHTML(r.param.label)}</b></span><button type="button" class="grade-btn" data-next aria-label="Next difference">${icon('arrow-right')}</button><button type="button" class="grade-btn" data-summary>${icon('list-checks')} Report</button></div>
         <div class="cmp-banner-summary">${S.results.map(x => `<button type="button" class="cmp-sum is-${x.status}${x.param.key === r.param.key ? ' active' : ''}" data-go="${escapeHTML(x.param.key)}"><span class="grade-step">${escapeHTML(x.param.step)}</span><b>${escapeHTML(x.param.label)}</b><small>${escapeHTML(x.yours)}</small>${chip(x.status)}</button>`).join('')}</div>`;
     banner.classList.toggle('show-summary', open);
@@ -378,7 +444,7 @@ async function boot() {
     try {
         key = prepareKey(await fetch(KEY_URL, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
     } catch (error) {
-        console.warn('Expert answer key not available:', KEY_URL, error);
+        console.warn('Solution key not available:', KEY_URL, error);
         document.querySelectorAll('[data-grade-open]').forEach(b => { b.hidden = true; });
         return;
     }

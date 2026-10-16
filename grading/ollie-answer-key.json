@@ -1,0 +1,174 @@
+{
+  "case": "Ollie socket walkthrough",
+  "solution": true,
+  "solutionNote": "Tyler's worked solution for Ollie. Every decision in the walkthrough is measured against it; Step 6 shows how close the student got.",
+  "experts": [
+    { "id": "t1", "name": "Tyler", "role": "Give a Paw", "include": true }
+  ],
+  "steps": {
+    "1": "Imported files",
+    "2a": "Pelvic plane",
+    "2b": "Interface plane",
+    "2c": "Interface position",
+    "2d": "Interface positioning",
+    "3": "Socket latticing",
+    "4a": "Attachment points"
+  },
+  "params": [
+    {
+      "key": "imports",
+      "step": "1",
+      "label": "Imported files",
+      "type": "imports",
+      "weight": 1,
+      "expected": {
+        "solidAnimal": { "breed": "ollie" },
+        "attachment": { "breed": "ollie", "category": "socket" },
+        "mechanical": { "sizeClass": "small" },
+        "solidInterface": { "sizeClass": "small" }
+      },
+      "off": "Some of the files are not the ones this case uses. Ollie is a small dog, so both interfaces come from the small pair.",
+      "note": "Ollie's scan, the socket surface cut from it, and the small mechanical and solid interfaces."
+    },
+    {
+      "key": "pelvicPlane",
+      "step": "2a",
+      "label": "Pelvic plane",
+      "type": "plane",
+      "weight": 1.5,
+      "answers": { "t1": "2,1,1" },
+      "normal": "-1,0,0",
+      "off": "Not the plane this case uses. It sits on the X maximum face of the attachment surface, looking back along -X.",
+      "note": "X maximum, Y centroid, Z centroid, with the normal pointing back along -X."
+    },
+    {
+      "key": "interfacePlane",
+      "step": "2b",
+      "label": "Interface plane",
+      "type": "plane",
+      "weight": 1.5,
+      "answers": { "t1": "1,1,0" },
+      "normal": "0,0,1",
+      "off": "Not the face the leg mount sits on. On the small solid interface it is the Z minimum face, with the normal along +Z.",
+      "note": "X centroid, Y centroid, Z minimum, with the normal along +Z."
+    },
+    {
+      "key": "interfacePosition",
+      "step": "2c",
+      "label": "Interface position",
+      "type": "point3",
+      "unit": "mm",
+      "tolerance": 5,
+      "weight": 1.5,
+      "answer": [-161.21, 146.38, 138.71],
+      "off": "The interface sits somewhere else on the body. Drag the position onto the surface, then fine-tune with the X, Y and Z adjustments in Step 2d.",
+      "note": "Measured with the Step 2d X, Y and Z adjustments folded in, because that is where the interface actually ends up."
+    },
+    {
+      "key": "lateral",
+      "step": "2d",
+      "label": "Lateral angle",
+      "type": "angle",
+      "unit": "°",
+      "tolerance": 8,
+      "weight": 1,
+      "answers": { "t1": -70 },
+      "low": "Tilted further out than the solution, which pushes the leg away from under the body.",
+      "high": "Tilted further in than the solution, which tucks the leg under the body.",
+      "note": "-70 degrees."
+    },
+    {
+      "key": "medial",
+      "step": "2d",
+      "label": "Medial angle",
+      "type": "angle",
+      "unit": "°",
+      "tolerance": 8,
+      "weight": 1,
+      "answers": { "t1": -61 },
+      "low": "Angled further toward the midline than the solution, so the leg crosses under the body.",
+      "high": "Angled further away from the midline than the solution, so the paw splays outward.",
+      "note": "-61 degrees."
+    },
+    {
+      "key": "rotation",
+      "step": "2d",
+      "label": "Interface rotation",
+      "type": "angle",
+      "unit": "°",
+      "tolerance": 10,
+      "weight": 0.75,
+      "answers": { "t1": -180 },
+      "low": "Turned further one way than the solution, so the paw points off the walking line.",
+      "high": "Turned further the other way than the solution, so the paw points off the walking line.",
+      "note": "-180 degrees, the interface turned right around."
+    },
+    {
+      "key": "minThickness",
+      "step": "3",
+      "label": "Min lattice thickness",
+      "type": "discrete",
+      "unit": "mm",
+      "weight": 1,
+      "answers": { "t1": 6 },
+      "low": "Thinner struts than the solution. Thin struts save weight but flex, and they can crack where the straps pull.",
+      "high": "Thicker struts than the solution. Thick struts are stiff but heavy, and they trap heat against a small dog.",
+      "note": "6 mm."
+    },
+    {
+      "key": "maxThickness",
+      "step": "3",
+      "label": "Max lattice thickness",
+      "type": "discrete",
+      "unit": "mm",
+      "weight": 1,
+      "answers": { "t1": 12 },
+      "low": "A thinner maximum than the solution, so the load-bearing areas may not stiffen enough.",
+      "high": "A thicker maximum than the solution, adding weight where the socket should stay light.",
+      "note": "12 mm."
+    },
+    {
+      "key": "spatialWeighting",
+      "step": "3",
+      "label": "Spatial weighting",
+      "type": "discrete",
+      "unit": "",
+      "weight": 1,
+      "answers": { "t1": 0.6 },
+      "low": "Less weighting toward the loaded areas than the solution, so thickness is spread more evenly.",
+      "high": "More weighting toward the loaded areas than the solution, so the rest of the socket stays thin.",
+      "note": "0.6."
+    },
+    {
+      "key": "pointDensity",
+      "step": "3",
+      "label": "Lattice point density",
+      "type": "discrete",
+      "unit": "",
+      "weight": 1,
+      "answers": { "t1": 32 },
+      "low": "A lower point density than the solution. Bigger openings are lighter and cooler, but the shell gets floppy.",
+      "high": "A higher point density than the solution. A dense lattice is stiffer but heavier, and it traps more heat.",
+      "note": "32 points."
+    },
+    {
+      "key": "attachmentPoints",
+      "step": "4a",
+      "label": "Attachment points",
+      "type": "points",
+      "unit": "mm",
+      "tolerance": 10,
+      "weight": 1.5,
+      "answer": [
+        [-64.15, 36.85, 199.5],
+        [-128.84, 27.5, 199.4],
+        [-186.9, 30.27, 200.48],
+        [-78.75, 142.82, 193.28],
+        [-135.49, 144.62, 198.44],
+        [-184.69, 148.02, 200.8]
+      ],
+      "off": "The screws do not land where this case puts them. There are six, in two rows of three along the body.",
+      "note": "Six points: three along each side, spread front to back."
+    }
+  ]
+}

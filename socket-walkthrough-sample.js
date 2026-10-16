@@ -6,9 +6,9 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=9';
+import { createAttachmentHoles } from './attachment-holes.js?v=10';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=2';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=5';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -77,22 +77,23 @@ const interfaceRoot = new THREE.Group();
 const measurementRoot = new THREE.Group();
 scene.add(importRoot, planeRoot, interfaceRoot, measurementRoot);
 
+// Every Import Mesh node starts empty: the student browses to the file, as they would in nTop.
 const layers = {
     solidAnimal: {
         label: 'Solid animal', color: '#496b94', group: new THREE.Group(), visible: true,
-        file: 'sample-models/chihuahua-1015-solid.glb', type: 'glb', opacity: 0.28, baseUnit: 'mm', importUnit: 'mm', scalable: true,
+        file: null, type: null, opacity: 0.28, baseUnit: 'm', importUnit: 'm', scalable: true,
     },
     attachment: {
         label: 'Attachment mesh', color: '#169c8c', group: new THREE.Group(), visible: true,
-        file: 'sample-models/chihuahua-1015-surface.glb', type: 'glb', opacity: 0.88, baseUnit: 'mm', importUnit: 'mm', scalable: true,
+        file: null, type: null, opacity: 0.88, baseUnit: 'm', importUnit: 'm', scalable: true,
     },
     mechanical: {
         label: 'Mechanical interface', color: '#df7544', group: new THREE.Group(), visible: false,
-        file: 'billie-mechanical-interface.glb', type: 'glb', opacity: 1, baseUnit: 'mm', importUnit: 'mm',
+        file: null, type: null, opacity: 1, baseUnit: 'mm', importUnit: 'mm',
     },
     solidInterface: {
         label: 'Solid interface', color: '#6750a4', group: new THREE.Group(), visible: false,
-        file: 'billie-solid-interface.stl', type: 'stl', opacity: 1, baseUnit: 'mm', importUnit: 'mm',
+        file: null, type: null, opacity: 1, baseUnit: 'mm', importUnit: 'mm',
     },
 };
 Object.values(layers).forEach(layer => {
@@ -114,11 +115,14 @@ const isAttachmentStep = step => ATTACHMENT_STEPS.includes(step);
 
 // Each Import Mesh node points at one catalog entry; see import-catalog.js for the folder layout.
 const importSelection = {
-    solidAnimal: filesForRole('solidAnimal')[0],
-    attachment: filesForRole('attachment')[0],
-    mechanical: filesForRole('mechanical')[0],
-    solidInterface: filesForRole('solidInterface')[0],
+    solidAnimal: null,
+    attachment: null,
+    mechanical: null,
+    solidInterface: null,
 };
+const IMPORT_ROLE_KEYS = ['solidAnimal', 'attachment', 'mechanical', 'solidInterface'];
+const importedCount = () => IMPORT_ROLE_KEYS.filter(role => importSelection[role]).length;
+const importsReady = () => importedCount() === IMPORT_ROLE_KEYS.length;
 
 const pelvicBody = new THREE.Group();
 const pelvicAttach = new THREE.Group();
@@ -180,6 +184,8 @@ const orientationLayerVisibility = { animal: false, mechanical: true, solid: fal
 const blendLayerVisibility = { animal: true, mechanical: true, solid: true, socket: true, target: false };
 
 function interfaceLayerVisibleIn(stage, key) {
+    // The socket is built in Step 3, so Step 2 does not show it.
+    if (key === 'socket' && (stage === '2b' || stage === '2c' || stage === '2d')) return false;
     if (stage === '2c' && key === 'mechanical') return positionMechanicalVisible;
     if (stage === '2d' && key in orientationLayerVisibility) return orientationLayerVisibility[key];
     if (BLEND_STEPS.includes(stage) && key in blendLayerVisibility) return blendLayerVisibility[key];
@@ -223,7 +229,7 @@ scene.add(positionTransformHelper);
 function simplifyPositionTransformGizmo() {
     const transformGizmo = positionTransform._gizmo;
     if (!transformGizmo) return;
-    const centerHandles = new Set(['XYZ', 'XY', 'YZ', 'XZ']);
+    const centerHandles = new Set(['XYZ']);
     const axisComponents = { X: 'x', Y: 'y', Z: 'z' };
     [transformGizmo.gizmo.translate, transformGizmo.picker.translate].forEach(group => {
         [...group.children].forEach(handle => {
@@ -244,8 +250,9 @@ simplifyPositionTransformGizmo();
 positionTransformHelper.traverse(object => {
     if (!object.material) return;
     const axis = object.name.toLowerCase();
-    const color = axis === 'x' ? NTOP_AXIS_COLORS.x : axis === 'y' ? NTOP_AXIS_COLORS.y : axis === 'z' ? NTOP_AXIS_COLORS.z : null;
-    if (color === null) return;
+    const color = { x: NTOP_AXIS_COLORS.x, y: NTOP_AXIS_COLORS.y, z: NTOP_AXIS_COLORS.z,
+        xy: NTOP_AXIS_COLORS.z, yz: NTOP_AXIS_COLORS.x, xz: NTOP_AXIS_COLORS.y }[axis];
+    if (color === undefined) return;
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     materials.forEach(material => {
         if (!material.color) return;
@@ -269,6 +276,7 @@ positionTransform.addEventListener('dragging-changed', event => {
         setInterfacePositionFromQuery(targetHandle.position);
     }
 });
+
 
 const draco = new DRACOLoader();
 draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/');
@@ -516,7 +524,7 @@ function socketModelPromise(key, value) {
 }
 
 function hasSocketModelLibrary() {
-    return importSelection.attachment.category === 'socket';
+    return importSelection.attachment?.category === 'socket';
 }
 
 function showSourceModelsOnly(status) {
@@ -592,32 +600,56 @@ let importBounds = null;
 let pelvicBounds = null;
 const planeState = { pick: [1, 2, 1], normal: [0, -1, 0] };
 
-function randomPlanePick() {
-    const pick = [0, 0, 0];
-    do {
+// Ollie's answers. Both planes start scrambled away from these, every time the page loads, so the
+// student always has to find them; the comparison in Step 6 measures against them.
+const SOLUTION = {
+    pelvicPlane: { pick: [2, 1, 1], normal: [-1, 0, 0] },
+    interfacePlane: { pick: [1, 1, 0], normal: [0, 0, 1] },
+    interfacePosition: [-161.21, 146.38, 138.71],
+    orientation: { lateral: -70, medial: -61, rotation: -180 },
+    socket: { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 32 },
+    attachmentPoints: [
+        [-64.15, 36.85, 199.5],
+        [-128.84, 27.5, 199.4],
+        [-186.9, 30.27, 200.48],
+        [-78.75, 142.82, 193.28],
+        [-135.49, 144.62, 198.44],
+        [-184.69, 148.02, 200.8],
+    ],
+};
+
+// One scrambled plane: a bounding-box pick that is not all-centroid, plus the outward normal of one
+// of the faces it names. Never the answer, so no one starts on it by luck.
+function randomPlaneChoice(answer) {
+    for (;;) {
+        const pick = [0, 0, 0];
         for (let axis = 0; axis < 3; axis++) pick[axis] = Math.floor(Math.random() * 3);
-    } while (pick.every(value => value === 1) || (pick[0] === 1 && pick[1] === 2 && pick[2] === 1));
-    return pick;
+        if (pick.join() === answer.pick.join()) continue;
+        const axis = Math.floor(Math.random() * 3);
+        const normal = [0, 0, 0];
+        normal[axis] = Math.random() < 0.5 ? 1 : -1;
+        if (normal.join() === answer.normal.join()) continue;
+        return { pick, normal, axis };
+    }
 }
 
-// Students start from a scrambled plane so they have to set it themselves, as they would in nTop.
 function randomizePelvicPlane() {
-    planeState.pick = randomPlanePick();
-    const faceAxes = planeState.pick.map((value, axis) => axis).filter(axis => planeState.pick[axis] !== 1);
-    activePelvicPlaneAxis = faceAxes[Math.floor(Math.random() * faceAxes.length)];
-    const faceValue = planeState.pick[activePelvicPlaneAxis];
-    planeState.normal = [0, 0, 0];
-    planeState.normal[activePelvicPlaneAxis] = faceValue === 0 ? 1 : -1;
-    activePelvicPlanePreset = `${'xyz'[activePelvicPlaneAxis]}-${faceValue === 0 ? 'min' : 'max'}`;
+    const choice = randomPlaneChoice(SOLUTION.pelvicPlane);
+    planeState.pick = choice.pick;
+    planeState.normal = choice.normal;
+    activePelvicPlaneAxis = choice.axis;
+    activePelvicPlanePreset = `${'xyz'[choice.axis]}-${choice.pick[choice.axis] === 0 ? 'min' : 'max'}`;
     document.querySelectorAll('[data-axis]').forEach(select => { select.value = String(planeState.pick[+select.dataset.axis]); });
     document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => { slider.value = String(planeState.pick[+slider.dataset.pelvicAxisSlider]); });
     document.querySelectorAll('[data-normal]').forEach(input => { input.value = String(planeState.normal[+input.dataset.normal]); });
-    const planeStatus = document.querySelector('[data-plane-test-status]');
 }
 randomizePelvicPlane();
-const interfacePlaneState = { pick: randomPlanePick(), normal: [0, -1, 0] };
+
+const interfacePlaneChoice = randomPlaneChoice(SOLUTION.interfacePlane);
+const interfacePlaneState = { pick: interfacePlaneChoice.pick, normal: interfacePlaneChoice.normal };
 document.querySelectorAll('[data-interface-axis]').forEach(select => { select.value = String(interfacePlaneState.pick[+select.dataset.interfaceAxis]); });
 document.querySelectorAll('[data-interface-axis-slider]').forEach(slider => { slider.value = String(interfacePlaneState.pick[+slider.dataset.interfaceAxisSlider]); });
+document.querySelectorAll('[data-interface-normal]').forEach(input => { input.value = String(interfacePlaneState.normal[+input.dataset.interfaceNormal]); });
 const interfacePositionState = new THREE.Vector3();
 const orientationState = {
     lateral: 0,
@@ -1211,22 +1243,78 @@ function syncPlaneVisibility(key, visible) {
     if (isPelvicStep(activeStep)) renderLegend();
 }
 
+
+// ---- Solid or see-through, the switch the design review page uses --------------------------------
+// Each overlay chip has a second button that flips its layer between solid and see-through. The
+// values below are where a layer sits until someone presses it.
+const SEE_THROUGH = 0.3;
+const ALPHA_LAYERS = { pelvic: ['attach', 'body', 'socket'], interface: ['reference', 'animal', 'mechanical', 'socket'] };
+const layerAlphaChoice = {};   // 'pelvic:body' -> the alpha the student asked for
+
+function defaultLayerAlpha(scope, key, stage) {
+    if (scope === 'pelvic') {
+        if (key === 'attach') return stage === '3' ? 0.14 : 0.78;
+        if (key === 'body') return 0.2;
+        return 1;
+    }
+    // Step 2 reads better with the dog solid; the blend steps need to see the socket inside it.
+    if (key === 'animal') return BLEND_STEPS.includes(stage) ? 0.28 : 1;
+    return 1;
+}
+
+function layerAlphaTargets(scope, key) {
+    if (scope === 'pelvic') return [planeLayerTargets[key]].filter(Boolean);
+    if (key === 'socket') return [socketPreviewRoot, finalSocketRoot];
+    return [interfaceLayerTargets[key]].filter(Boolean);
+}
+
+function layerAlphaValue(scope, key, stage) {
+    return layerAlphaChoice[scope + ':' + key] ?? defaultLayerAlpha(scope, key, stage);
+}
+
+function applyLayerAlphas(scope, stage) {
+    ALPHA_LAYERS[scope].forEach(key => {
+        const value = layerAlphaValue(scope, key, stage);
+        layerAlphaTargets(scope, key).forEach(target => target.traverse(object => {
+            if (!object.isMesh || !object.material || object.userData.fixedAlpha) return;
+            object.material.opacity = value;
+            object.material.transparent = value < 0.99;
+            object.material.depthWrite = value >= 0.99;
+            object.material.needsUpdate = true;
+        }));
+        const attribute = scope === 'pelvic' ? 'data-view-alpha' : 'data-interface-alpha';
+        document.querySelectorAll('[' + attribute + '="' + key + '"]').forEach(button => {
+            button.classList.toggle('is-see-through', value < 0.99);
+            button.setAttribute('aria-pressed', String(value < 0.99));
+        });
+    });
+}
+
+function toggleLayerAlpha(scope, key) {
+    const stage = activeStep;
+    const now = layerAlphaValue(scope, key, stage);
+    layerAlphaChoice[scope + ':' + key] = now >= 0.99 ? SEE_THROUGH : 1;
+    applyLayerAlphas(scope, stage);
+}
+
+document.querySelectorAll('[data-view-alpha]').forEach(button => {
+    button.addEventListener('click', () => toggleLayerAlpha('pelvic', button.dataset.viewAlpha));
+});
+document.querySelectorAll('[data-interface-alpha]').forEach(button => {
+    button.addEventListener('click', () => toggleLayerAlpha('interface', button.dataset.interfaceAlpha));
+});
+
 function applyPelvicStageVisibility() {
     if (!isPelvicStep(activeStep)) return;
     overlayControlsEl.dataset.stage = activeStep;
     const isSocketStage = activeStep === '3';
     Object.entries(planeLayerTargets).forEach(([key, target]) => {
         // Step 3's Socket block takes the attachment surface, not the pelvic plane, so the plane guides stay in 2b.
-        const stageAllows = ['box', 'point', 'normal', 'plane'].includes(key) ? !isSocketStage : true;
+        const stageAllows = ['box', 'point', 'normal', 'plane'].includes(key) ? !isSocketStage
+            : key === 'socket' ? isSocketStage : true;
         target.visible = planeLayerVisibility[key] && stageAllows;
     });
-    pelvicAttach.traverse(child => {
-        if (!child.isMesh || !child.material) return;
-        child.material.opacity = isSocketStage ? 0.14 : 0.78;
-        child.material.transparent = true;
-        child.material.depthWrite = !isSocketStage;
-        child.material.needsUpdate = true;
-    });
+    applyLayerAlphas('pelvic', activeStep);
 }
 
 function syncInterfaceLayerMenus() {
@@ -1301,6 +1389,7 @@ function applyInterfaceStageVisibility() {
     positionTransform.enabled = activeStep === '2c' && interfaceLayerVisible('target');
     positionTransformHelper.visible = positionTransform.enabled;
     interfaceOverlayControlsEl.dataset.stage = activeStep;
+    applyLayerAlphas('interface', activeStep);
 }
 
 function renderLegend() {
@@ -1403,12 +1492,32 @@ function syncImportPathLabels() {
     Object.entries(importSelection).forEach(([role, entry]) => {
         const output = document.querySelector('[data-path-label="' + role + '"]');
         if (!output) return;
-        output.textContent = entry.name;
-        output.title = entry.pathLabel;
+        output.textContent = entry ? entry.name : 'Browse for a file';
+        output.title = entry ? entry.pathLabel : 'No file chosen';
+        output.classList.toggle('is-empty', !entry);
         const select = document.querySelector('[data-import-unit="' + role + '"]');
         if (select) select.value = layers[role].importUnit;
     });
     syncImportAlerts();
+    syncImportGate();
+}
+
+// Steps 2a onward need all four meshes, so they stay out of the way until the imports are in.
+function syncImportGate() {
+    const ready = importsReady();
+    document.body.classList.toggle('imports-pending', !ready);
+    document.querySelectorAll('[data-go-step]').forEach(button => {
+        const target = button.dataset.goStep;
+        button.disabled = !ready && target !== '1';
+    });
+    const note = document.getElementById('import-gate-note');
+    if (note) {
+        note.hidden = ready;
+        const missing = IMPORT_ROLE_KEYS.filter(role => !importSelection[role]).map(role => IMPORT_ROLES[role].name);
+        note.textContent = missing.length
+            ? 'Still to import: ' + missing.join(', ') + '. The rest of the workflow opens once all four meshes are in.'
+            : '';
+    }
 }
 
 const importStatusEl = document.getElementById('import-status');
@@ -1423,7 +1532,7 @@ function importMismatches() {
     const { solidAnimal, attachment, mechanical, solidInterface } = importSelection;
     const breedLabel = slug => IMPORT_BREEDS.find(breed => breed.slug === slug)?.label || slug;
     const found = [];
-    if (mechanical.sizeClass !== solidInterface.sizeClass) {
+    if (mechanical && solidInterface && mechanical.sizeClass !== solidInterface.sizeClass) {
         found.push({
             key: 'interface', chip: 'Interface mismatch', title: 'Interfaces do not match',
             detail: `Mechanical: ${mechanical.label} · Solid: ${solidInterface.label}`,
@@ -1433,7 +1542,7 @@ function importMismatches() {
             },
         });
     }
-    if (attachment.breed !== solidAnimal.breed) {
+    if (attachment && solidAnimal && attachment.breed !== solidAnimal.breed) {
         found.push({
             key: 'scan', chip: 'Scan mismatch', title: 'Scan and attachment surface do not match',
             detail: `Solid animal: ${breedLabel(solidAnimal.breed)} · Attachment surface: ${breedLabel(attachment.breed)}`,
@@ -1448,9 +1557,9 @@ function importMismatches() {
 
 function syncImportAlerts() {
     const mismatches = importMismatches();
-    const signature = JSON.stringify(mismatches);
+    const signature = JSON.stringify(mismatches) + '|' + importedCount();
     if (signature === importAlertSignature) return;
-    const previousKeys = JSON.parse(importAlertSignature).map(item => item.key);
+    const previousKeys = JSON.parse(importAlertSignature.split('|')[0]).map(item => item.key);
     importAlertSignature = signature;
     const notes = Object.assign({}, ...mismatches.map(item => item.notes));
     Object.keys(importSelection).forEach(role => {
@@ -1461,8 +1570,12 @@ function syncImportAlerts() {
         note.hidden = !(role in notes);
         note.textContent = notes[role] || '';
     });
-    importStatusEl.classList.toggle('is-warning', mismatches.length > 0);
-    importStatusEl.innerHTML = mismatches.length ? IMPORT_WARN_ICON + ' Mismatch' : '<i data-lucide="circle-check" aria-hidden="true"></i> Ready';
+    const count = importedCount();
+    importStatusEl.classList.toggle('is-warning', mismatches.length > 0 || count < 4);
+    importStatusEl.innerHTML = mismatches.length ? IMPORT_WARN_ICON + ' Mismatch'
+        : count < 4 ? '<i data-lucide="circle-dashed" aria-hidden="true"></i> ' + count + ' of 4'
+        : '<i data-lucide="circle-check" aria-hidden="true"></i> Ready';
+    importStatusEl.dataset.count = String(count);
     importAlertsEl.hidden = !mismatches.length;
     importAlertsEl.innerHTML = mismatches.map(item => `<p>${IMPORT_WARN_ICON}<strong>${item.title}</strong><span>${item.detail}</span></p>`).join('');
     importAlertChipEl.hidden = !mismatches.length;
@@ -1477,7 +1590,7 @@ function syncImportAlerts() {
     window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
 }
 
-importAlertChipEl.addEventListener('click', () => {
+importAlertChipEl?.addEventListener('click', () => {
     const node = document.querySelector('.workflow-node.has-mismatch');
     if (node) node.open = true;
     showStep('1', true);
@@ -1497,11 +1610,16 @@ async function loadImportSelection(role, entry) {
         await replaceImportLayer(role, entry);
         syncImportVisibility(role, true);
         importBounds = new THREE.Box3().setFromObject(importRoot);
-        rebuildPelvicScene();
-        buildInterfaceScene();
+        if (importsReady()) {
+            rebuildPelvicScene();
+            buildInterfaceScene();
+        }
         syncImportPathLabels();
         clearMeasurement();
         showStep(activeStep);
+        // The interfaces are a few centimetres across and sit at the world origin, a long way from the
+        // scan, so framing the whole assembly would lose them. Go to the mesh that was just imported.
+        if (activeStep === '1') requestAnimationFrame(() => frameObject(layer.group));
         loaderEl.hidden = true;
     } catch (error) {
         importSelection[role] = previous;
@@ -1620,8 +1738,10 @@ document.querySelectorAll('[data-import-unit]').forEach(select => {
         layer.importUnit = select.value;
         applyImportUnitScale(layer);
         importBounds = new THREE.Box3().setFromObject(importRoot);
-        if (key === 'solidAnimal' || key === 'attachment') rebuildPelvicScene();
-        buildInterfaceScene();
+        if (importsReady()) {
+            if (key === 'solidAnimal' || key === 'attachment') rebuildPelvicScene();
+            buildInterfaceScene();
+        }
         clearMeasurement();
         if (activeStep === '1') requestAnimationFrame(() => frameObject(importRoot));
         if (isPelvicStep(activeStep)) requestAnimationFrame(() => frameObject(planeRoot));
@@ -1632,24 +1752,125 @@ syncImportPathLabels();
 
 // ---- Step 1 scale factor ----------------------------------------------------------------------
 const scaleFactorInput = document.getElementById('scale-factor');
+const scaleFactorSlider = document.getElementById('scale-factor-slider');
 const scaleNoteEl = document.getElementById('scale-note');
-function setScaleFactor(value) {
+const scaleHelpButton = document.getElementById('scale-help');
+
+// The ? beside Scale Factor: the scan as imported, as a ghost, with the scaled scan solid inside it.
+// The solid one is scaled about the scan's own centroid, so the difference reads as growth or
+// shrinkage in place rather than a slide across the scene.
+const scaleDemoRoot = new THREE.Group();
+scaleDemoRoot.visible = false;
+scene.add(scaleDemoRoot);
+let scaleDemoOn = false;
+let scaleDemoPivot = null;
+
+function styleScaleDemo(object, color, opacity) {
+    object.traverse(child => {
+        if (!child.isMesh) return;
+        child.material = new THREE.MeshStandardMaterial({
+            color, roughness: 0.78, metalness: 0,
+            transparent: opacity < 1, opacity,
+            depthWrite: opacity >= 1, side: THREE.DoubleSide,
+        });
+        child.castShadow = false;
+        child.receiveShadow = false;
+        child.userData.measureSurface = false;
+    });
+}
+
+function buildScaleDemo() {
+    scaleDemoRoot.clear();
+    scaleDemoPivot = null;
+    const layer = layers.solidAnimal;
+    if (!layer.group.children.length) return false;
+    const unit = (UNIT_TO_METERS[layer.importUnit] || 1) / (UNIT_TO_METERS[layer.baseUnit] || 1);
+
+    const ghost = layer.group.clone(true);
+    ghost.scale.setScalar(unit);
+    ghost.updateMatrixWorld(true);
+    styleScaleDemo(ghost, 0x8d98a7, 0.22);
+    ghost.traverse(child => { if (child.isMesh) child.renderOrder = 4; });
+    scaleDemoRoot.add(ghost);
+
+    const centre = new THREE.Box3().setFromObject(ghost).getCenter(new THREE.Vector3());
+    const inner = layer.group.clone(true);
+    inner.scale.setScalar(unit);
+    inner.position.set(-centre.x, -centre.y, -centre.z);
+    styleScaleDemo(inner, 0x496b94, 1);
+    const pivot = new THREE.Group();
+    pivot.position.copy(centre);
+    pivot.add(inner);
+    scaleDemoRoot.add(pivot);
+    scaleDemoPivot = pivot;
+    pivot.scale.setScalar(scaleFactor);
+    return true;
+}
+
+function scaleDemoText() {
+    return `Ghost: Ollie's scan as imported (1.00). Solid: the same scan at ${scaleFactor.toFixed(2)}, scaled about its centroid. nTop scales the scan this way before the socket is built; Ollie uses 0.95.`;
+}
+
+function syncScaleNote() {
+    if (scaleDemoOn) {
+        scaleNoteEl.hidden = false;
+        scaleNoteEl.textContent = scaleDemoText();
+        return;
+    }
+    scaleNoteEl.hidden = scaleFactor === 1;
+    scaleNoteEl.textContent = scaleFactor === 1 ? '' : `Animal scan scaled by ${scaleFactor}. The sample sockets were generated for the unscaled scan, so the socket preview stays at scale 1.`;
+}
+
+function setScaleDemo(on) {
+    const ready = on ? buildScaleDemo() : false;
+    scaleDemoOn = ready;
+    scaleDemoRoot.visible = scaleDemoOn;
+    if (on && !ready) {
+        scaleNoteEl.hidden = false;
+        scaleNoteEl.textContent = 'Import Ollie\u2019s scan first, then this shows what the scale factor does to it.';
+    } else {
+        syncScaleNote();
+    }
+    scaleHelpButton.setAttribute('aria-pressed', String(scaleDemoOn));
+    scaleHelpButton.classList.toggle('is-on', scaleDemoOn);
+    importRoot.visible = !scaleDemoOn && activeStep === '1';
+    importGhost.visible = !scaleDemoOn && activeStep === '1' && importGhost.children.length > 0;
+    viewerTitleEl.textContent = scaleDemoOn ? 'Scale factor, 1.0 against ' + scaleFactor.toFixed(2) : 'Imported mesh assembly';
+    requestAnimationFrame(() => frameObject(scaleDemoOn ? scaleDemoRoot : importRoot));
+}
+
+scaleHelpButton.addEventListener('click', () => setScaleDemo(!scaleDemoOn));
+
+function setScaleFactor(value, reframe = true) {
     scaleFactor = value;
     scaleFactorInput.value = String(value);
+    scaleFactorSlider.value = String(value);
     Object.values(layers).forEach(applyImportUnitScale);
     importBounds = new THREE.Box3().setFromObject(importRoot);
-    rebuildPelvicScene();
-    buildInterfaceScene();
+    if (importsReady()) {
+        rebuildPelvicScene();
+        buildInterfaceScene();
+    }
     clearMeasurement();
-    scaleNoteEl.hidden = value === 1;
-    scaleNoteEl.textContent = value === 1 ? '' : `Animal scan scaled by ${value}. The sample sockets were generated for the unscaled scan, so the socket preview stays at scale 1.`;
+    if (scaleDemoPivot) scaleDemoPivot.scale.setScalar(scaleFactor);
+    syncScaleNote();
+    if (scaleDemoOn) {
+        viewerTitleEl.textContent = 'Scale factor, 1.0 against ' + scaleFactor.toFixed(2);
+        return;
+    }
+    if (!reframe) return;
     if (activeStep === '1') requestAnimationFrame(() => frameObject(importRoot));
     if (isPelvicStep(activeStep)) requestAnimationFrame(() => frameObject(planeRoot));
 }
+
+scaleFactorSlider.addEventListener('input', () => {
+    const value = Math.round(Number(scaleFactorSlider.value) * 100) / 100;
+    if (value !== scaleFactor) setScaleFactor(value, false);
+});
 {
     const commit = () => {
         const value = Number(scaleFactorInput.value);
-        if (scaleFactorInput.value === '' || !Number.isFinite(value) || value < 0.5 || value > 2) { scaleFactorInput.value = String(scaleFactor); return; }
+        if (scaleFactorInput.value === '' || !Number.isFinite(value) || value < 0.5 || value > 1.5) { scaleFactorInput.value = String(scaleFactor); return; }
         if (value !== scaleFactor) setScaleFactor(Math.round(value * 1000) / 1000);
     };
     scaleFactorInput.addEventListener('change', commit);
@@ -1756,6 +1977,9 @@ function showStep(step, shouldScroll = false) {
     };
     importRoot.visible = isImport;
     importGhost.visible = isImport && importGhost.children.length > 0;
+    // The Scale Factor explainer owns the viewer while it is open, and only in Step 1.
+    if (scaleDemoOn && !isImport) setScaleDemo(false);
+    else if (scaleDemoOn) { importRoot.visible = false; importGhost.visible = false; }
     planeRoot.visible = isPelvic;
     (isAttachment ? attachmentHoles.root : isInterface ? interfaceRoot : planeRoot).add(socketPreviewRoot);
     if (isAttachment) {
@@ -1869,45 +2093,18 @@ document.querySelectorAll('.workflow-node').forEach(node => {
 
 document.querySelectorAll('[data-axis]').forEach(select => {
     select.addEventListener('change', () => {
-        const axis = +select.dataset.axis;
-        const value = +select.value;
-        const previousValue = planeState.pick[axis];
-        planeState.pick[axis] = value;
-        if (value === 1 && !planeState.pick.some((pick, index) => index !== axis && pick !== 1)) {
-            planeState.pick[axis] = previousValue;
-            select.value = String(previousValue);
-            return;
-        }
-        if (value !== 1) {
-            activePelvicPlaneAxis = axis;
-        } else if (axis === activePelvicPlaneAxis) {
-            activePelvicPlaneAxis = planeState.pick.findIndex(pick => pick !== 1);
-        }
-        const faceValue = planeState.pick[activePelvicPlaneAxis];
-        const direction = faceValue === 0 ? 1 : -1;
-        planeState.normal = [0, 0, 0];
-        planeState.normal[activePelvicPlaneAxis] = direction;
-        activePelvicPlanePreset = `${'xyz'[activePelvicPlaneAxis]}-${faceValue === 0 ? 'min' : 'max'}`;
-        document.querySelectorAll('[data-normal]').forEach(input => {
-            input.value = String(planeState.normal[+input.dataset.normal]);
-        });
+        planeState.pick[+select.dataset.axis] = +select.value;
+        const slider = document.querySelector(`[data-pelvic-axis-slider="${select.dataset.axis}"]`);
+        if (slider) slider.value = select.value;
         updatePlane();
-        loadPelvicPlaneTestModel(activePelvicPlanePreset);
     });
 });
 document.querySelectorAll('[data-normal]').forEach(input => {
     const commit = () => {
-        const axis = +input.dataset.normal;
         const value = Number(input.value);
-        if (input.value !== '' && Number.isFinite(value) && value !== 0) {
-            planeState.pick = [1, 1, 1];
-            document.querySelectorAll('[data-axis]').forEach(select => { select.value = '1'; });
-            const select = document.querySelector(`[data-axis="${axis}"]`);
-            select.value = value > 0 ? '0' : '2';
-            select.dispatchEvent(new Event('change'));
-        }
-        document.querySelectorAll('[data-normal]').forEach(field => { field.value = planeState.normal[+field.dataset.normal]; });
-        document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => { slider.value = planeState.pick[+slider.dataset.pelvicAxisSlider]; });
+        planeState.normal[+input.dataset.normal] = input.value !== '' && Number.isFinite(value) ? value : 0;
+        input.value = String(planeState.normal[+input.dataset.normal]);
+        updatePlane();
     };
     input.addEventListener('change', commit);
     input.addEventListener('keydown', event => { if (event.key === 'Enter') { commit(); input.blur(); } });
@@ -2397,8 +2594,6 @@ function setBlendControl(key, value) {
     blendState[key] = value;
     document.querySelector('[data-blend-output="' + key + '"]').value = value;
     input.setAttribute('aria-valuetext', value + ' mm');
-    const mirror = document.querySelector('[data-blend-mirror="' + key + '"]');
-    if (mirror) mirror.textContent = `${mirror.textContent.split(' · ')[0]} · ${value} mm`;
 }
 function blendStatus(text) {
     const el = document.querySelector('[data-blend-status]');
@@ -2435,7 +2630,7 @@ async function loadFinalSocket(key, value) {
         console.error(error);
     }
 }
-const blendControlsEl = document.getElementById('blend-controls');
+const blendControlsEl = document.getElementById('blend-block');
 const blendModeButton = document.getElementById('blend-control-mode');
 blendModeButton.addEventListener('click', () => {
     const sliderMode = !blendControlsEl.classList.contains('slider-mode');
@@ -2465,15 +2660,9 @@ const stepObserver = new IntersectionObserver(entries => {
 }, { root: document.getElementById('workflow-scroll'), threshold: [0.35, 0.6] });
 document.querySelectorAll('.workflow-step').forEach(step => stepObserver.observe(step));
 
-Promise.all([
-    ...Object.values(layers).map(loadImportLayer),
-    attachmentHoles.ready,
-]).then(() => {
-    Object.values(layers).forEach(applyImportUnitScale);
-    importBounds = new THREE.Box3().setFromObject(importRoot);
-    rebuildPelvicScene();
-    buildInterfaceScene();
+attachmentHoles.ready.then(() => {
     Object.keys(layers).forEach(key => syncImportVisibility(key, layers[key].visible));
+    syncImportPathLabels();
     loaderEl.hidden = true;
     showStep('1');
     // showStep frames the model on the next animation frame; the intro starts from that view.
@@ -2520,13 +2709,14 @@ document.querySelectorAll('[data-interface-position]').forEach(field => {
 });
 document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => {
     slider.addEventListener('input', () => {
-        const select = document.querySelector(`[data-axis="${slider.dataset.pelvicAxisSlider}"]`);
-        select.value = Math.round(+slider.value);
-        select.dispatchEvent(new Event('change'));
-        slider.value = select.value;
-        slider.setAttribute('aria-valuetext', ['Min', 'Centroid', 'Max'][+slider.value]);
+        const axis = +slider.dataset.pelvicAxisSlider;
+        const value = Math.round(+slider.value);
+        slider.value = String(value);
+        planeState.pick[axis] = value;
+        document.querySelector(`[data-axis="${axis}"]`).value = String(value);
+        slider.setAttribute('aria-valuetext', ['Min', 'Centroid', 'Max'][value]);
+        updatePlane();
     });
-    document.querySelector(`[data-axis="${slider.dataset.pelvicAxisSlider}"]`).addEventListener('change', event => { slider.value = event.target.value; });
 });
 document.getElementById('pelvic-plane-control-mode').addEventListener('click', event => {
     const enabled = document.querySelector('#workflow-step-2a .workflow-plane-block').classList.toggle('slider-mode');
@@ -2538,19 +2728,11 @@ document.getElementById('pelvic-plane-control-mode').addEventListener('click', e
 // to show any value on the model (the experts' choice or the student's) and then put the student's work back.
 function applyPelvicPlane(pick, normal) {
     planeState.pick = pick.map(Number);
-    let axis = normal ? normal.findIndex(n => Number(n) !== 0) : -1;
-    if (axis < 0 || planeState.pick[axis] === 1) axis = planeState.pick.findIndex(v => v !== 1);
-    if (axis < 0) { planeState.pick[1] = 2; axis = 1; }
-    activePelvicPlaneAxis = axis;
-    const face = planeState.pick[axis];
-    planeState.normal = [0, 0, 0];
-    planeState.normal[axis] = face === 0 ? 1 : -1;
-    activePelvicPlanePreset = `${'xyz'[axis]}-${face === 0 ? 'min' : 'max'}`;
+    if (normal) planeState.normal = normal.map(Number);
     document.querySelectorAll('[data-axis]').forEach(select => { select.value = String(planeState.pick[+select.dataset.axis]); });
     document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => { slider.value = String(planeState.pick[+slider.dataset.pelvicAxisSlider]); });
     document.querySelectorAll('[data-normal]').forEach(input => { input.value = String(planeState.normal[+input.dataset.normal]); });
     updatePlane();
-    loadPelvicPlaneTestModel(activePelvicPlanePreset);
 }
 function applyInterfacePlane(pick, normal) {
     interfacePlaneState.pick = pick.map(Number);
@@ -2643,7 +2825,14 @@ async function captureGhost(key, expertValue, studentValue) {
     await showValue(key, studentValue);
 }
 
+// The interface position the student ended on, in millimetres, with the Step 2d X/Y/Z adjustments
+// folded in: that is where the interface actually sits, so that is what the solution is measured against.
+function effectiveInterfacePosition() {
+    return [0, 1, 2].map(axis => interfacePositionState.getComponent(axis) * 1000 + orientationState.adjust[axis]);
+}
+
 window.gapWalkthrough = {
+    solution: SOLUTION,
     answers: () => ({
         pelvicPlane: { pick: [...planeState.pick], normal: [...planeState.normal] },
         interfacePlane: { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
@@ -2651,6 +2840,10 @@ window.gapWalkthrough = {
         lateral: orientationState.lateral,
         medial: orientationState.medial,
         rotation: orientationState.rotation,
+        interfacePosition: effectiveInterfacePosition(),
+        interfacePositionRaw: [0, 1, 2].map(axis => interfacePositionState.getComponent(axis) * 1000),
+        interfaceAdjust: [...orientationState.adjust],
+        attachmentPoints: attachmentHoles.getPoints(),
     }),
     touched: () => new Set(socketParameterTouched),
     imports: () => ({ selection: Object.fromEntries(Object.entries(importSelection).map(([role, entry]) => [role, { ...entry }])), mismatches: importMismatches() }),
@@ -2665,6 +2858,9 @@ window.gapWalkthrough = {
     show: showValue,
     ghost: { capture: captureGhost, clear: clearGhost, setLook: setGhostLook, targets: ghostTargets, root: ghostRoot },
     three: { THREE, scene, camera, renderer, canvas, controls },
+    // The groups the viewer's layer switches act on, for tests.
+    layerRoots: () => ({ ...planeLayerTargets, socketPreview: socketPreviewRoot, finalSocket: finalSocketRoot,
+        interfaceAnimal, interfaceMechanical, interfaceReference: interfaceReferenceMechanical }),
     setRender(fn) { renderOverride = fn || null; },
     snapshot: () => ({
         pelvicPlane: { pick: [...planeState.pick], normal: [...planeState.normal] },

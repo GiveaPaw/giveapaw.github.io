@@ -398,6 +398,11 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
 
     return { root, ready, rebuild, setActive, setPreview, syncVisibility, setDesign, designExists,
         get design() { return design; },
+        // Where the student put the points, in millimetres, for the comparison in Step 6.
+        getPoints: () => points.map(point => ({
+            placed: point.placed,
+            position: [point.position.x * 1000, point.position.y * 1000, point.position.z * 1000],
+        })),
         finishDrag: () => { if (active) snap(selected, handle.position); },
         cancelPicking: () => setPicking(false),
         measurementRoots: () => [surface, animal, ...points.map(point => point.assembly)],

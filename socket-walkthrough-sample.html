@@ -17,8 +17,8 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=37">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=25">
-    <link rel="stylesheet" href="walkthrough-grading.css?v=10">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=30">
+    <link rel="stylesheet" href="walkthrough-grading.css?v=11">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
@@ -111,20 +111,12 @@
                             <div><h2>Import and Scale</h2></div>
                         </div>
 
-                        <div class="workflow-var is-scalar">
-                            <span class="ntop-scalar" aria-hidden="true">0.1</span>
-                            <strong>Scale Factor</strong>
-                            <input type="number" id="scale-factor" class="workflow-number" step="0.01" min="0.5" max="2" value="0.95" aria-label="Scale factor for the animal meshes">
-                            <span class="workflow-var-help" title="nTop scales the animal scan by this factor before the socket is built. Ollie uses 0.95." aria-hidden="true">?</span>
-                        </div>
-                        <p class="workflow-pending-note" id="scale-note" hidden></p>
-
                         <div class="workflow-block workflow-import-block">
                             <div class="workflow-block-title">
                                 <i data-lucide="list-tree" aria-hidden="true"></i>
                                 <strong>Imports</strong>
                                 <span>CB - Import Animal &amp; Interface</span>
-                                <span class="workflow-valid" id="import-status"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
+                                <span class="workflow-valid is-warning" id="import-status"><i data-lucide="circle-dashed" aria-hidden="true"></i> 0 of 4</span>
                             </div>
                             <div class="import-alerts" id="import-alerts" role="alert" hidden></div>
 
@@ -141,7 +133,7 @@
                                         <i data-lucide="folder-open" aria-hidden="true"></i>
                                         <span>Path</span>
                                         <div class="import-path">
-                                            <output data-path-label="solidAnimal" title="chihuahua-1015-solid.glb">chihuahua-1015-solid.glb</output>
+                                            <output data-path-label="solidAnimal" class="is-empty" title="No file chosen">Browse for a file</output>
                                             <button class="import-browse" type="button" data-import-browse="solidAnimal" aria-expanded="false" aria-label="Browse for solid animal mesh file" title="Browse for a file"><i data-lucide="folder" aria-hidden="true"></i></button>
                                         </div>
                                     </div>
@@ -150,14 +142,14 @@
                                         <i data-lucide="ruler" aria-hidden="true"></i>
                                         <span>Units</span>
                                         <select class="workflow-unit-select" data-import-unit="solidAnimal" aria-label="Solid Animal Mesh units">
-                                            <option value="m">m</option><option value="cm">cm</option><option value="mm" selected>mm</option><option value="in">in</option>
+                                            <option value="m" selected>m</option><option value="cm">cm</option><option value="mm">mm</option><option value="in">in</option>
                                         </select>
                                     </div>
                                     <p class="import-note" data-import-note="solidAnimal" hidden></p>
                                 </div>
                             </details>
 
-                            <details class="workflow-node" data-model="attachment">
+                            <details class="workflow-node" data-model="attachment" open>
                                 <summary>
                                     <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
                                     <i class="workflow-node-icon" data-lucide="globe-2" aria-hidden="true"></i>
@@ -170,7 +162,7 @@
                                         <i data-lucide="folder-open" aria-hidden="true"></i>
                                         <span>Path</span>
                                         <div class="import-path">
-                                            <output data-path-label="attachment" title="chihuahua-1015-surface.glb">chihuahua-1015-surface.glb</output>
+                                            <output data-path-label="attachment" class="is-empty" title="No file chosen">Browse for a file</output>
                                             <button class="import-browse" type="button" data-import-browse="attachment" aria-expanded="false" aria-label="Browse for attachment animal mesh file" title="Browse for a file"><i data-lucide="folder" aria-hidden="true"></i></button>
                                         </div>
                                     </div>
@@ -179,14 +171,14 @@
                                         <i data-lucide="ruler" aria-hidden="true"></i>
                                         <span>Units</span>
                                         <select class="workflow-unit-select" data-import-unit="attachment" aria-label="Attachment Animal Mesh units">
-                                            <option value="m">m</option><option value="cm">cm</option><option value="mm" selected>mm</option><option value="in">in</option>
+                                            <option value="m" selected>m</option><option value="cm">cm</option><option value="mm">mm</option><option value="in">in</option>
                                         </select>
                                     </div>
                                     <p class="import-note" data-import-note="attachment" hidden></p>
                                 </div>
                             </details>
 
-                            <details class="workflow-node" data-model="mechanical">
+                            <details class="workflow-node" data-model="mechanical" open>
                                 <summary>
                                     <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
                                     <i class="workflow-node-icon" data-lucide="globe-2" aria-hidden="true"></i>
@@ -199,7 +191,7 @@
                                         <i data-lucide="folder-open" aria-hidden="true"></i>
                                         <span>Path</span>
                                         <div class="import-path">
-                                            <output data-path-label="mechanical" title="billie-mechanical-interface.glb">billie-mechanical-interface.glb</output>
+                                            <output data-path-label="mechanical" class="is-empty" title="No file chosen">Browse for a file</output>
                                             <button class="import-browse" type="button" data-import-browse="mechanical" aria-expanded="false" aria-label="Browse for mechanical interface file" title="Browse for a file"><i data-lucide="folder" aria-hidden="true"></i></button>
                                         </div>
                                     </div>
@@ -215,7 +207,7 @@
                                 </div>
                             </details>
 
-                            <details class="workflow-node" data-model="solidInterface">
+                            <details class="workflow-node" data-model="solidInterface" open>
                                 <summary>
                                     <i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i>
                                     <i class="workflow-node-icon" data-lucide="globe-2" aria-hidden="true"></i>
@@ -228,7 +220,7 @@
                                         <i data-lucide="folder-open" aria-hidden="true"></i>
                                         <span>Path</span>
                                         <div class="import-path">
-                                            <output data-path-label="solidInterface" title="billie-solid-interface.stl">billie-solid-interface.stl</output>
+                                            <output data-path-label="solidInterface" class="is-empty" title="No file chosen">Browse for a file</output>
                                             <button class="import-browse" type="button" data-import-browse="solidInterface" aria-expanded="false" aria-label="Browse for solid interface file" title="Browse for a file"><i data-lucide="folder" aria-hidden="true"></i></button>
                                         </div>
                                     </div>
@@ -243,7 +235,8 @@
                                     <p class="import-note" data-import-note="solidInterface" hidden></p>
                                 </div>
                             </details>
-                            <div class="workflow-source-row workflow-factor-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Factor</span><output class="workflow-chip is-plain">Scale Factor</output></div>
+                            <div class="workflow-param-row workflow-factor-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Scale Factor</span><input type="range" id="scale-factor-slider" min="0.5" max="1.5" step="0.01" value="0.95" aria-label="Scale factor slider"><input type="number" id="scale-factor" class="workflow-number" step="0.01" min="0.5" max="1.5" value="0.95" aria-label="Scale factor for the animal meshes"><button type="button" class="workflow-var-help" id="scale-help" aria-pressed="false" aria-label="Show what the scale factor does to the scan" title="Show the scan at 1.0 against the scaled scan">?</button></div>
+                            <p class="workflow-pending-note" id="scale-note" hidden></p>
                         </div>
 
                         <p class="workflow-comment">Outputs:</p>
@@ -255,6 +248,8 @@
                         <div class="workflow-var is-implicit"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Scaled Implicit Attachment Surface</strong><em>BETA</em><output class="workflow-chip">Imports[5]</output><button class="workflow-visibility-toggle active" type="button" data-toggle-model="attachment" aria-label="Hide attachment animal mesh" title="Show or hide attachment animal mesh"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                         <div class="workflow-var is-implicit"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Implicit Mechanical Interface</strong><em>BETA</em><output class="workflow-chip">Imports[6]</output><button class="workflow-visibility-toggle active" type="button" data-toggle-model="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                         <div class="workflow-var is-implicit"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Implicit Solid Interface</strong><em>BETA</em><output class="workflow-chip">Imports[7]</output><button class="workflow-visibility-toggle active" type="button" data-toggle-model="solidInterface" aria-label="Hide solid interface" title="Show or hide solid interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+
+                        <p class="workflow-pending-note import-gate-note" id="import-gate-note"></p>
 
                         <div class="workflow-step-actions">
                             <button type="button" class="workflow-next" data-go-step="2a">Locate pelvic plane <i data-lucide="arrow-down" aria-hidden="true"></i></button>
@@ -528,13 +523,7 @@
                             <span class="workflow-step-number">Step 5</span>
                             <div><h2>Blending</h2></div>
                         </div>
-                        <div class="blend-controls slider-mode" id="blend-controls">
-                            <div class="workflow-var is-scalar is-control"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Min Blend</strong><input type="range" min="0" max="12" value="0" step="1" data-blend-param="minBlend" aria-label="Minimum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="minBlend" value="0"><small>mm</small></div>
-                            <div class="workflow-var is-scalar is-control"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Max Blend</strong><input type="range" min="0" max="12" value="4" step="1" data-blend-param="maxBlend" aria-label="Maximum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="maxBlend" value="20"><small>mm</small></div>
-                            <div class="workflow-var is-scalar is-control"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Connector Blend Radius</strong><input type="range" min="0" max="15" value="5" step="1" data-blend-param="connectorRadius" aria-label="Connector blend radius model"><input type="number" step="any" class="workflow-number" data-blend-output="connectorRadius" value="5"><small>mm</small></div>
-                        </div>
-
-                        <div class="workflow-block workflow-parameter-block" id="blend-block">
+                        <div class="workflow-block workflow-parameter-block slider-mode" id="blend-block">
                             <div class="workflow-block-title workflow-block-title-with-mode">
                                 <span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span>
                                 <strong>Blending</strong><span>CB - Blend 10-13</span>
@@ -542,9 +531,9 @@
                                 <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
                             </div>
                             <div class="workflow-parameter-fields">
-                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Min Blend</span><output class="workflow-chip is-plain" data-blend-mirror="minBlend">Min Blend · 0 mm</output></div>
-                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Max Blend</span><output class="workflow-chip is-plain" data-blend-mirror="maxBlend">Max Blend · 20 mm</output></div>
-                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Connector Blend Radius</span><output class="workflow-chip is-plain" data-blend-mirror="connectorRadius">Connector Blend Radius · 5 mm</output></div>
+                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Min Blend</span><input type="range" min="0" max="12" value="0" step="1" data-blend-param="minBlend" aria-label="Minimum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="minBlend" value="0"><small>mm</small></label>
+                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Max Blend</span><input type="range" min="0" max="12" value="4" step="1" data-blend-param="maxBlend" aria-label="Maximum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="maxBlend" value="20"><small>mm</small></label>
+                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Connector Blend Radius</span><input type="range" min="0" max="15" value="5" step="1" data-blend-param="connectorRadius" aria-label="Connector blend radius model"><input type="number" step="any" class="workflow-number" data-blend-output="connectorRadius" value="5"><small>mm</small></label>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Max Interface Blend Point</span><output class="workflow-chip is-plain">Max Blend Point</output></div>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Min Interface Blend Point</span><output class="workflow-chip is-plain">Min Blend Point</output></div>
                                 <details class="workflow-mesh-list is-implicit" open>
@@ -590,7 +579,7 @@
                             </div>
                             <p class="workflow-pending-note" data-pending-note hidden></p>
                         </div>
-                        <div class="workflow-step-actions"><button type="button" class="workflow-back" data-go-step="5"><i data-lucide="arrow-up" aria-hidden="true"></i> Blending</button><button type="button" class="workflow-next grade-open-btn" data-grade-open>Compare with the experts <i data-lucide="award" aria-hidden="true"></i></button></div>
+                        <div class="workflow-step-actions"><button type="button" class="workflow-back" data-go-step="5"><i data-lucide="arrow-up" aria-hidden="true"></i> Blending</button><button type="button" class="workflow-next grade-open-btn" data-grade-open>See how close you got <i data-lucide="award" aria-hidden="true"></i></button></div>
                     </section>
                 </div>
             </section>
@@ -637,9 +626,9 @@
                         <button type="button" id="clear-measurement" aria-label="Clear measurement" title="Clear measurement"><i data-lucide="x" aria-hidden="true"></i></button>
                     </div>
                     <div class="workflow-overlay-controls" id="workflow-overlay-controls" aria-label="Pelvic plane viewer visibility" hidden>
-                        <button type="button" class="workflow-layer-toggle active" data-view-layer="attach" aria-label="Hide attachment surface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Attachment surface</button>
-                        <button type="button" class="workflow-layer-toggle active" data-view-layer="body" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
-                        <button type="button" class="workflow-layer-toggle active" data-view-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
+                        <span class="workflow-layer"><button type="button" class="workflow-layer-toggle active" data-view-layer="attach" aria-label="Hide attachment surface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Attachment surface</button><button type="button" class="workflow-layer-alpha" data-view-alpha="attach" aria-label="Attachment surface: solid or see-through" title="Attachment surface: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
+                        <span class="workflow-layer"><button type="button" class="workflow-layer-toggle active" data-view-layer="body" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button><button type="button" class="workflow-layer-alpha" data-view-alpha="body" aria-label="Solid animal: solid or see-through" title="Solid animal: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
+                        <span class="workflow-layer pelvic-stage-3"><button type="button" class="workflow-layer-toggle active" data-view-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button><button type="button" class="workflow-layer-alpha" data-view-alpha="socket" aria-label="Socket lattice: solid or see-through" title="Socket lattice: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
                         <button type="button" class="workflow-layer-toggle active pelvic-stage-2a" data-view-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
                         <details class="workflow-layer-menu pelvic-stage-2a" data-layer-menu="plane">
                             <summary class="workflow-layer-toggle active" data-highlight-plane-group="plane"><span class="workflow-visibility-dot" aria-hidden="true"></span>Plane from normal <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
@@ -651,10 +640,10 @@
                         </details>
                     </div>
                     <div class="workflow-overlay-controls" id="interface-overlay-controls" aria-label="Interface orientation viewer visibility" hidden>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-2b" data-interface-layer="reference" aria-label="Hide solid interface reference"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid interface</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6" data-interface-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
-                                                <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6" data-interface-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
+                        <span class="workflow-layer interface-stage-2b"><button type="button" class="workflow-layer-toggle active interface-stage-2b" data-interface-layer="reference" aria-label="Hide solid interface reference"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid interface</button><button type="button" class="workflow-layer-alpha" data-interface-alpha="reference" aria-label="Solid interface: solid or see-through" title="Solid interface: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
+                        <span class="workflow-layer interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6"><button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6" data-interface-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button><button type="button" class="workflow-layer-alpha" data-interface-alpha="animal" aria-label="Solid animal: solid or see-through" title="Solid animal: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
+                        <span class="workflow-layer interface-stage-2c interface-stage-2d"><button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button><button type="button" class="workflow-layer-alpha" data-interface-alpha="mechanical" aria-label="Mechanical interface: solid or see-through" title="Mechanical interface: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
+                                                <span class="workflow-layer interface-stage-5 interface-stage-6"><button type="button" class="workflow-layer-toggle active interface-stage-5 interface-stage-6" data-interface-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button><button type="button" class="workflow-layer-alpha" data-interface-alpha="socket" aria-label="Socket lattice: solid or see-through" title="Socket lattice: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
                         <button type="button" class="workflow-layer-toggle active interface-stage-2b" data-interface-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
                         <details class="workflow-layer-menu interface-stage-2b" data-layer-menu="interface-plane">
                             <summary class="workflow-layer-toggle active" data-highlight-interface-group="interfacePlane"><span class="workflow-visibility-dot" aria-hidden="true"></span>Interface plane <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
@@ -707,7 +696,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=53"></script>
-    <script type="module" src="walkthrough-grading.js?v=9"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=57"></script>
+    <script type="module" src="walkthrough-grading.js?v=10"></script>
 </body>
 </html>

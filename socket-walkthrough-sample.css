@@ -927,3 +927,45 @@ body.workflow-body .workflow-app { --workflow-rail-width: 30%; }
 .workflow-var.is-control > small { grid-column: 5; }
 .blend-controls:not(.slider-mode) .workflow-var.is-control > input[type="range"] { display: none; }
 .blend-controls:not(.slider-mode) .workflow-var.is-control { grid-template-columns: 22px minmax(0, 1fr) 0 minmax(90px, 150px) 24px; }
+
+/* ---- Step 1 starts empty: the later steps stay closed until all four meshes are imported ---- */
+body.imports-pending .workflow-step:not(#workflow-step-1) { display: none; }
+body.imports-pending .workflow-progress-step:not([data-go-step="1"]) { opacity: 0.4; cursor: not-allowed; }
+.import-gate-note { margin-top: 10px; }
+.import-gate-note[hidden] { display: none; }
+[data-path-label].is-empty { color: #8f98a2; font-style: italic; }
+.workflow-import-block .workflow-factor-row { margin-top: 2px; border-top: 1px solid #41444a; background: #25272a; }
+.workflow-import-block .workflow-factor-row > .workflow-var-help { justify-self: center; }
+
+/* ---- Scale Factor: slider, typed value and the explainer toggle ---------------------------- */
+.workflow-import-block .workflow-param-row.workflow-factor-row { padding: 8px 14px 10px 14px; }
+.workflow-import-block .workflow-factor-row input[type="range"] { width: 100%; min-width: 0; accent-color: #54c5a1; cursor: pointer; }
+button.workflow-var-help { padding: 0; border: 1px solid #5b6066; background: #30343a; color: #d8dde2; cursor: pointer; font: 700 0.68rem var(--font-heading); }
+button.workflow-var-help:hover { border-color: #fdb515; color: #fdb515; }
+button.workflow-var-help.is-on { border-color: #fdb515; background: #fdb515; color: #1d1f22; }
+
+/* The plane blocks carry two controls in the title bar: the mode switch and visibility. */
+.workflow-plane-block .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 44px 24px; }
+@media (max-width: 1180px) {
+    .workflow-plane-block .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 40px 22px; gap: 6px; }
+}
+
+/* ---- solid / see-through switch beside each viewer layer ---------------------------------- */
+.workflow-layer { display: inline-flex; pointer-events: none; }
+.workflow-layer > .workflow-layer-toggle { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.workflow-layer-alpha {
+    display: inline-flex; min-height: 30px; align-items: center; padding: 5px 7px;
+    border: 1px solid rgba(151, 162, 173, 0.72); border-left: 0; border-radius: 0 4px 4px 0;
+    background: rgba(255, 255, 255, 0.9); color: #9aa5b0;
+    box-shadow: 0 2px 6px rgba(25, 39, 53, 0.08); cursor: pointer; pointer-events: auto;
+}
+.workflow-layer-alpha svg { width: 13px; height: 13px; }
+.workflow-layer-alpha:hover { color: #003262; }
+.workflow-layer-alpha.is-see-through { background: #003262; border-color: #003262; color: #fff; }
+.workflow-layer-alpha:focus-visible { outline: 2px solid #fdb515; outline-offset: 1px; }
+#interface-overlay-controls[data-stage="2c"] > .workflow-layer:not(.interface-stage-2c),
+#interface-overlay-controls[data-stage="2b"] > .workflow-layer:not(.interface-stage-2b),
+#interface-overlay-controls[data-stage="2d"] > .workflow-layer:not(.interface-stage-2d),
+#interface-overlay-controls[data-stage="5"] > .workflow-layer:not(.interface-stage-5),
+#interface-overlay-controls[data-stage="6"] > .workflow-layer:not(.interface-stage-6),
+#workflow-overlay-controls[data-stage="2a"] .workflow-layer.pelvic-stage-3 { display: none; }
