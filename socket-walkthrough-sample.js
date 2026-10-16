@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { withModelFallback } from './model-base.js?v=2';
+import { withModelFallback, modelUrl } from './model-base.js?v=2';
 import { createAttachmentHoles } from './attachment-holes.js?v=9';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=2';
@@ -1712,7 +1712,9 @@ exportRunButton.addEventListener('click', async () => {
     exportRunButton.disabled = true;
     note.textContent = 'Preparing the mesh…';
     try {
-        const blob = await (await fetch(exportFile)).blob();
+        // Sweep files live in the model bucket; fall back to the site copy if it is unreachable.
+        const fetchModel = async url => { const response = await fetch(url); if (!response.ok) throw new Error(response.status); return response.blob(); };
+        const blob = await fetchModel(modelUrl(exportFile)).catch(() => fetchModel(exportFile));
         const url = URL.createObjectURL(blob);
         const link = Object.assign(document.createElement('a'), { href: url, download: `${base}.glb` });
         document.body.append(link);
