@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=37">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=24">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=25">
     <link rel="stylesheet" href="walkthrough-grading.css?v=10">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -528,32 +528,36 @@
                             <span class="workflow-step-number">Step 5</span>
                             <div><h2>Blending</h2></div>
                         </div>
-                        <div class="workflow-var is-scalar"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Min Blend</strong><input type="number" step="any" min="0" class="workflow-number" data-design-field="blend.minBlend" data-design-label="Min blend" data-pending data-mirror="blend.minBlend" value="0" aria-label="Minimum blend"><small>mm</small></div>
-                        <div class="workflow-var is-scalar"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Max Blend</strong><input type="number" step="any" min="0" class="workflow-number" data-design-field="blend.maxBlend" data-design-label="Max blend" data-pending data-mirror="blend.maxBlend" value="50" aria-label="Maximum blend"><small>mm</small></div>
-                        <div class="workflow-var is-scalar"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Connector Blend Radius</strong><input type="number" step="any" min="0" class="workflow-number" data-design-field="blend.connectorRadius" data-design-label="Connector blend radius" data-pending data-mirror="blend.connectorRadius" value="5" aria-label="Connector blend radius"><small>mm</small></div>
+                        <div class="blend-controls slider-mode" id="blend-controls">
+                            <div class="workflow-var is-scalar is-control"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Min Blend</strong><input type="range" min="0" max="12" value="0" step="1" data-blend-param="minBlend" aria-label="Minimum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="minBlend" value="0"><small>mm</small></div>
+                            <div class="workflow-var is-scalar is-control"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Max Blend</strong><input type="range" min="0" max="12" value="4" step="1" data-blend-param="maxBlend" aria-label="Maximum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="maxBlend" value="20"><small>mm</small></div>
+                            <div class="workflow-var is-scalar is-control"><span class="ntop-scalar" aria-hidden="true">0.1</span><strong>Connector Blend Radius</strong><input type="range" min="0" max="15" value="5" step="1" data-blend-param="connectorRadius" aria-label="Connector blend radius model"><input type="number" step="any" class="workflow-number" data-blend-output="connectorRadius" value="5"><small>mm</small></div>
+                        </div>
 
-                        <div class="workflow-block workflow-parameter-block">
-                            <div class="workflow-block-title">
+                        <div class="workflow-block workflow-parameter-block" id="blend-block">
+                            <div class="workflow-block-title workflow-block-title-with-mode">
                                 <span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span>
                                 <strong>Blending</strong><span>CB - Blend 10-13</span>
+                                <button class="workflow-control-mode-toggle" type="button" id="blend-control-mode" aria-label="Use typed values" aria-pressed="true" title="Switch to typed values (snaps to the nearest generated socket)"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
                                 <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
                             </div>
                             <div class="workflow-parameter-fields">
-                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Min Blend</span><output class="workflow-chip is-plain" data-mirror-output="blend.minBlend">Min Blend · 0 mm</output></div>
-                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Max Blend</span><output class="workflow-chip is-plain" data-mirror-output="blend.maxBlend">Max Blend · 50 mm</output></div>
-                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Connector Blend Radius</span><output class="workflow-chip is-plain" data-mirror-output="blend.connectorRadius">Connector Blend Radius · 5 mm</output></div>
+                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Min Blend</span><output class="workflow-chip is-plain" data-blend-mirror="minBlend">Min Blend · 0 mm</output></div>
+                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Max Blend</span><output class="workflow-chip is-plain" data-blend-mirror="maxBlend">Max Blend · 20 mm</output></div>
+                                <div class="workflow-source-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Connector Blend Radius</span><output class="workflow-chip is-plain" data-blend-mirror="connectorRadius">Connector Blend Radius · 5 mm</output></div>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Max Interface Blend Point</span><output class="workflow-chip is-plain">Max Blend Point</output></div>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Min Interface Blend Point</span><output class="workflow-chip is-plain">Min Blend Point</output></div>
                                 <details class="workflow-mesh-list is-implicit" open>
-                                    <summary><i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Solid, Mech Interface</strong><span>Implicit Body List (2)</span><button class="workflow-visibility-toggle active" type="button" data-interface-group="mechSolid" aria-label="Hide mechanical and solid interface meshes" title="Show or hide both interfaces"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></summary>
-                                    <div class="workflow-mesh-list-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>0:</span><output class="workflow-chip">Oriented Mechanical Interface</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="mechanical" aria-label="Hide mechanical interface" title="Show or hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
-                                    <div class="workflow-mesh-list-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>1:</span><output class="workflow-chip">Oriented Solid Interface</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="solid" aria-label="Hide solid interface" title="Show or hide solid interface"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                    <summary><i class="workflow-chevron" data-lucide="chevron-right" aria-hidden="true"></i><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><strong>Solid, Mech Interface</strong><span>Implicit Body List (2)</span><span></span></summary>
+                                    <div class="workflow-mesh-list-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>0:</span><output class="workflow-chip">Oriented Mechanical Interface</output><span></span></div>
+                                    <div class="workflow-mesh-list-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>1:</span><output class="workflow-chip">Oriented Solid Interface</output><span></span></div>
                                 </details>
                                 <div class="workflow-source-row"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>Attachments</span><output class="workflow-chip">Attachment</output></div>
                                 <div class="workflow-source-row workflow-source-row-toggle"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>Scaled Implicit Solid</span><output class="workflow-chip">Scaled Implicit Solid Animal</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="animal" aria-label="Hide solid animal" title="Show or hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
-                                <div class="workflow-source-row workflow-source-row-toggle"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>Socket</span><output class="workflow-chip">Socket</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="socket" aria-label="Hide socket lattice" title="Show or hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
+                                <div class="workflow-source-row workflow-source-row-toggle"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>Socket</span><output class="workflow-chip">Socket</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="socket" aria-label="Hide socket lattice" title="Show or hide the blended socket"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                             </div>
-                            <p class="workflow-pending-note" data-pending-note hidden></p>
+                            <p class="workflow-slot-note"><span data-blend-status>Loading the blended socket</span></p>
+                            <p class="workflow-sweep-note">Min and Max Blend are swept together (connector radius 5); the connector radius is swept on its own (blend 0 to 20). Moving one puts the other back at those values. The model is nTop&rsquo;s final socket: the lattice blended into the interface.</p>
                         </div>
                         <div class="workflow-step-actions"><button type="button" class="workflow-back" data-go-step="4b"><i data-lucide="arrow-up" aria-hidden="true"></i> Hole parameters</button><button type="button" class="workflow-next" data-go-step="6">Export <i data-lucide="arrow-down" aria-hidden="true"></i></button></div>
                     </section>
@@ -649,9 +653,8 @@
                     <div class="workflow-overlay-controls" id="interface-overlay-controls" aria-label="Interface orientation viewer visibility" hidden>
                         <button type="button" class="workflow-layer-toggle active interface-stage-2b" data-interface-layer="reference" aria-label="Hide solid interface reference"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid interface</button>
                         <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6" data-interface-layer="animal" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-5 interface-stage-6" data-interface-layer="solid" aria-label="Hide solid interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid interface</button>
-                        <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6" data-interface-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
+                        <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button>
+                                                <button type="button" class="workflow-layer-toggle active interface-stage-2c interface-stage-2d interface-stage-5 interface-stage-6" data-interface-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button>
                         <button type="button" class="workflow-layer-toggle active interface-stage-2b" data-interface-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
                         <details class="workflow-layer-menu interface-stage-2b" data-layer-menu="interface-plane">
                             <summary class="workflow-layer-toggle active" data-highlight-interface-group="interfacePlane"><span class="workflow-visibility-dot" aria-hidden="true"></span>Interface plane <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
@@ -704,7 +707,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=51"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=52"></script>
     <script type="module" src="walkthrough-grading.js?v=9"></script>
 </body>
 </html>

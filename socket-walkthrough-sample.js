@@ -148,8 +148,10 @@ const orientedAssembly = new THREE.Group();
 const interfaceMechanical = new THREE.Group();
 const interfaceSolid = new THREE.Group();
 const interfaceOverlayRoot = new THREE.Group();
+const finalSocketRoot = new THREE.Group(); // Step 5's blended socket (sample-models/chi-final)
+finalSocketRoot.name = 'final-socket';
 orientedAssembly.add(interfaceMechanical, interfaceSolid);
-interfaceRoot.add(interfaceAnimal, interfaceReferenceMechanical, orientedAssembly, interfaceOverlayRoot);
+interfaceRoot.add(interfaceAnimal, interfaceReferenceMechanical, orientedAssembly, interfaceOverlayRoot, finalSocketRoot);
 
 const interfaceOverlayGroups = {
     box: new THREE.Group(),
@@ -1279,6 +1281,15 @@ function applyInterfaceSceneVisibility(stage) {
     });
     if (stage === '2c') interfaceLayerTargets.solid.visible = false;
     interfaceLayerTargets.socket.visible = !isPlane && interfaceLayerVisibleIn(stage, 'socket');
+    // Steps 5 and 6 show nTop's final socket (lattice blended into the interface) in place of the
+    // Step 3 socket and the oriented interfaces.
+    const blended = BLEND_STEPS.includes(stage) && finalSocketRoot.children.length > 0;
+    finalSocketRoot.visible = blended && interfaceLayerVisibleIn(stage, 'socket');
+    if (blended) {
+        interfaceLayerTargets.socket.visible = false;
+        interfaceLayerTargets.mechanical.visible = false;
+        interfaceLayerTargets.solid.visible = false;
+    }
 }
 
 function applyInterfaceStageVisibility() {
@@ -1692,7 +1703,8 @@ document.getElementById('export-browse').addEventListener('click', () => { expor
 exportRunButton.addEventListener('click', async () => {
     const note = document.querySelector('#workflow-step-6 [data-pending-note]');
     note.hidden = false;
-    if (!currentSocketFile) {
+    const exportFile = currentFinalFile || currentSocketFile;
+    if (!exportFile) {
         note.textContent = 'No socket mesh is loaded for this selection, so there is nothing to export yet.';
         return;
     }
@@ -1700,14 +1712,14 @@ exportRunButton.addEventListener('click', async () => {
     exportRunButton.disabled = true;
     note.textContent = 'Preparing the mesh…';
     try {
-        const blob = await (await fetch(currentSocketFile)).blob();
+        const blob = await (await fetch(exportFile)).blob();
         const url = URL.createObjectURL(blob);
         const link = Object.assign(document.createElement('a'), { href: url, download: `${base}.glb` });
         document.body.append(link);
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        note.textContent = `Exported ${base}.glb: the nTop socket mesh shown in the viewer (${designValues.export.units}). Tolerance, sharpen and remesh are applied when nTop meshes the implicit, not here.`;
+        note.textContent = `Exported ${base}.glb: ${currentFinalFile ? 'the blended socket from Step 5' : 'the nTop socket mesh shown in the viewer'} (${designValues.export.units}). Tolerance, sharpen and remesh are applied when nTop meshes the implicit, not here.`;
     } catch (error) {
         note.textContent = 'The mesh could not be downloaded. Try again.';
         console.error(error);
@@ -1764,6 +1776,7 @@ function showStep(step, shouldScroll = false) {
         }
     } else if (isInterface) {
         loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
+        if (BLEND_STEPS.includes(activeStep)) loadFinalSocket(activeBlendParameter, blendState[activeBlendParameter]);
         if (targetHandle) positionTransform.attach(targetHandle);
         applyInterfaceStageVisibility();
         syncInterfaceLayerMenus();
@@ -2346,6 +2359,99 @@ document.querySelectorAll('[data-attach-param]').forEach(input => {
     });
 });
 
+// ---- Step 5: the blended-socket sweep (10-15, tools/convert_chi_final_sweeps.py) --------------------
+// Min x Max Blend (0..60 by 5) at connector radius 5, and connector radius 0..15 at blend 0 / 20.
+const blendValues = {
+    minBlend: Array.from({ length: 13 }, (_, index) => index * 5),
+    maxBlend: Array.from({ length: 13 }, (_, index) => index * 5),
+    connectorRadius: Array.from({ length: 16 }, (_, index) => index),
+};
+const blendDefaults = { minBlend: 0, maxBlend: 20, connectorRadius: 5 };
+const blendState = { ...blendDefaults };
+const BLEND_GROUPS = { blend: ['minBlend', 'maxBlend'], connector: ['connectorRadius'] };
+const blendGroupOf = key => Object.keys(BLEND_GROUPS).find(group => BLEND_GROUPS[group].includes(key));
+let activeBlendParameter = 'maxBlend';
+let currentFinalFile = null;
+const finalModelPromises = new Map();
+let finalModelRequest = 0;
+function finalSocketFile(state, group) {
+    const pad = value => String(value).padStart(2, '0');
+    if (group === 'connector') return `sample-models/chi-final/c${pad(state.connectorRadius)}.glb`;
+    return `sample-models/chi-final/b${pad(state.minBlend)}-${pad(state.maxBlend)}.glb`;
+}
+function finalModelPromise(file) {
+    if (!finalModelPromises.has(file)) {
+        const promise = loadGLB(file).then(gltf => prepareSocketPreviewObject(gltf.scene));
+        promise.catch(() => finalModelPromises.delete(file));
+        finalModelPromises.set(file, promise);
+    }
+    return finalModelPromises.get(file);
+}
+function setBlendControl(key, value) {
+    const input = document.querySelector('[data-blend-param="' + key + '"]');
+    const index = blendValues[key].indexOf(value);
+    if (!input || index < 0) return;
+    input.value = String(index);
+    blendState[key] = value;
+    document.querySelector('[data-blend-output="' + key + '"]').value = value;
+    input.setAttribute('aria-valuetext', value + ' mm');
+    const mirror = document.querySelector('[data-blend-mirror="' + key + '"]');
+    if (mirror) mirror.textContent = `${mirror.textContent.split(' · ')[0]} · ${value} mm`;
+}
+function blendStatus(text) {
+    const el = document.querySelector('[data-blend-status]');
+    el.textContent = text;
+    el.hidden = !text;
+}
+async function loadFinalSocket(key, value) {
+    const request = ++finalModelRequest;
+    if (!hasSocketModelLibrary()) { finalSocketRoot.clear(); currentFinalFile = null; blendStatus('Source models only. Blended sockets are not generated for this selection yet.'); return; }
+    const group = blendGroupOf(key);
+    const state = { ...blendDefaults, [key]: value };
+    BLEND_GROUPS[group].forEach(k => { state[k] = k === key ? value : blendState[k]; });
+    const file = finalSocketFile(state, group);
+    blendStatus(`Loading nTop blended socket · ${key === 'connectorRadius' ? 'connector radius' : key === 'minBlend' ? 'min blend' : 'max blend'} ${value} mm`);
+    try {
+        const object = await finalModelPromise(file);
+        if (request !== finalModelRequest) return;
+        finalSocketRoot.clear();
+        finalSocketRoot.add(object);
+        currentFinalFile = file;
+        Object.entries(blendDefaults).forEach(([k, v]) => { if (blendGroupOf(k) !== group) setBlendControl(k, v); });
+        BLEND_GROUPS[group].forEach(k => setBlendControl(k, state[k]));
+        activeBlendParameter = key;
+        blendStatus('');
+        applyInterfaceStageVisibility();
+        const values = blendValues[key];
+        const index = values.indexOf(value);
+        [index - 1, index + 1].forEach(next => {
+            if (next >= 0 && next < values.length) finalModelPromise(finalSocketFile({ ...state, [key]: values[next] }, group)).catch(() => {});
+        });
+    } catch (error) {
+        if (request !== finalModelRequest) return;
+        blendStatus(`Could not load the blended socket for ${key === 'connectorRadius' ? 'connector radius' : key === 'minBlend' ? 'min blend' : 'max blend'} ${value} mm.`);
+        console.error(error);
+    }
+}
+const blendControlsEl = document.getElementById('blend-controls');
+const blendModeButton = document.getElementById('blend-control-mode');
+blendModeButton.addEventListener('click', () => {
+    const sliderMode = !blendControlsEl.classList.contains('slider-mode');
+    blendControlsEl.classList.toggle('slider-mode', sliderMode);
+    blendModeButton.setAttribute('aria-pressed', String(sliderMode));
+    blendModeButton.setAttribute('aria-label', sliderMode ? 'Use typed values' : 'Use sliders');
+    blendModeButton.title = sliderMode ? 'Switch to typed values (snaps to the nearest generated socket)' : 'Switch to sliders';
+});
+document.querySelectorAll('[data-blend-param]').forEach(input => {
+    setBlendControl(input.dataset.blendParam, blendState[input.dataset.blendParam]);
+    input.addEventListener('input', () => {
+        const key = input.dataset.blendParam;
+        const value = blendValues[key][+input.value];
+        setBlendControl(key, value);
+        loadFinalSocket(key, value);
+    });
+});
+
 
 const stepObserver = new IntersectionObserver(entries => {
     const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
@@ -2380,7 +2486,7 @@ renderLegend();
 window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
 
 // Typed values use the same update path as their paired slider.
-for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['attach-output', 'attach-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
+for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['attach-output', 'attach-param'], ['blend-output', 'blend-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
     document.querySelectorAll(`[data-${outputAttr}]`).forEach(field => {
         const key = field.getAttribute(`data-${outputAttr}`);
         const slider = document.querySelector(`[data-${sliderAttr}="${key}"]`);
@@ -2388,8 +2494,8 @@ for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['atta
         const commit = () => {
             const value = Number(field.value);
             if (field.value === '' || !Number.isFinite(value)) { slider.dispatchEvent(new Event('input')); return; }
-            if (outputAttr === 'param-output' || outputAttr === 'attach-output') {
-                const values = outputAttr === 'param-output' ? parameterValues[key] : attachmentValues[key];
+            if (outputAttr === 'param-output' || outputAttr === 'attach-output' || outputAttr === 'blend-output') {
+                const values = outputAttr === 'param-output' ? parameterValues[key] : outputAttr === 'attach-output' ? attachmentValues[key] : blendValues[key];
                 slider.value = values.reduce((best, v, i) => Math.abs(v-value) < Math.abs(values[best]-value) ? i : best, 0);
             } else slider.value = Math.round(Math.max(+slider.min, Math.min(+slider.max, value)));
             slider.dispatchEvent(new Event('input'));
@@ -2549,6 +2655,7 @@ window.gapWalkthrough = {
     parameterValues,
     design: designValues,
     attachment: attachmentDesign,
+    blend: blendState,
     defaults: { ...socketParameterDefaults },
     goToStep: step => showStep(step, true),
     // Show a value on the model: 'pelvicPlane' / 'interfacePlane' take {pick, normal}, the angles a number,

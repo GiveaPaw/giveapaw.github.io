@@ -920,3 +920,10 @@ body.workflow-body .workflow-app { --workflow-rail-width: 30%; }
 .workflow-sweep-note { margin: 0; padding: 0 14px 12px 36px; color: #9ca6af; font-size: 0.66rem; line-height: 1.4; }
 .workflow-slot-note span[data-attach-status] { color: #f2c76b; }
 .workflow-slot-note:has(> [hidden]) { display: none; }
+/* Step 5: the three variable blocks carry the sliders; the switch on the Blending block hides them. */
+.workflow-var.is-control { grid-template-columns: 22px minmax(0, 1fr) minmax(60px, 1fr) 58px 24px; }
+.workflow-var.is-control > input[type="range"] { width: 100%; min-width: 0; accent-color: #54c5a1; cursor: pointer; grid-column: 3; }
+.workflow-var.is-control > input.workflow-number { grid-column: 4; }
+.workflow-var.is-control > small { grid-column: 5; }
+.blend-controls:not(.slider-mode) .workflow-var.is-control > input[type="range"] { display: none; }
+.blend-controls:not(.slider-mode) .workflow-var.is-control { grid-template-columns: 22px minmax(0, 1fr) 0 minmax(90px, 150px) 24px; }
