@@ -6,9 +6,9 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=10';
+import { createAttachmentHoles } from './attachment-holes.js?v=11';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=5';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=6';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -123,6 +123,9 @@ const importSelection = {
 const IMPORT_ROLE_KEYS = ['solidAnimal', 'attachment', 'mechanical', 'solidInterface'];
 const importedCount = () => IMPORT_ROLE_KEYS.filter(role => importSelection[role]).length;
 const importsReady = () => importedCount() === IMPORT_ROLE_KEYS.length;
+// Which attachment surface was imported decides where the sockets come from: the high surface keeps the
+// original 10-15 sets (chi-socket, chi-final), the low and standard surfaces have their own (-low, -standard).
+const surfaceSetSuffix = () => { const set = importSelection.attachment?.surfaceSet; return set && set !== 'high' ? `-${set}` : ''; };
 
 const pelvicBody = new THREE.Group();
 const pelvicAttach = new THREE.Group();
@@ -487,8 +490,9 @@ function resolveSweepState(state, group) {
 function socketModelFile(state = socketParameterState, group = sweepGroupOf(activeSocketParameter)) {
     const pad = value => String(value).padStart(2, '0');
     const s = resolveSweepState(state, group);
-    if (group === 'thickness') return `sample-models/chi-socket/t${pad(s.minThickness)}-${pad(s.maxThickness)}.glb`;
-    return `sample-models/chi-socket/w${pad(Math.round(s.spatialWeighting * 10))}-d${pad(s.pointDensity)}.glb`;
+    const dir = `sample-models/chi-socket${surfaceSetSuffix()}`;
+    if (group === 'thickness') return `${dir}/t${pad(s.minThickness)}-${pad(s.maxThickness)}.glb`;
+    return `${dir}/w${pad(Math.round(s.spatialWeighting * 10))}-d${pad(s.pointDensity)}.glb`;
 }
 
 function socketParameterModelFile(key, value) {
@@ -1614,6 +1618,11 @@ async function loadImportSelection(role, entry) {
             rebuildPelvicScene();
             buildInterfaceScene();
         }
+        if (role === 'attachment' && importsReady() && hasSocketModelLibrary()) {
+            // A different surface means a different sweep set: refresh the socket and blended socket in view.
+            loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
+            loadFinalSocket(activeBlendParameter, blendState[activeBlendParameter]);
+        }
         syncImportPathLabels();
         clearMeasurement();
         showStep(activeStep);
@@ -2529,16 +2538,57 @@ function attachmentStatus(text) {
     el.textContent = text;
     el.hidden = !text;
 }
+// One input at a time (the 10-16 sweep, sample-models/chi-attach-one): the moved input takes the value, every
+// other input sits at the notebook's value, because only those combinations were generated.
+const attachmentOneValues = {
+    attach: Array.from({ length: 30 }, (_, i) => i + 1), wall: Array.from({ length: 30 }, (_, i) => i + 1),
+    head: Array.from({ length: 30 }, (_, i) => i + 1), height: Array.from({ length: 30 }, (_, i) => i + 1),
+    shaft: Array.from({ length: 30 }, (_, i) => i + 1), nozzle: [0.4, 0.6, 0.8, ...Array.from({ length: 30 }, (_, i) => i + 1)],
+    hole: Array.from({ length: 50 }, (_, i) => i + 1),
+};
+const attachmentOneDefaults = { attach: 16, wall: 8, head: 8, height: 5, shaft: 4, nozzle: 0.6, hole: 20 };
+const attachmentOneLabels = { attach: 'attach diameter', wall: 'normal wall distance', head: 'screw head diameter', height: 'screw head height', shaft: 'screw shaft diameter', nozzle: 'nozzle diameter', hole: 'hole cut depth' };
+const attachmentOneDesign = { param: 'attach', value: 16 };
+let attachmentMode = 'grid';
+function setAttachmentOneControl(key, value) {
+    const input = document.querySelector('[data-attach1-param="' + key + '"]');
+    const index = attachmentOneValues[key].indexOf(value);
+    if (!input || index < 0) return;
+    input.value = String(index);
+    document.querySelector('[data-attach1-output="' + key + '"]').value = value;
+    input.setAttribute('aria-valuetext', value + ' mm');
+}
+const currentAttachmentDesign = () => attachmentMode === 'one' ? { mode: 'one', ...attachmentOneDesign } : attachmentDesign;
+const attachmentDesignLabel = () => attachmentMode === 'one'
+    ? `${attachmentOneLabels[attachmentOneDesign.param]} ${attachmentOneDesign.value}`
+    : `attach ${attachmentDesign.attachDiameter} / wall ${attachmentDesign.normalWallDistance} / head ${attachmentDesign.screwHeadDiameter} / shaft ${attachmentDesign.screwShaftDiameter}`;
+document.querySelectorAll('[data-attach-mode]').forEach(button => button.addEventListener('click', () => {
+    attachmentMode = button.dataset.attachMode;
+    document.querySelectorAll('[data-attach-mode]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); });
+    attachmentBlockEl.classList.toggle('one-mode', attachmentMode === 'one');
+    applyAttachmentDesign();
+}));
+document.querySelectorAll('[data-attach1-param]').forEach(input => {
+    setAttachmentOneControl(input.dataset.attach1Param, attachmentOneDefaults[input.dataset.attach1Param]);
+    input.addEventListener('input', () => {
+        const key = input.dataset.attach1Param;
+        attachmentOneDesign.param = key;
+        attachmentOneDesign.value = attachmentOneValues[key][+input.value];
+        Object.entries(attachmentOneDefaults).forEach(([k, v]) => { if (k !== key) setAttachmentOneControl(k, v); });
+        setAttachmentOneControl(key, attachmentOneDesign.value);
+        applyAttachmentDesign();
+    });
+});
 let attachmentDesignRequest = 0;
 async function applyAttachmentDesign() {
     const request = ++attachmentDesignRequest;
-    if (!attachmentHoles.designExists(attachmentDesign)) {
-        attachmentStatus(`nTop did not generate attach ${attachmentDesign.attachDiameter} / wall ${attachmentDesign.normalWallDistance} / head ${attachmentDesign.screwHeadDiameter} / shaft ${attachmentDesign.screwShaftDiameter}; the last generated attachment stays in the view.`);
+    if (!attachmentHoles.designExists(currentAttachmentDesign())) {
+        attachmentStatus(`nTop did not generate ${attachmentDesignLabel()}; the last generated attachment stays in the view.`);
         return;
     }
     attachmentStatus('Loading nTop attachment…');
     try {
-        const applied = await attachmentHoles.setDesign(attachmentDesign);
+        const applied = await attachmentHoles.setDesign(currentAttachmentDesign());
         if (request !== attachmentDesignRequest) return;
         if (applied) attachmentStatus('');
     } catch (error) {
@@ -2559,10 +2609,11 @@ document.querySelectorAll('[data-attach-param]').forEach(input => {
 });
 
 // ---- Step 5: the blended-socket sweep (10-15, tools/convert_chi_final_sweeps.py) --------------------
-// Min x Max Blend (0..60 by 5) at connector radius 5, and connector radius 0..15 at blend 0 / 20.
+// Min x Max Blend (0..120 by 5, only Min <= Max was generated) at connector radius 5, and connector
+// radius 0..15 at blend 0 / 20. Per surface set (see surfaceSetSuffix).
 const blendValues = {
-    minBlend: Array.from({ length: 13 }, (_, index) => index * 5),
-    maxBlend: Array.from({ length: 13 }, (_, index) => index * 5),
+    minBlend: Array.from({ length: 25 }, (_, index) => index * 5),
+    maxBlend: Array.from({ length: 25 }, (_, index) => index * 5),
     connectorRadius: Array.from({ length: 16 }, (_, index) => index),
 };
 const blendDefaults = { minBlend: 0, maxBlend: 20, connectorRadius: 5 };
@@ -2575,8 +2626,9 @@ const finalModelPromises = new Map();
 let finalModelRequest = 0;
 function finalSocketFile(state, group) {
     const pad = value => String(value).padStart(2, '0');
-    if (group === 'connector') return `sample-models/chi-final/c${pad(state.connectorRadius)}.glb`;
-    return `sample-models/chi-final/b${pad(state.minBlend)}-${pad(state.maxBlend)}.glb`;
+    const dir = `sample-models/chi-final${surfaceSetSuffix()}`;
+    if (group === 'connector') return `${dir}/c${pad(state.connectorRadius)}.glb`;
+    return `${dir}/b${pad(state.minBlend)}-${pad(state.maxBlend)}.glb`;
 }
 function finalModelPromise(file) {
     if (!finalModelPromises.has(file)) {
@@ -2622,7 +2674,10 @@ async function loadFinalSocket(key, value) {
         const values = blendValues[key];
         const index = values.indexOf(value);
         [index - 1, index + 1].forEach(next => {
-            if (next >= 0 && next < values.length) finalModelPromise(finalSocketFile({ ...state, [key]: values[next] }, group)).catch(() => {});
+            if (next < 0 || next >= values.length) return;
+            const candidate = { ...state, [key]: values[next] };
+            if (candidate.minBlend > candidate.maxBlend) return;   // never generated
+            finalModelPromise(finalSocketFile(candidate, group)).catch(() => {});
         });
     } catch (error) {
         if (request !== finalModelRequest) return;
@@ -2645,6 +2700,9 @@ document.querySelectorAll('[data-blend-param]').forEach(input => {
         const key = input.dataset.blendParam;
         const value = blendValues[key][+input.value];
         setBlendControl(key, value);
+        // Only Min <= Max was generated: dragging one blend past the other drags the other along.
+        if (key === 'minBlend' && value > blendState.maxBlend) setBlendControl('maxBlend', value);
+        if (key === 'maxBlend' && value < blendState.minBlend) setBlendControl('minBlend', value);
         loadFinalSocket(key, value);
     });
 });
@@ -2677,7 +2735,7 @@ renderLegend();
 window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
 
 // Typed values use the same update path as their paired slider.
-for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['attach-output', 'attach-param'], ['blend-output', 'blend-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
+for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['attach-output', 'attach-param'], ['attach1-output', 'attach1-param'], ['blend-output', 'blend-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
     document.querySelectorAll(`[data-${outputAttr}]`).forEach(field => {
         const key = field.getAttribute(`data-${outputAttr}`);
         const slider = document.querySelector(`[data-${sliderAttr}="${key}"]`);
@@ -2685,8 +2743,8 @@ for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['atta
         const commit = () => {
             const value = Number(field.value);
             if (field.value === '' || !Number.isFinite(value)) { slider.dispatchEvent(new Event('input')); return; }
-            if (outputAttr === 'param-output' || outputAttr === 'attach-output' || outputAttr === 'blend-output') {
-                const values = outputAttr === 'param-output' ? parameterValues[key] : outputAttr === 'attach-output' ? attachmentValues[key] : blendValues[key];
+            if (outputAttr === 'param-output' || outputAttr === 'attach-output' || outputAttr === 'attach1-output' || outputAttr === 'blend-output') {
+                const values = outputAttr === 'param-output' ? parameterValues[key] : outputAttr === 'attach-output' ? attachmentValues[key] : outputAttr === 'attach1-output' ? attachmentOneValues[key] : blendValues[key];
                 slider.value = values.reduce((best, v, i) => Math.abs(v-value) < Math.abs(values[best]-value) ? i : best, 0);
             } else slider.value = Math.round(Math.max(+slider.min, Math.min(+slider.max, value)));
             slider.dispatchEvent(new Event('input'));
@@ -2833,6 +2891,8 @@ function effectiveInterfacePosition() {
 
 window.gapWalkthrough = {
     solution: SOLUTION,
+    // For scripted tests: import a catalog file by role and name, as the explorer would.
+    importFile: (role, name) => { const entry = filesForRole(role).find(e => e.name === name); if (!entry) throw new Error(`No ${role} file named ${name}`); return loadImportSelection(role, entry); },
     answers: () => ({
         pelvicPlane: { pick: [...planeState.pick], normal: [...planeState.normal] },
         interfacePlane: { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
@@ -2850,6 +2910,7 @@ window.gapWalkthrough = {
     parameterValues,
     design: designValues,
     attachment: attachmentDesign,
+    attachmentOne: () => ({ mode: attachmentMode, ...attachmentOneDesign }),
     blend: blendState,
     defaults: { ...socketParameterDefaults },
     goToStep: step => showStep(step, true),

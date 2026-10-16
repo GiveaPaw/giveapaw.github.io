@@ -14,10 +14,20 @@ export const BREEDS = [
         solidName: 'ollie-solid.glb', solidFile: 'sample-models/chihuahua-1015-solid.glb',
         solidPreview: 'chihuahua-1015-solid.glb', solidBytes: 1029811,
         note: 'Scaled 0.95 in Step 1 · socket sweeps',
+        // Three proposal surfaces (10-13), each with its own socket and blend sweeps (surfaceSet picks the
+        // model folder: high = sample-models/chi-socket & chi-final, low / standard = the -low / -standard sets).
         surfaces: [{
-            name: 'ollie-attachment-surface.glb', file: 'sample-models/chihuahua-1015-surface.glb',
+            name: 'ollie-attachment-surface-high.glb', file: 'sample-models/chihuahua-1015-surface.glb',
             preview: 'chihuahua-1015-surface.glb', bytes: 236131,
-            label: 'Ollie · Socket surface', category: 'socket', variation: 1,
+            label: 'Ollie · Socket surface (high)', category: 'socket', variation: 1, surfaceSet: 'high',
+        }, {
+            name: 'ollie-attachment-surface-standard.glb', file: 'sample-models/ollie-surface-standard.glb',
+            preview: 'ollie-surface-standard.glb', bytes: 32248,
+            label: 'Ollie · Socket surface (standard)', category: 'socket', variation: 2, surfaceSet: 'standard',
+        }, {
+            name: 'ollie-attachment-surface-low.glb', file: 'sample-models/ollie-surface-low.glb',
+            preview: 'ollie-surface-low.glb', bytes: 31460,
+            label: 'Ollie · Socket surface (low)', category: 'socket', variation: 3, surfaceSet: 'low',
         }],
     },
 ];
@@ -46,7 +56,7 @@ export const FS = folder('Give a Paw', [
             { label: breed.label + ' scan', note: breed.note, breed: breed.slug, units: breed.units }),
         ...breed.surfaces.map(surface => file(
             surface.name, 'attachment', surface.bytes, surface.preview, surface.file,
-            { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, units: breed.units },
+            { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, surfaceSet: surface.surfaceSet, units: breed.units },
         )),
     ]))),
     folder('Interfaces', [

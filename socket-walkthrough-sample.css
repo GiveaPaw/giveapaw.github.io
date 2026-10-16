@@ -969,3 +969,11 @@ button.workflow-var-help.is-on { border-color: #fdb515; background: #fdb515; col
 #interface-overlay-controls[data-stage="5"] > .workflow-layer:not(.interface-stage-5),
 #interface-overlay-controls[data-stage="6"] > .workflow-layer:not(.interface-stage-6),
 #workflow-overlay-controls[data-stage="2a"] .workflow-layer.pelvic-stage-3 { display: none; }
+
+/* Step 4b: grid sweep vs the one-at-a-time sweep (10-16) */
+.attachment-mode-seg { display: inline-flex; gap: 2px; margin-left: 6px; padding: 2px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.attachment-mode-seg button { padding: 2px 9px; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: 0.72rem; cursor: pointer; opacity: 0.7; }
+.attachment-mode-seg button.active { background: #fdb515; color: #1b2530; opacity: 1; }
+#attachment-block.one-mode .grid-only { display: none; }
+#attachment-block:not(.one-mode) .one-only { display: none; }
+#attachment-block .workflow-sweep-note.one-only { margin: 2px 0 6px; }

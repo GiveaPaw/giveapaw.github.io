@@ -41,16 +41,23 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     // shaft, which punches the hole). Both sit at the origin, base at z = 0, +Z out of the surface,
     // in millimetres. They are placed on the surface and move live; nothing is cut in the browser.
     const ASSET_DIR = 'sample-models/chi-attach/';
+    // The 10-16 one-at-a-time sweep: one input varied, the others at the notebook's values (tools/convert_ollie_surface_sweeps.py).
+    const ONE_DIR = 'sample-models/chi-attach-one/';
+    let indexOne = null;
     const DEFAULT_DESIGN = { attachDiameter: 4, normalWallDistance: 4, screwHeadDiameter: 8, screwShaftDiameter: 4 };
     const templateCache = new Map();
     const pad = value => String(value).padStart(2, '0');
     function designFiles(d) {
+        if (d.mode === 'one') {
+            const code = `${d.param}-${pad(d.param === 'nozzle' ? Math.round(d.value * 10) : d.value)}`;
+            return { attachment: `${ONE_DIR}${code}.glb`, capsule: `${ONE_DIR}${code}-cap.glb` };
+        }
         const code = `a${pad(d.attachDiameter)}-w${pad(d.normalWallDistance)}-h${pad(d.screwHeadDiameter)}-s${pad(d.screwShaftDiameter)}`;
-        return { attachment: `att-${code}.glb`, capsule: d.screwShaftDiameter > 0 ? `cap-s${pad(d.screwShaftDiameter)}.glb` : null };
+        return { attachment: `${ASSET_DIR}att-${code}.glb`, capsule: d.screwShaftDiameter > 0 ? `${ASSET_DIR}cap-s${pad(d.screwShaftDiameter)}.glb` : null };
     }
     function template(file) {
         if (!templateCache.has(file)) {
-            const promise = loadGLB(ASSET_DIR + file).then(gltf => {
+            const promise = loadGLB(file).then(gltf => {
                 const model = gltf.scene;
                 model.scale.setScalar(0.001);
                 model.traverse(object => {
@@ -64,6 +71,7 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         return templateCache.get(file);
     }
     function designExists(d) {
+        if (d.mode === 'one') return !indexOne || (indexOne.attachment[d.param] || []).includes(d.value);
         if (!index) return true;
         const key = [d.attachDiameter, d.normalWallDistance, d.screwHeadDiameter, d.screwShaftDiameter].join(',');
         return index.attachment.some(combo => combo.join(',') === key);
@@ -80,10 +88,9 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         emit('design');
         return true;
     }
-    const ready = fetch(ASSET_DIR + 'index.json', { cache: 'no-cache' })
-        .then(response => response.ok ? response.json() : null)
-        .catch(() => null)
-        .then(data => { index = data; return setDesign(DEFAULT_DESIGN); })
+    const fetchIndex = url => fetch(url, { cache: 'no-cache' }).then(response => response.ok ? response.json() : null).catch(() => null);
+    const ready = Promise.all([fetchIndex(ASSET_DIR + 'index.json'), fetchIndex(ONE_DIR + 'index.json')])
+        .then(([grid, one]) => { index = grid; indexOne = one; return setDesign(DEFAULT_DESIGN); })
         .catch(error => { console.error('Attachment models could not be loaded.', error); });
 
     function styledClone(source, color, opacity = 1) {
