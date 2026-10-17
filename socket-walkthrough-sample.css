@@ -977,3 +977,16 @@ button.workflow-var-help.is-on { border-color: #fdb515; background: #fdb515; col
 #attachment-block.one-mode .grid-only { display: none; }
 #attachment-block:not(.one-mode) .one-only { display: none; }
 #attachment-block .workflow-sweep-note.one-only { margin: 2px 0 6px; }
+
+/* The Interface Plane block carries one more control than the pelvic one. */
+#workflow-step-2b .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 44px 24px 24px; }
+@media (max-width: 1180px) {
+    #workflow-step-2b .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 40px 22px 22px; }
+}
+#workflow-overlay-controls[data-stage="2a"] .workflow-layer.pelvic-stage-3 { display: none; }
+
+/* The Pelvic Plane block carries the answer button too. */
+#workflow-step-2a .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 44px 24px 24px; }
+@media (max-width: 1180px) {
+    #workflow-step-2a .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 40px 22px 22px; }
+}

@@ -185,8 +185,12 @@ const interfaceLayerVisibility = Object.fromEntries(Object.keys(interfaceLayerTa
 const orientationLayerVisibility = { animal: false, mechanical: true, solid: false, socket: false, target: false };
 // Steps 5 and 6 show the blended assembly: animal, socket and both oriented interfaces.
 const blendLayerVisibility = { animal: true, mechanical: true, solid: true, socket: true, target: false };
+// Step 3 is a pelvic stage, but the lattice is easier to judge with the interface it meets, so it
+// borrows the oriented mechanical interface from the interface scene.
+const socketStepLayerVisibility = { mechanical: true };
 
 function interfaceLayerVisibleIn(stage, key) {
+    if (stage === '3') return key === 'mechanical' ? socketStepLayerVisibility.mechanical : false;
     // The socket is built in Step 3, so Step 2 does not show it.
     if (key === 'socket' && (stage === '2b' || stage === '2c' || stage === '2d')) return false;
     if (stage === '2c' && key === 'mechanical') return positionMechanicalVisible;
@@ -212,7 +216,8 @@ function splitPaired(step) {
 }
 
 function setInterfaceLayerVisible(key, visible) {
-    if (activeStep === '2c' && key === 'mechanical') positionMechanicalVisible = visible;
+    if (activeStep === '3' && key in socketStepLayerVisibility) socketStepLayerVisibility[key] = visible;
+    else if (activeStep === '2c' && key === 'mechanical') positionMechanicalVisible = visible;
     else if (activeStep === '2d' && key in orientationLayerVisibility) orientationLayerVisibility[key] = visible;
     else if (BLEND_STEPS.includes(activeStep) && key in blendLayerVisibility) blendLayerVisibility[key] = visible;
     else interfaceLayerVisibility[key] = visible;
@@ -906,6 +911,78 @@ function coord(axis, choice) {
     return (pelvicBounds.min[key] + pelvicBounds.max[key]) / 2;
 }
 
+
+// ---- The ? on the Pelvic Plane block: the answer, drawn beside the student's own plane ---------
+const pelvicAnswerRoot = new THREE.Group();
+pelvicAnswerRoot.visible = false;
+planeRoot.add(pelvicAnswerRoot);
+let pelvicAnswerShown = false;
+
+const SPOT_WORD = ['minimum', 'centroid', 'maximum'];
+
+function buildPelvicAnswer() {
+    pelvicAnswerRoot.clear();
+    if (!pelvicBounds) return false;
+    const size = pelvicBounds.getSize(new THREE.Vector3());
+    const diag = size.length();
+    const data = planeData(pelvicBounds, SOLUTION.pelvicPlane, new THREE.Vector3(-1, 0, 0));
+    const side = Math.max(size.x, size.y, size.z) * 1.24;
+
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(side, side), new THREE.MeshBasicMaterial({
+        color: 0x1f9d55, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false,
+    }));
+    quad.renderOrder = 4;
+    const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(side, side)),
+        new THREE.LineBasicMaterial({ color: 0x1f9d55, depthTest: false }),
+    );
+    outline.renderOrder = 8;
+    quad.position.copy(data.point);
+    outline.position.copy(data.point);
+    quad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), data.normal);
+    outline.quaternion.copy(quad.quaternion);
+
+    const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(diag * 0.022, 24, 18),
+        new THREE.MeshBasicMaterial({ color: 0x1f9d55, depthTest: false, depthWrite: false, toneMapped: false }),
+    );
+    dot.position.copy(data.point);
+    dot.renderOrder = 31;
+
+    const arrow = new THREE.ArrowHelper(data.normal, data.point, diag * 0.34, 0x1f9d55, diag * 0.09, diag * 0.05);
+    [arrow.line, arrow.cone].forEach(part => {
+        part.material.transparent = true;
+        part.material.depthTest = false;
+        part.material.depthWrite = false;
+        part.material.toneMapped = false;
+        part.renderOrder = 30;
+    });
+
+    pelvicAnswerRoot.add(quad, outline, dot, arrow);
+    return true;
+}
+
+function syncPelvicAnswer() {
+    const on = pelvicAnswerShown && activeStep === '2a' && !!pelvicBounds;
+    if (on && !pelvicAnswerRoot.children.length) buildPelvicAnswer();
+    pelvicAnswerRoot.visible = on;
+    pelvicAnswerHelpButton.setAttribute('aria-pressed', String(on));
+    pelvicAnswerHelpButton.classList.toggle('is-on', on);
+    if (!pelvicAnswerShown) { pelvicAnswerNote.hidden = true; return; }
+    pelvicAnswerNote.hidden = false;
+    pelvicAnswerNote.textContent = pelvicBounds
+        ? `The answer is in green: X ${SPOT_WORD[SOLUTION.pelvicPlane.pick[0]]}, Y ${SPOT_WORD[SOLUTION.pelvicPlane.pick[1]]}, Z ${SPOT_WORD[SOLUTION.pelvicPlane.pick[2]]}, normal ${SOLUTION.pelvicPlane.normal.join(', ')}. Yours is the blue one.`
+        : 'Import the meshes first, then this shows the answer in the viewer.';
+}
+
+const pelvicAnswerHelpButton = document.getElementById('pelvic-plane-help');
+const pelvicAnswerNote = document.getElementById('pelvic-plane-help-note');
+pelvicAnswerHelpButton.addEventListener('click', () => {
+    pelvicAnswerShown = !pelvicAnswerShown;
+    if (pelvicAnswerShown) buildPelvicAnswer();
+    syncPelvicAnswer();
+});
+
 function buildPlaneOverlays() {
     pelvicBounds = new THREE.Box3().setFromObject(pelvicAttach);
     const size = pelvicBounds.getSize(new THREE.Vector3());
@@ -948,7 +1025,9 @@ function buildPlaneOverlays() {
     });
     overlayGroups.normal.add(normalArrow);
 
+    pelvicAnswerRoot.clear();
     updatePlane();
+    syncPelvicAnswer();
 }
 
 function updatePlane() {
@@ -1361,6 +1440,18 @@ function syncInterfaceGroupVisibility(group, visible) {
 
 // Scene-only visibility for one interface stage; the split pane calls this for the stage it previews.
 function applyInterfaceSceneVisibility(stage) {
+    // Step 3 only wants the oriented mechanical interface. The socket group belongs to the pelvic
+    // stage there, so this leaves it alone.
+    if (stage === '3') {
+        ['animal', 'solid', 'target', 'reference', 'box', 'point', 'normal', 'plane', 'surfaceNormal', 'frame']
+            .forEach(key => { interfaceLayerTargets[key].visible = false; });
+        interfaceLayerTargets.mechanical.visible = socketStepLayerVisibility.mechanical;
+        finalSocketRoot.visible = false;
+        document.querySelectorAll('button[data-interface-layer="mechanical"]')
+            .forEach(button => setVisibilityButton(button, socketStepLayerVisibility.mechanical));
+        applyLayerAlphas('interface', '3');
+        return;
+    }
     const isPlane = stage === '2b';
     interfaceLayerTargets.reference.visible = isPlane && interfaceLayerVisibility.reference;
     ['animal', 'mechanical', 'solid', 'target'].forEach(key => {
@@ -1995,7 +2086,7 @@ function showStep(step, shouldScroll = false) {
         socketPreviewRoot.visible = planeLayerVisibility.socket;
         loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
     }
-    interfaceRoot.visible = isInterface;
+    interfaceRoot.visible = isInterface || activeStep === '3';
     overlayControlsEl.hidden = !isPelvic;
     interfaceOverlayControlsEl.hidden = !isInterface;
     positionTransform.enabled = false;
@@ -2008,6 +2099,7 @@ function showStep(step, shouldScroll = false) {
             loadPelvicPlaneTestModel(activePelvicPlanePreset);
         } else {
             loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
+            applyInterfaceSceneVisibility('3');
         }
     } else if (isInterface) {
         loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
@@ -2027,6 +2119,7 @@ function showStep(step, shouldScroll = false) {
     const major = activeStep.charAt(0);
     document.querySelectorAll('.workflow-progress-step').forEach(button => button.classList.toggle('active', button.dataset.goStep.charAt(0) === major));
     renderLegend();
+    syncPelvicAnswer();
     syncSplitLayout();
     requestAnimationFrame(frameActiveStep);
     if (shouldScroll) {
@@ -2408,6 +2501,7 @@ function syncSplitLayout() {
     // Both steps stay compact in the sidebar for as long as split view is on, so they fit together.
     scrollEl.classList.toggle('is-split-pair', pairOn);
     splitPaneEl.hidden = splitDividerEl.hidden = splitMainTagEl.hidden = !paired;
+    syncInterfacePlaneHelp();
     // The main stage is the right-hand pane in split view, so the tools stay on the outer right edge.
     const toolbarHome = stage;
     if (viewerToolbarEl.parentElement !== toolbarHome) {
@@ -2443,6 +2537,41 @@ function renderSplitPane() {
     gridPlanes.xy.position.copy(savedGridPosition);
     gridPlanes.xy.scale.setScalar(savedGridScale);
 }
+
+// The ? on the Interface Plane block: the plane on the left, the interface it orients on Ollie on
+// the right, with the same X / Y / Z controls driving both.
+const interfacePlaneHelpButton = document.getElementById('interface-plane-help');
+const interfacePlaneHelpNote = document.getElementById('interface-plane-help-note');
+
+function syncInterfacePlaneHelp() {
+    const on = splitEnabled && !splitNarrow.matches;
+    interfacePlaneHelpButton.setAttribute('aria-pressed', String(on));
+    interfacePlaneHelpButton.classList.toggle('is-on', on);
+    if (splitNarrow.matches) {
+        interfacePlaneHelpNote.hidden = false;
+        interfacePlaneHelpNote.textContent = 'The side-by-side view needs a wider window.';
+        return;
+    }
+    interfacePlaneHelpNote.hidden = !on;
+    interfacePlaneHelpNote.textContent = on
+        ? 'Left: the plane on the solid interface. Right: the interface sitting on Ollie, oriented by that plane. Move X, Y or Z and both follow.'
+        : '';
+}
+
+function setInterfacePlanePair(on) {
+    if (splitNarrow.matches) { syncInterfacePlaneHelp(); return; }
+    splitEnabled = on;
+    if (on) {
+        // The right-hand view needs the interface on the animal for plane changes to show.
+        positionMechanicalVisible = true;
+        splitReturnStep = '2b';
+        showStep('2c', true);
+    } else {
+        showStep('2b', true);
+    }
+}
+
+interfacePlaneHelpButton.addEventListener('click', () => setInterfacePlanePair(!splitEnabled));
 
 splitToggleEl.addEventListener('click', () => {
     splitEnabled = !splitEnabled;

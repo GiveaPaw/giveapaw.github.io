@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=37">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=31">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=33">
     <link rel="stylesheet" href="walkthrough-grading.css?v=11">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -268,6 +268,7 @@
                                 <i data-lucide="panel-top" aria-hidden="true"></i>
                                 <strong>Pelvic Plane</strong>
                                 <span>CB - Bounding Box Point Selection</span><button class="workflow-control-mode-toggle" type="button" id="pelvic-plane-control-mode" aria-label="Use nTop menu controls" aria-pressed="true" title="Switch to min, centroid and max menus"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
+                                <button type="button" class="workflow-var-help" id="pelvic-plane-help" aria-pressed="false" aria-label="Show the answer plane in the viewer" title="Show the answer plane in the viewer">?</button>
                                 <button class="workflow-visibility-toggle active" type="button" id="pelvic-plane-visibility" aria-label="Hide pelvic plane guides" title="Show or hide point, normal and plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
                             </div>
 
@@ -315,6 +316,7 @@
                             </div>
                         </div>
 
+                        <p class="workflow-pending-note" id="pelvic-plane-help-note" hidden></p>
                         <div class="workflow-step-actions">
                             <button type="button" class="workflow-back" data-go-step="1"><i data-lucide="arrow-up" aria-hidden="true"></i> Import and scale</button>
                             <button type="button" class="workflow-next" data-go-step="2b">Define interface plane <i data-lucide="arrow-down" aria-hidden="true"></i></button>
@@ -332,6 +334,7 @@
                                 <strong>Interface Plane</strong>
                                 <span>CB - Bounding Box Point Selection</span>
                                 <button class="workflow-control-mode-toggle" type="button" id="interface-plane-control-mode" aria-label="Use nTop menu controls" aria-pressed="true" title="Switch to nTop min, centroid and max menus"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
+                                <button type="button" class="workflow-var-help" id="interface-plane-help" aria-pressed="false" aria-label="Show the plane beside the interface on Ollie" title="Show the plane beside the interface it orients on Ollie">?</button>
                                 <button class="workflow-visibility-toggle active" type="button" id="interface-plane-visibility" aria-label="Hide interface plane guides" title="Show or hide point, normal and plane"><span class="workflow-visibility-dot" aria-hidden="true"></span></button>
                             </div>
                             <div class="workflow-plane-fields">
@@ -350,6 +353,7 @@
                                 </div>
                             </div>
                         </div>
+                        <p class="workflow-pending-note" id="interface-plane-help-note" hidden></p>
                         <div class="workflow-step-actions">
                             <button type="button" class="workflow-back" data-go-step="2a"><i data-lucide="arrow-up" aria-hidden="true"></i> Pelvic plane</button>
                             <button type="button" class="workflow-next" data-go-step="2c">Interface position <i data-lucide="arrow-down" aria-hidden="true"></i></button>
@@ -637,6 +641,7 @@
                     <div class="workflow-overlay-controls" id="workflow-overlay-controls" aria-label="Pelvic plane viewer visibility" hidden>
                         <span class="workflow-layer"><button type="button" class="workflow-layer-toggle active" data-view-layer="attach" aria-label="Hide attachment surface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Attachment surface</button><button type="button" class="workflow-layer-alpha" data-view-alpha="attach" aria-label="Attachment surface: solid or see-through" title="Attachment surface: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
                         <span class="workflow-layer"><button type="button" class="workflow-layer-toggle active" data-view-layer="body" aria-label="Hide solid animal"><span class="workflow-visibility-dot" aria-hidden="true"></span>Solid animal</button><button type="button" class="workflow-layer-alpha" data-view-alpha="body" aria-label="Solid animal: solid or see-through" title="Solid animal: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
+                        <span class="workflow-layer pelvic-stage-3"><button type="button" class="workflow-layer-toggle active" data-interface-layer="mechanical" aria-label="Hide mechanical interface"><span class="workflow-visibility-dot" aria-hidden="true"></span>Mechanical interface</button><button type="button" class="workflow-layer-alpha" data-interface-alpha="mechanical" aria-label="Mechanical interface: solid or see-through" title="Mechanical interface: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
                         <span class="workflow-layer pelvic-stage-3"><button type="button" class="workflow-layer-toggle active" data-view-layer="socket" aria-label="Hide socket lattice"><span class="workflow-visibility-dot" aria-hidden="true"></span>Socket lattice</button><button type="button" class="workflow-layer-alpha" data-view-alpha="socket" aria-label="Socket lattice: solid or see-through" title="Socket lattice: solid or see-through"><i data-lucide="contrast" aria-hidden="true"></i></button></span>
                         <button type="button" class="workflow-layer-toggle active pelvic-stage-2a" data-view-layer="box" aria-label="Hide bounding box"><span class="workflow-visibility-dot" aria-hidden="true"></span>Bounding box</button>
                         <details class="workflow-layer-menu pelvic-stage-2a" data-layer-menu="plane">
@@ -705,7 +710,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=58"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=60"></script>
     <script type="module" src="walkthrough-grading.js?v=10"></script>
 </body>
 </html>
