@@ -1,0 +1,174 @@
+{
+  "animal": "Billie",
+  "sample": false,
+  "sampleNote": "Billie's socket history: v1 is the July 8 socket she was fitted with; v2 short and v2 long are the October 17 candidates built on the updated attachment surfaces.",
+  "units": "mm",
+  "body": {
+    "file": "billie-solid-10-17.glb",
+    "label": "Billie’s body"
+  },
+  "iterations": [
+    {
+      "id": "v1",
+      "label": "v1",
+      "parent": null,
+      "date": "2026-07-08",
+      "title": "First printed socket",
+      "status": "Printed and fitted",
+      "author": "Give a Paw team",
+      "model": "billie-socket-7-8.glb",
+      "summary": "The socket Billie was fitted with, generated in nTop on July 8 over the first attachment surface (BillieSocket_7_8.3mf). Her body here is the solid scan from the same session (Billie_solid_FUll.obj, billie-solid-full.glb), which the October 17 solid matches.",
+      "changes": [
+        {
+          "tag": "Baseline",
+          "text": "First printed socket: lattice socket with the mechanical interface, reach to X −75 mm.",
+          "why": ""
+        }
+      ],
+      "outcome": "",
+      "views": [
+        {
+          "id": "side",
+          "name": "Side",
+          "camera": {
+            "position": [
+              89.9,
+              -1450.0,
+              900.0
+            ],
+            "target": [
+              89.9,
+              -637.5,
+              760.2
+            ]
+          }
+        },
+        {
+          "id": "top",
+          "name": "From above",
+          "camera": {
+            "position": [
+              89.9,
+              -637.5,
+              1600.0
+            ],
+            "target": [
+              89.9,
+              -637.5,
+              760.2
+            ]
+          }
+        }
+      ],
+      "pins": []
+    },
+    {
+      "id": "v2-short",
+      "label": "v2 short",
+      "parent": "v1",
+      "date": "2026-10-17",
+      "title": "Socket 10-17, short reach",
+      "status": "Candidate (not printed)",
+      "author": "Tyler",
+      "model": "billie-socket-10-17-short.glb",
+      "summary": "October 17 socket built on the updated attachment surface (Billie_Updated_Surface_10-17). Same scan frame as the August 10 socket.",
+      "changes": [
+        {
+          "tag": "Fit",
+          "text": "Rebuilt on the updated attachment surface; reach shortened from X −75 mm (v1) to −42 mm.",
+          "why": "Candidate A of the October 17 pair; compare with the long reach side by side."
+        }
+      ],
+      "outcome": "",
+      "views": [
+        {
+          "id": "side",
+          "name": "Side",
+          "camera": {
+            "position": [
+              100.8,
+              -1450.0,
+              900.0
+            ],
+            "target": [
+              100.8,
+              -648.2,
+              747.3
+            ]
+          }
+        },
+        {
+          "id": "top",
+          "name": "From above",
+          "camera": {
+            "position": [
+              100.8,
+              -648.2,
+              1600.0
+            ],
+            "target": [
+              100.8,
+              -648.2,
+              747.3
+            ]
+          }
+        }
+      ],
+      "pins": []
+    },
+    {
+      "id": "v2-long",
+      "label": "v2 long",
+      "parent": "v1",
+      "date": "2026-10-17",
+      "title": "Socket 10-17, long reach",
+      "status": "Candidate (not printed)",
+      "author": "Tyler",
+      "model": "billie-socket-10-17-long.glb",
+      "summary": "October 17 socket built on the longer attachment surface (Billie_Surface_longer_10-17). Same scan frame as the short candidate.",
+      "changes": [
+        {
+          "tag": "Fit",
+          "text": "Rebuilt on the longer attachment surface; reach X −70 mm, close to v1 (−75 mm) and 28 mm beyond the short candidate.",
+          "why": "Candidate B of the October 17 pair; more body contact ahead of the attachment."
+        }
+      ],
+      "outcome": "",
+      "views": [
+        {
+          "id": "side",
+          "name": "Side",
+          "camera": {
+            "position": [
+              86.8,
+              -1450.0,
+              900.0
+            ],
+            "target": [
+              86.8,
+              -648.2,
+              747.3
+            ]
+          }
+        },
+        {
+          "id": "top",
+          "name": "From above",
+          "camera": {
+            "position": [
+              86.8,
+              -648.2,
+              1600.0
+            ],
+            "target": [
+              86.8,
+              -648.2,
+              747.3
+            ]
+          }
+        }
+      ],
+      "pins": []
+    }
+  ]
+}

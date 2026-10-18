@@ -20,7 +20,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.8.3/build/index.module.js"
+        }
+    }
+    </script>
     <script type="module" src="https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="case-history.css?v=7">
 </head>
 <body>
     <aside class="sidebar">
@@ -153,7 +163,6 @@
                             <button type="button" class="model-toggle-btn" data-model="billie-solid-animal.glb">Solid Animal</button>
                             <button type="button" class="model-toggle-btn" data-model="billie-attachment-surface.glb">Attachment Surface</button>
                             <button type="button" class="model-toggle-btn" data-model="billie-mechanical-interface.glb">Mechanical Interface</button>
-                            <button type="button" class="model-toggle-btn" data-model="billie-solid-interface.glb">Solid Interface</button>
                         </div>
                         <model-viewer src="billie-full-prosthetic.glb"
                                       alt="Interactive 3D model of Billie's prosthetic component"
@@ -170,31 +179,36 @@
                     <details class="download-category">
                         <summary>3D Scan Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example scan.stl</li>
+                            <li><a href="https://drive.google.com/file/d/1V1bvgeiSHO6X1cTN3BkH_GjelCj_R2PP/view" target="_blank" rel="noopener">Billie.stl (11.5 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1SY0SS_KUZeaEwdOswhd_ej0LJ0FLuKVl/view" target="_blank" rel="noopener">Billie2.stl (4.5 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1iH6rFRvo8wBGj6IejmYrk7_zDqHID8BN/view" target="_blank" rel="noopener">Billie3.stl (12.4 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1DWDOYIbfdeYj0QuXBoHV8JJpPUuPjQU8/view" target="_blank" rel="noopener">Billie4.stl (8.9 MB)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/1Mt6WWN3iY56-cc0RO47bf6wekMtZK3F_" target="_blank" rel="noopener">April 29 scans (7 STL files)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/1SZjkbIOFio2igbWO1S1fq5qAY3q6j1yX" target="_blank" rel="noopener">All of Billie&rsquo;s scans in Google Drive</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>Measurement Photos</summary>
                         <ul class="download-files">
-                            <li class="pending">Example measurement.jpg</li>
-                        </ul>
-                    </details>
-                    <details class="download-category">
-                        <summary>MeshMixer Files</summary>
-                        <ul class="download-files">
-                            <li class="pending">Example file.mix</li>
-                        </ul>
-                    </details>
-                    <details class="download-category">
-                        <summary>CAD Files</summary>
-                        <ul class="download-files">
-                            <li class="pending">Example file.sldprt</li>
+                            <li><a href="https://drive.google.com/drive/folders/1zOjBxIfgrozg76ErF2qdkMRMMKxIIWR7" target="_blank" rel="noopener">Measurement session: 12 photos and 1 videos</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>nTop Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.ntop</li>
+                            <li><a href="https://drive.google.com/file/d/1y8KGQBLqZobOSUlCkimkwzvhDIFSfufF/view" target="_blank" rel="noopener">billienTOP.ntop (20.2 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/164sib1ibCXbI1EYzBjdWoHOHO0tFHqNr/view" target="_blank" rel="noopener">billiepaw1.ntop (55 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1zWqs7oHKuoGl5o9rlwwpPtfIV-xWziFr/view" target="_blank" rel="noopener">billieprosthesis - attachement resized.ntop (280 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1Wmrtae8KsXno3ZRA47i9ax-eHilu9-o0/view" target="_blank" rel="noopener">billieprosthesis.ntop (280 MB)</a></li>
+                        </ul>
+                    </details>
+                    <details class="download-category">
+                        <summary>Mesh &amp; Print Files</summary>
+                        <ul class="download-files">
+                            <li><a href="https://drive.google.com/file/d/1cTcSqSO7zbx0fuLZe1tnYYonTnX8Hlhj/view" target="_blank" rel="noopener">final - socket attch.stl (140 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1RVbTihYXRCiF0nWuqemriOKGXrRmJIhK/view" target="_blank" rel="noopener">final solid - socket attch.stl (65 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1V_w2enJI-jTWAojJXIxrJzK-NL1xPkEr/view" target="_blank" rel="noopener">paw edited version hollow.stl (7 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1r-jWHrB9Gtjmzs2pbYUkxgGgH3Sbi1qg/view" target="_blank" rel="noopener">paw edited version.stl (92 KB)</a></li>
                         </ul>
                     </details>
                     <p>The attachment for the socket was made in Onshape. Given that the socket material is PETG, we used a clearance of 0.5-0.7 mm (0.014") for a tube with a 1" external diameter and 0.065" wall thickness, and 8 mm screws (holes with a 7.8 mm diameter for self-tapping).</p>
@@ -337,5 +351,6 @@
         <span></span>
     </button>
     <script src="script.js?v=57"></script>
+    <script type="module" src="case-history.js?v=14"></script>
 </body>
 </html>

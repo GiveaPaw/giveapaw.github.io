@@ -1,0 +1,321 @@
+{
+  "animal": "Ollie",
+  "sample": true,
+  "sampleNote": "Sample history built from Ollie’s real nTop exports. The models and changed values are real; the notes are examples for the team to replace.",
+  "units": "mm",
+  "body": {
+    "file": "ollie-solid-animal.glb",
+    "label": "Ollie’s body scan"
+  },
+  "iterations": [
+    {
+      "id": "v1",
+      "label": "v1",
+      "parent": null,
+      "date": "2026-09-30",
+      "title": "Fitted socket",
+      "status": "Printed and fitted",
+      "author": "Give a Paw team",
+      "model": "ollie-socket.glb",
+      "summary": "The lattice socket Ollie wore at his fitting session, generated in nTop over the painted attachment surface.",
+      "changes": [
+        {
+          "tag": "Baseline",
+          "text": "First printed socket: three-strap lattice harness with the mechanical interface built into the receiver.",
+          "why": ""
+        }
+      ],
+      "outcome": "At the fitting, Ollie’s leg did not track under his body when he walked (see the fitting videos).",
+      "views": [
+        {
+          "id": "side",
+          "name": "Side",
+          "camera": {
+            "position": [
+              -136.2,
+              -370.4,
+              209.9
+            ],
+            "target": [
+              -136.2,
+              94.4,
+              140.2
+            ]
+          }
+        },
+        {
+          "id": "top",
+          "name": "From above",
+          "camera": {
+            "position": [
+              -67.8,
+              3.2,
+              596.2
+            ],
+            "target": [
+              -136.2,
+              94.4,
+              140.2
+            ]
+          }
+        },
+        {
+          "id": "leg-hole",
+          "name": "Leg hole",
+          "camera": {
+            "position": [
+              -315.9,
+              232.3,
+              -60.9
+            ],
+            "target": [
+              -147.1,
+              61.0,
+              118.4
+            ]
+          }
+        },
+        {
+          "id": "pelvic-end",
+          "name": "Pelvic end",
+          "camera": {
+            "position": [
+              147.4,
+              -45.5,
+              -12.4
+            ],
+            "target": [
+              -69.3,
+              99.0,
+              136.5
+            ]
+          }
+        }
+      ],
+      "pins": [
+        {
+          "id": "v1-p1",
+          "pos": [
+            -142.97,
+            24.67,
+            162.83
+          ],
+          "normal": [
+            -0.081,
+            0.71,
+            -0.699
+          ],
+          "author": "Tyler",
+          "date": "2026-09-30",
+          "note": "Example note: the leg swings out through this opening when Ollie walks.",
+          "camera": {
+            "position": [
+              -315.9,
+              232.3,
+              -60.9
+            ],
+            "target": [
+              -147.1,
+              61.0,
+              118.4
+            ]
+          }
+        },
+        {
+          "id": "v1-p2",
+          "pos": [
+            -50.2,
+            135.38,
+            120.9
+          ],
+          "normal": [
+            -0.432,
+            -0.829,
+            0.356
+          ],
+          "author": "Tyler",
+          "date": "2026-09-30",
+          "note": "Example note: the pelvic end flexes under load; it may need to be stiffer.",
+          "camera": {
+            "position": [
+              147.4,
+              -45.5,
+              -12.4
+            ],
+            "target": [
+              -69.3,
+              99.0,
+              136.5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2a",
+      "label": "v2a",
+      "parent": "v1",
+      "date": "2026-10-02",
+      "title": "Smaller leg hole",
+      "status": "Candidate (not printed)",
+      "author": "Give a Paw team",
+      "model": "ollie-attach-r0-h1075.glb",
+      "summary": "Regenerated from the attachment-surface sweep with a smaller leg opening; everything else matches v1.",
+      "changes": [
+        {
+          "tag": "Fit",
+          "text": "Leg hole 147.5 → 107.5 (nTop attachment surface sweep; reach unchanged at 0).",
+          "why": "Fit review proposal: a smaller cutout should keep the leg under the body."
+        }
+      ],
+      "outcome": "",
+      "views": [
+        {
+          "id": "side",
+          "name": "Side",
+          "camera": {
+            "position": [
+              -136.2,
+              -370.4,
+              209.9
+            ],
+            "target": [
+              -136.2,
+              94.4,
+              140.2
+            ]
+          }
+        },
+        {
+          "id": "leg-hole",
+          "name": "Leg hole",
+          "camera": {
+            "position": [
+              -315.9,
+              232.3,
+              -60.9
+            ],
+            "target": [
+              -147.1,
+              61.0,
+              118.4
+            ]
+          }
+        }
+      ],
+      "pins": [
+        {
+          "id": "v2a-p1",
+          "pos": [
+            -114.69,
+            30.82,
+            138.53
+          ],
+          "normal": [
+            -0.527,
+            0.535,
+            -0.66
+          ],
+          "author": "Tyler",
+          "date": "2026-10-02",
+          "note": "Example note: new struts close the lower edge of the leg hole (largest change, about 21 mm).",
+          "camera": {
+            "position": [
+              -315.9,
+              232.3,
+              -60.9
+            ],
+            "target": [
+              -147.1,
+              61.0,
+              118.4
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2b",
+      "label": "v2b",
+      "parent": "v1",
+      "date": "2026-10-01",
+      "title": "Stiffer pelvic end",
+      "status": "Candidate (not printed)",
+      "author": "Give a Paw team",
+      "model": "ollie-v3-pelvic-t12-d080.glb",
+      "summary": "Regenerated in nTop workflow V3 with a thickened pelvic end; lattice and leg hole as in v1.",
+      "changes": [
+        {
+          "tag": "Strength",
+          "text": "Pelvic thickness 0 → 12 mm and pelvic thicken distance 0 → 80 mm (nTop workflow V3).",
+          "why": "Fit review proposal: a stiffer pelvic end so the socket holds its shape when the leg loads it."
+        }
+      ],
+      "outcome": "",
+      "views": [
+        {
+          "id": "side",
+          "name": "Side",
+          "camera": {
+            "position": [
+              -136.2,
+              -370.4,
+              209.9
+            ],
+            "target": [
+              -136.2,
+              94.4,
+              140.2
+            ]
+          }
+        },
+        {
+          "id": "pelvic-end",
+          "name": "Pelvic end",
+          "camera": {
+            "position": [
+              147.4,
+              -45.5,
+              -12.4
+            ],
+            "target": [
+              -69.3,
+              99.0,
+              136.5
+            ]
+          }
+        }
+      ],
+      "pins": [
+        {
+          "id": "v2b-p1",
+          "pos": [
+            -53.08,
+            112.19,
+            82.34
+          ],
+          "normal": [
+            0.138,
+            -0.148,
+            -0.979
+          ],
+          "author": "Tyler",
+          "date": "2026-10-01",
+          "note": "Example note: the pelvic end is up to about 11 mm thicker here.",
+          "camera": {
+            "position": [
+              147.4,
+              -45.5,
+              -12.4
+            ],
+            "target": [
+              -69.3,
+              99.0,
+              136.5
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

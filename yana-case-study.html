@@ -20,7 +20,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.8.3/build/index.module.js"
+        }
+    }
+    </script>
     <script type="module" src="https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="case-history.css?v=7">
 </head>
 <body>
     <aside class="sidebar">
@@ -134,54 +144,42 @@
                 </section>
                 <section id="files">
                     <h2>Files<a class="headerlink" href="#files" title="Permalink to this heading">¶</a></h2>
-                    <figure class="model-viewer-figure">
-                        <div class="model-toggle" role="tablist" aria-label="Prosthetic component">
-                            <button type="button" class="model-toggle-btn active" data-model="yana-full-prosthetic.glb">Full Prosthetic</button>
-                            <button type="button" class="model-toggle-btn" data-model="yana-solid-animal.glb">Solid Animal</button>
-                            <button type="button" class="model-toggle-btn" data-model="yana-attachment-surface.glb">Attachment Surface</button>
-                            <button type="button" class="model-toggle-btn" data-model="yana-mechanical-interface.glb">Mechanical Interface</button>
-                            <button type="button" class="model-toggle-btn" data-model="yana-solid-interface.glb">Solid Interface</button>
-                        </div>
-                        <model-viewer src="yana-full-prosthetic.glb"
-                                      alt="Interactive 3D model of Yana's prosthetic component"
-                                      camera-controls
-                                      touch-action="pan-y"
-                                      shadow-intensity="1"
-                                      shadow-softness="0.7"
-                                      exposure="0.85"
-                                      tone-mapping="neutral"
-                                      environment-image="model-env.png"
-                                      ar></model-viewer>
-                        <figcaption>Interactive 3D model &mdash; tap a tab to swap component, drag to rotate, scroll to zoom.</figcaption>
-                    </figure>
                     <details class="download-category">
                         <summary>3D Scan Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example scan.stl</li>
+                            <li><a href="https://drive.google.com/file/d/1mpwzaEzS8q3OxmnbJDs-dHgvIURokgVe/view" target="_blank" rel="noopener">Yana.stl (40.0 MB)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/1MZlEcAz52KyOCTbClpDiRCpSo6WlBNfF" target="_blank" rel="noopener">All of Yana&rsquo;s scans in Google Drive</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>Measurement Photos</summary>
                         <ul class="download-files">
-                            <li class="pending">Example measurement.jpg</li>
+                            <li><a href="https://drive.google.com/drive/folders/1aIvWZ7FPPKZNf6dUMXAHQAHpRVyTTlLH" target="_blank" rel="noopener">Measurement session: 26 photos and 4 videos</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>MeshMixer Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.mix</li>
-                        </ul>
-                    </details>
-                    <details class="download-category">
-                        <summary>CAD Files</summary>
-                        <ul class="download-files">
-                            <li class="pending">Example file.sldprt</li>
+                            <li><a href="https://drive.google.com/file/d/1yHX4-3Gx5IFG3FDTzmR8Ly72_7ggBl9X/view" target="_blank" rel="noopener">YanaMesh1.mix (3.9 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/18WGpGjnNXQQVLVpfJriXPh-eX_aUqUkz/view" target="_blank" rel="noopener">YanaSolid4-4.mix (3.9 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/17kGp2XiR9EKOhHwnBiEMEual7xS3KX7k/view" target="_blank" rel="noopener">YanaSurface.mix (777 KB)</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>nTop Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.ntop</li>
+                            <li><a href="https://drive.google.com/file/d/1BluyufOLUTuVaC9_cUlJaJWzN5ndFOXJ/view" target="_blank" rel="noopener">YanaSocketv2.ntop (24.9 MB)</a></li>
+                        </ul>
+                    </details>
+                    <details class="download-category">
+                        <summary>Mesh &amp; Print Files</summary>
+                        <ul class="download-files">
+                            <li><a href="https://drive.google.com/file/d/1-gx72-o-umear_NeLiNwRKFDFTEJ63Pe/view" target="_blank" rel="noopener">Leg Coupling (4).STL (116 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1A3qynulO5SZ9bN-CkE1TqYGN_9eMK8lg/view" target="_blank" rel="noopener">SplitYana#1.1.obj (98.2 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1e0suD6fw1YRzDq8tsvAWrSB-mz5oUo0e/view" target="_blank" rel="noopener">SplitYana#2.1.obj (113 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1u9f6gZ8GdQR5x4Ey8T1gXxBmC_hB0yaW/view" target="_blank" rel="noopener">YanaSolidv1 (from Yana MeshMixer).obj (5.7 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1QHpGeqVXJF4nKu_juwSN4KHAI5G4VQ5E/view" target="_blank" rel="noopener">YanaSolidv1.obj (5.8 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1-6uMl7h1SuPAsFypHRakrq8uSHrQHlGI/view" target="_blank" rel="noopener">YanaSurface.obj (1.1 MB)</a></li>
                         </ul>
                     </details>
                     <p>All print files are available in the project's shared file folder.</p>
@@ -278,5 +276,6 @@
         <span></span>
     </button>
     <script src="script.js?v=57"></script>
+    <script type="module" src="case-history.js?v=14"></script>
 </body>
 </html>

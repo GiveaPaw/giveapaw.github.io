@@ -20,7 +20,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.8.3/build/index.module.js"
+        }
+    }
+    </script>
     <script type="module" src="https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="case-history.css?v=7">
 </head>
 <body>
     <aside class="sidebar">
@@ -146,54 +156,47 @@
                 </section>
                 <section id="files">
                     <h2>Files<a class="headerlink" href="#files" title="Permalink to this heading">¶</a></h2>
-                    <figure class="model-viewer-figure">
-                        <div class="model-toggle" role="tablist" aria-label="Prosthetic component">
-                            <button type="button" class="model-toggle-btn active" data-model="kiki-full-prosthetic.glb">Full Prosthetic</button>
-                            <button type="button" class="model-toggle-btn" data-model="kiki-solid-animal.glb">Solid Animal</button>
-                            <button type="button" class="model-toggle-btn" data-model="kiki-attachment-surface.glb">Attachment Surface</button>
-                            <button type="button" class="model-toggle-btn" data-model="kiki-mechanical-interface.glb">Mechanical Interface</button>
-                            <button type="button" class="model-toggle-btn" data-model="kiki-solid-interface.glb">Solid Interface</button>
-                        </div>
-                        <model-viewer src="kiki-full-prosthetic.glb"
-                                      alt="Interactive 3D model of Kiki's prosthetic component"
-                                      camera-controls
-                                      touch-action="pan-y"
-                                      shadow-intensity="1"
-                                      shadow-softness="0.7"
-                                      exposure="0.85"
-                                      tone-mapping="neutral"
-                                      environment-image="model-env.png"
-                                      ar></model-viewer>
-                        <figcaption>Interactive 3D model &mdash; tap a tab to swap component, drag to rotate, scroll to zoom.</figcaption>
-                    </figure>
                     <details class="download-category">
                         <summary>3D Scan Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example scan.stl</li>
+                            <li><a href="https://drive.google.com/file/d/1FeBheLSqrF6CUJONtJ37Pu9xFMa8mL9R/view" target="_blank" rel="noopener">Kiki1.stl (18.2 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/14x7S4zGYVFTJCWz0Myc4zh25h-Z0bn_j/view" target="_blank" rel="noopener">Kiki2.stl (15.0 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1-LRUyHN5FLujeNf3xKqiOqzOw25SkVOy/view" target="_blank" rel="noopener">Kiki3.stl (7.3 MB)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/1tRu9olyT6jZSA2nrq0oLRR7PdElPRoCd" target="_blank" rel="noopener">April 20 scans, STL (11 files, up to 520 MB each)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/106aCEEzDeusWz0lmWjwGqdixcDeFijyG" target="_blank" rel="noopener">April 20 scans, OBJ (8 files, up to 530 MB each)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/1PDaqEEdE_C6UOTEYbstxZqIVBskcmV_p" target="_blank" rel="noopener">All of Kiki&rsquo;s scans in Google Drive</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>Measurement Photos</summary>
                         <ul class="download-files">
-                            <li class="pending">Example measurement.jpg</li>
-                        </ul>
-                    </details>
-                    <details class="download-category">
-                        <summary>MeshMixer Files</summary>
-                        <ul class="download-files">
-                            <li class="pending">Example file.mix</li>
+                            <li><a href="https://drive.google.com/drive/folders/1vtFkTInuPS3H24HSbz0s3TdpmJb01au4" target="_blank" rel="noopener">Measurement session: 19 photos</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>CAD Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.sldprt</li>
+                            <li><a href="https://drive.google.com/file/d/1jD4S-xecW0a_S6tK_ozHjhhJe2zGw6wQ/view" target="_blank" rel="noopener">AngledSpacer.SLDPRT (73 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1SC6T_02kkLqqvWBthME0DZ7ABWBlf6G3/view" target="_blank" rel="noopener">BearingWasher.SLDPRT (92 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1VbkuJF7USA_g8DazfJs1niLpUefk-L47/view" target="_blank" rel="noopener">ClampPlate.SLDPRT (140 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1_rEN2IDxnHjet5MU2kCc-pKgl1bOSL3T/view" target="_blank" rel="noopener">FlatSpacer.SLDPRT (68 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1qqw9jS3vn7yXK7gGwDC9yroL1C-imMyB/view" target="_blank" rel="noopener">Fork.SLDPRT (193 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1KU9IooA_dW-h6O7bOUgVmGdfgJQ40kNr/view" target="_blank" rel="noopener">Frame.SLDPRT (154 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1U-ZCKAPksA7WExZozGwYpKSkToXi2n5H/view" target="_blank" rel="noopener">FrameInterface.SLDPRT (67 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/12_iKKYPM4gBHLPW13qmpjdxUmlhjy-Zo/view" target="_blank" rel="noopener">KikiWheelchairAssembly.SLDASM (2.3 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1V98SO6o4AjYDN8rVNTCZ5dEgVDJR2Oqg/view" target="_blank" rel="noopener">Wheel.SLDPRT (289 KB)</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
-                        <summary>nTop Files</summary>
+                        <summary>Mesh &amp; Print Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.ntop</li>
+                            <li><a href="https://drive.google.com/file/d/1iyPMacKbmHgtvHT1KsR-ZLUMwCoer_1r/view" target="_blank" rel="noopener">AngledSpacer.STL (61 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1k-3bdt2m_QgzVp-FN0yFEfK6-ZB0_Xiq/view" target="_blank" rel="noopener">BearingWasher.STL (144 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/19QTQWnanB-uK_NW0I7Sc9npejbq0dA5J/view" target="_blank" rel="noopener">ClampPlate.STL (185 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1614gXdoduE2rokaf_1fh52ZvUZHsP4EQ/view" target="_blank" rel="noopener">FlatSpacer.STL (49 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/12WVXKZNLXloRv7YCp7VefOlqWS1HmJv8/view" target="_blank" rel="noopener">Fork.STL (998 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1OzBOaF3C7c807GN-J6uT7LKZiVYnG86u/view" target="_blank" rel="noopener">Frame.STL (198 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1p2CiJxeGXRl-tzbUpwT-t5Eu6evEs9Gz/view" target="_blank" rel="noopener">Wheel.STL (1.5 MB)</a></li>
                         </ul>
                     </details>
                     <p><strong>STL Files</strong> — The folder contains STL files of the parts in their current state. Use the CAD files for editing and the most recent version.</p>
@@ -294,5 +297,6 @@
         <span></span>
     </button>
     <script src="script.js?v=57"></script>
+    <script type="module" src="case-history.js?v=14"></script>
 </body>
 </html>

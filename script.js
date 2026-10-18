@@ -194,6 +194,7 @@ document.querySelectorAll('.model-toggle').forEach(toggle => {
             warmViewer = document.createElement('model-viewer');
             warmViewer.setAttribute('loading', 'eager');
             warmViewer.setAttribute('aria-hidden', 'true');
+            warmViewer.inert = true; // off-screen, so keep it out of the tab order
             warmViewer.style.cssText = 'position:fixed;left:-9999px;top:0;' +
                 'width:2px;height:2px;pointer-events:none;';
             document.body.appendChild(warmViewer);

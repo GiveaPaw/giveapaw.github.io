@@ -20,7 +20,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.8.3/build/index.module.js"
+        }
+    }
+    </script>
     <script type="module" src="https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="case-history.css?v=7">
 </head>
 <body>
     <aside class="sidebar">
@@ -151,54 +161,52 @@
                 </section>
                 <section id="files">
                     <h2>Files<a class="headerlink" href="#files" title="Permalink to this heading">¶</a></h2>
-                    <figure class="model-viewer-figure">
-                        <div class="model-toggle" role="tablist" aria-label="Prosthetic component">
-                            <button type="button" class="model-toggle-btn active" data-model="max-full-prosthetic.glb">Full Prosthetic</button>
-                            <button type="button" class="model-toggle-btn" data-model="max-solid-animal.glb">Solid Animal</button>
-                            <button type="button" class="model-toggle-btn" data-model="max-attachment-surface.glb">Attachment Surface</button>
-                            <button type="button" class="model-toggle-btn" data-model="max-mechanical-interface.glb">Mechanical Interface</button>
-                            <button type="button" class="model-toggle-btn" data-model="max-solid-interface.glb">Solid Interface</button>
-                        </div>
-                        <model-viewer src="max-full-prosthetic.glb"
-                                      alt="Interactive 3D model of Max's prosthetic component"
-                                      camera-controls
-                                      touch-action="pan-y"
-                                      shadow-intensity="1"
-                                      shadow-softness="0.7"
-                                      exposure="0.85"
-                                      tone-mapping="neutral"
-                                      environment-image="model-env.png"
-                                      ar></model-viewer>
-                        <figcaption>Interactive 3D model &mdash; tap a tab to swap component, drag to rotate, scroll to zoom.</figcaption>
-                    </figure>
                     <details class="download-category">
                         <summary>3D Scan Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example scan.stl</li>
+                            <li><a href="https://drive.google.com/file/d/11m1w3NBAGJN54AtQFwn4_QLqZw4zNH6h/view" target="_blank" rel="noopener">Max2.stl (79.1 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1pM5dxLwwHMU1kmMfFERp5KotluDMl537/view" target="_blank" rel="noopener">MaxCloseUp.stl (6.8 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1JK5BlgGBSE-yDc3eZlh_cnUs7u1gRNGh/view" target="_blank" rel="noopener">Mac3.stl (5.7 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1mzFbVtNFCbDVXEiEhZCHswmUC8DYoWsa/view" target="_blank" rel="noopener">Max_solid.obj (5.8 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1wkW1tQQYcLh-Ise95EdjvdPsDi1fkV2_/view" target="_blank" rel="noopener">scanned leg.obj (3.9 MB)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/1rjMjhJykDgCvMoUm9kZ_hay1Nd4C2A-V" target="_blank" rel="noopener">All of Max&rsquo;s scans in Google Drive</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>Measurement Photos</summary>
                         <ul class="download-files">
-                            <li class="pending">Example measurement.jpg</li>
+                            <li><a href="https://drive.google.com/drive/folders/157pN8Va8w93IlrRXbDELXFHyOo8w6BRX" target="_blank" rel="noopener">Measurement session: 15 photos and 2 videos</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>MeshMixer Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.mix</li>
+                            <li><a href="https://drive.google.com/file/d/1yYkSOkhHBGofkFNn0zx8eJoTbsywcf5k/view" target="_blank" rel="noopener">MaxCleaned3DScan4-4.mix (13.1 MB)</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>CAD Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.sldprt</li>
+                            <li><a href="https://drive.google.com/file/d/1n6oKfDd19akpCkVFTYWKQSzo7ReRTBpV/view" target="_blank" rel="noopener">foot.f3d (445 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1JBWmt_aQA6FpnhVENx4Ka7y0rhFTkBTU/view" target="_blank" rel="noopener">joint_adapter.f3d (156 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1nPmsg6-_KV7P_cYRbN_JYzdwDHvKdK6q/view" target="_blank" rel="noopener">Screw thread length and size.png (767 KB)</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>nTop Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.ntop</li>
+                            <li><a href="https://drive.google.com/file/d/1PbNFzJi_DlKkA7Wm90rUs9ZyjtodaZBP/view" target="_blank" rel="noopener">Max_Socket_Workflow.ntop (623 MB)</a></li>
+                        </ul>
+                    </details>
+                    <details class="download-category">
+                        <summary>Mesh &amp; Print Files</summary>
+                        <ul class="download-files">
+                            <li><a href="https://drive.google.com/file/d/1OO-apWJWYulkd3AwDtaHMVNibJ5ACZBz/view" target="_blank" rel="noopener">foot.stl (527 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1DbGjx62n1AqAVjyWX6b2DV_fYx0FE7YH/view" target="_blank" rel="noopener">joint_adapter.stl (248 KB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/17rl92FwCZJl3qwm8DHs10BaSa5OAFS0o/view" target="_blank" rel="noopener">max_final_mesh.obj (757 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1wSo-dObRiQHHxUJ9yQJ480FeVB6-QkfC/view" target="_blank" rel="noopener">max_refined_surface.obj (11.4 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1X5q-KjvGYCAYjFrcRCuz0-xl-VPIYoNU/view" target="_blank" rel="noopener">Max_refinedV2.obj (15.3 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1akBXm3LOn_CNtbgGSuGoOV_9Ln-mB-un/view" target="_blank" rel="noopener">MaxRefinedSurfaceFinal.obj (19.7 MB)</a></li>
                         </ul>
                     </details>
                     <p>All print files are available in the <a href="https://drive.google.com/drive/folders/1K_ihmBzWr5lr-hHDXYBmPq6knyZjLq5z?usp=sharing">shared Google Drive folder</a>.</p>
@@ -314,5 +322,6 @@
         <span></span>
     </button>
     <script src="script.js?v=57"></script>
+    <script type="module" src="case-history.js?v=14"></script>
 </body>
 </html>

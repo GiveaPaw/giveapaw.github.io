@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#002676">
+<title>Design Log - Give a Paw</title>
+<meta name="description" content="The Give a Paw team's log of each prosthetic version: what changed and why, pins and threads on the 3D model, saved views, and links.">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-log.css?v=7">
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+        "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.8.3/build/index.module.js"
+    }
+}
+</script>
+</head>
+<body>
+<header class="dl-top">
+    <div class="dl-brand">
+        <a href="index.html" title="Give a Paw home"><img src="logo.jpg" alt="Give a Paw home" width="34" height="34"></a>
+        <span><small>Give a Paw &middot; Design log</small><h1 id="animal-title">Prosthetic versions</h1></span>
+    </div>
+    <label class="dl-animal"><span class="sr-only">Animal</span>
+        <select id="animal" aria-label="Animal"></select>
+    </label>
+    <span class="dl-conn" id="conn" role="status"><i></i><span>Loading</span></span>
+    <div class="dl-account" id="account"></div>
+    <div class="dl-menu">
+        <button type="button" class="dl-icon-btn" id="menu-btn" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="More">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span class="sr-only">More</span>
+        </button>
+        <div class="dl-menu-list" id="menu" role="menu" hidden></div>
+    </div>
+</header>
+
+<section class="dl-banner" id="banner" aria-label="Demo notice" hidden></section>
+
+<main class="dl-app" id="app" hidden>
+    <nav class="dl-rail" aria-labelledby="versions-h">
+        <div class="dl-rail-head">
+            <h2 id="versions-h">Versions</h2>
+            <button type="button" class="dl-btn dl-btn-primary dl-btn-sm" id="new" aria-label="New version"><span>+ New<span class="wide"> version</span></span></button>
+        </div>
+        <ol class="dl-tree" id="list"></ol>
+    </nav>
+
+    <section class="dl-stage" aria-label="3D model">
+        <div class="dl-tools" role="toolbar" aria-label="Model tools">
+            <button type="button" class="dl-tool" id="t-pin" aria-pressed="false" title="Drop a pin (P)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg><span>Drop pin</span>
+            </button>
+            <label class="dl-tool dl-tool-select" title="Show another version beside this one">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h8v16H3zM13 4h8v16h-8z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span class="lbl">Compare</span>
+                <select id="t-compare" aria-label="Compare with"></select>
+            </label>
+            <span class="dl-tool dl-tool-seg" id="t-compare-mode" role="group" aria-label="Compare layout" hidden><button type="button" data-mode="side" aria-pressed="true" title="Two panes with linked cameras">Side by side</button><button type="button" data-mode="overlay" aria-pressed="false" title="Both versions in one view, in different colours">Overlay</button></span>
+            <button type="button" class="dl-tool" id="t-body" aria-pressed="false" hidden title="Show the body scan" aria-label="Show the body scan">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c5 0 9 3.6 9 8s-4 8-9 8-9-3.6-9-8 4-8 9-8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5"/></svg><span id="t-body-label">Body</span>
+            </button>
+            <button type="button" class="dl-tool" id="t-resolved" aria-pressed="false" title="Show resolved pins" aria-label="Show resolved pins">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Resolved</span>
+            </button>
+            <button type="button" class="dl-tool" id="t-fit" title="Fit the model in view (F)" aria-label="Fit the model in view">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Fit</span>
+            </button>
+            <span class="dl-hint" id="hint" role="status"></span>
+        </div>
+        <div class="dl-views" id="views"></div>
+        <div class="dl-viewbar" id="viewbar" aria-label="Saved views"></div>
+    </section>
+
+    <aside class="dl-side" id="side" aria-label="Version notes"></aside>
+</main>
+
+<section class="dl-gate" id="gate" aria-label="Sign in" hidden aria-live="polite"></section>
+
+<dialog class="dl-dialog" id="dlg-version" aria-labelledby="dv-title">
+    <form class="dl-form" id="version-form" method="dialog" novalidate>
+        <h2 id="dv-title">New version</h2>
+        <label>Title <input name="title" required maxlength="80" placeholder="Shorter strap mounts" autocomplete="off"></label>
+        <div class="dl-row">
+            <label>Based on <select name="parent"></select></label>
+            <label>Label <input name="label" required maxlength="12" autocomplete="off"></label>
+        </div>
+        <label>3D model <span class="dl-field-note">a GLB file in the site folder, or leave empty</span>
+            <input name="model" list="model-list" maxlength="160" placeholder="ollie-socket.glb" autocomplete="off" spellcheck="false">
+        </label>
+        <datalist id="model-list"></datalist>
+        <div class="dl-row">
+            <label>Date <input name="date" type="date" required></label>
+            <label>Status <select name="status"></select></label>
+        </div>
+        <label>Summary <textarea name="summary" rows="2" maxlength="600" placeholder="Regenerated with the strap mounts moved 10 mm toward the spine."></textarea></label>
+        <fieldset class="dl-first-change" id="first-change">
+            <legend>What changed</legend>
+            <div class="dl-row">
+                <label>Type <select name="tag"></select></label>
+                <label>Change <input name="change" maxlength="300" placeholder="Strap mount offset 0 → 10 mm" autocomplete="off"></label>
+            </div>
+            <label>Why <input name="why" maxlength="400" placeholder="Straps rubbed at the shoulder in the fitting video" autocomplete="off"></label>
+        </fieldset>
+        <label id="outcome-field">Result <span class="dl-field-note">how it went at the fitting or print</span>
+            <textarea name="outcome" rows="2" maxlength="600"></textarea>
+        </label>
+        <p class="dl-err" id="form-err" role="alert" hidden></p>
+        <div class="dl-actions">
+            <button type="button" class="dl-btn dl-btn-danger" id="delete-version" hidden>Delete version</button>
+            <span class="dl-spacer"></span>
+            <button type="button" class="dl-btn" id="cancel-version">Cancel</button>
+            <button type="submit" class="dl-btn dl-btn-primary" id="save-version">Add version</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog class="dl-dialog dl-dialog-sm" id="dlg-confirm" aria-labelledby="dc-title">
+    <form class="dl-form" method="dialog">
+        <h2 id="dc-title">Are you sure?</h2>
+        <p id="dc-text"></p>
+        <div class="dl-actions">
+            <span class="dl-spacer"></span>
+            <button type="submit" class="dl-btn" value="cancel">Cancel</button>
+            <button type="submit" class="dl-btn dl-btn-danger" value="ok" id="dc-ok">Delete</button>
+        </div>
+    </form>
+</dialog>
+
+<input type="file" id="import-file" accept="application/json,.json" hidden>
+<div class="dl-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="design-log.js?v=9"></script>
+</body>
+</html>

@@ -20,7 +20,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.8.3/build/index.module.js"
+        }
+    }
+    </script>
     <script type="module" src="https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="case-history.css?v=7">
 </head>
 <body class="wide">
     <aside class="sidebar">
@@ -153,13 +163,12 @@
                     <h2>Files<a class="headerlink" href="#files" title="Permalink to this heading">¶</a></h2>
                     <figure class="model-viewer-figure">
                         <div class="model-toggle" role="tablist" aria-label="Prosthetic component">
-                            <button type="button" class="model-toggle-btn active" data-model="ollie-full-prosthetic.glb">Full Prosthetic</button>
+                            <button type="button" class="model-toggle-btn active" data-model="ollie-socket.glb">Socket</button>
                             <button type="button" class="model-toggle-btn" data-model="ollie-solid-animal.glb">Solid Animal</button>
                             <button type="button" class="model-toggle-btn" data-model="ollie-attachment-surface.glb">Attachment Surface</button>
                             <button type="button" class="model-toggle-btn" data-model="ollie-mechanical-interface.glb">Mechanical Interface</button>
-                            <button type="button" class="model-toggle-btn" data-model="ollie-solid-interface.glb">Solid Interface</button>
                         </div>
-                        <model-viewer src="ollie-full-prosthetic.glb"
+                        <model-viewer src="ollie-socket.glb"
                                       alt="Interactive 3D model of Ollie's prosthetic component"
                                       camera-controls
                                       touch-action="pan-y"
@@ -174,31 +183,23 @@
                     <details class="download-category">
                         <summary>3D Scan Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example scan.stl</li>
+                            <li><a href="https://drive.google.com/file/d/1g-QMdpTuE8rZPbUk8Nw0UI99uTYZUbR5/view" target="_blank" rel="noopener">Ollie.stl (15.3 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1gwx7dHD5sh-dfbrS2m1mEUhLTEXYAqK_/view" target="_blank" rel="noopener">Ollie2.stl (3.4 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/15102URua6yWRM2s5LYZR185gBfBnE-gH/view" target="_blank" rel="noopener">Ollie3.stl (1.4 MB)</a></li>
+                            <li><a href="https://drive.google.com/file/d/1M-ePqB-8ISY2Ksn5yDrW7qcbOKfdlUZN/view" target="_blank" rel="noopener">Ollie4.stl (20.5 MB)</a></li>
+                            <li><a href="https://drive.google.com/drive/folders/1IEXMUFjJ5fCOOUMOqyirKG8C7SyJRRdm" target="_blank" rel="noopener">All of Ollie&rsquo;s scans in Google Drive</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>Measurement Photos</summary>
                         <ul class="download-files">
-                            <li class="pending">Example measurement.jpg</li>
+                            <li><a href="https://drive.google.com/drive/folders/1Y1fDL11wIXQSnOGHH9mLTTNGq9lTdSr0" target="_blank" rel="noopener">Measurement session: 20 photos</a></li>
                         </ul>
                     </details>
                     <details class="download-category">
                         <summary>MeshMixer Files</summary>
                         <ul class="download-files">
-                            <li class="pending">Example file.mix</li>
-                        </ul>
-                    </details>
-                    <details class="download-category">
-                        <summary>CAD Files</summary>
-                        <ul class="download-files">
-                            <li class="pending">Example file.sldprt</li>
-                        </ul>
-                    </details>
-                    <details class="download-category">
-                        <summary>nTop Files</summary>
-                        <ul class="download-files">
-                            <li class="pending">Example file.ntop</li>
+                            <li><a href="https://drive.google.com/file/d/16x0oGfVcOszf2IALyJbxKdNbTXE_l_3f/view" target="_blank" rel="noopener">Ollie4-13.mix (4.7 MB)</a></li>
                         </ul>
                     </details>
                     <figure>
@@ -280,5 +281,6 @@
         <span></span>
     </button>
     <script src="script.js?v=57"></script>
+    <script type="module" src="case-history.js?v=14"></script>
 </body>
 </html>
