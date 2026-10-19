@@ -11,13 +11,12 @@
 // cannot read). Everything else is public with the update. Opened by case-updates.js.
 import { createViewer } from './iteration-viewer.js?v=4';
 import { modelUrl } from './model-base.js?v=2';
-import { driveReady, preloadDrive, thumbUrl, viewUrl, mediaUrl, driveIdFrom, isDriveId, uploadFile, pickFiles, downloadFile } from './drive-store.js?v=1';
+import { driveReady, preloadDrive, thumbUrl, mediaUrl, driveIdFrom, isDriveId, uploadFile, downloadPublic, fileKind, demoPut, demoGet } from './drive-store.js?v=2';
 
 export const PEN_COLORS = ['#ff3fa4', '#ffd400', '#00c2ff', '#3ddc84', '#1b2530'];
 const LINE = 3;
 const KIND_LABEL = { photo: 'Photo', model: '3D model', video: 'Video' };
 const MODEL_EXT = /\.(stl|obj|3mf|glb|gltf)$/i;
-const demoFiles = new Map(); // demo mode: file id -> blob URL (this tab only)
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -65,14 +64,14 @@ function paint(ctx, strokes, rect, alpha = 1) {
 // Where a media item's file is read from.
 function srcOf(m, { width = 2000 } = {}) {
     if (!m) return '';
-    if (m.file && demoFiles.has(m.file)) return demoFiles.get(m.file);
+    if (m.file && demoGet(m.file)) return demoGet(m.file);
     if (m.path) return modelUrl(m.path);
     if (!isDriveId(m.file)) return '';
     return m.kind === 'photo' ? thumbUrl(m.file, width) : mediaUrl(m.file);
 }
 export function mediaThumb(m) {
     if (!m) return '';
-    if (m.kind === 'photo') return m.file && demoFiles.has(m.file) ? demoFiles.get(m.file) : (isDriveId(m.file) ? thumbUrl(m.file, 400) : '');
+    if (m.kind === 'photo') return m.file && demoGet(m.file) ? demoGet(m.file) : (isDriveId(m.file) ? thumbUrl(m.file, 400) : '');
     if (m.kind === 'video') return isDriveId(m.file) ? thumbUrl(m.file, 400) : '';
     return '';
 }
@@ -417,7 +416,7 @@ export function openStudio(host, { updateId, mediaId = '', edit = false } = {}) 
             <div class="us-choices">
                 <label class="us-choice${ready ? '' : ' is-off'}"><input type="file" accept="image/*,video/*" multiple data-us-file="media"${ready ? '' : ' disabled'}><strong>Upload photos or videos</strong><span>From this computer or phone. They go into ${esc(A.name)}’s “Website uploads” folder in Drive.</span></label>
                 <label class="us-choice${ready ? '' : ' is-off'}"><input type="file" accept=".stl,.obj,.3mf,.glb,.gltf" data-us-file="model"${ready ? '' : ' disabled'}><strong>Upload a 3D model</strong><span>STL, OBJ, 3MF or GLB. Compressed here in the browser first (about a tenth of the size), then uploaded.</span></label>
-                <button type="button" class="us-choice${ready && !host.demo ? '' : ' is-off'}" data-us="pick"${ready && !host.demo ? '' : ' disabled'}><strong>Pick from Google Drive</strong><span>Photos, videos or STL / GLB files already in Drive. STLs are compressed first.</span></button>
+                <button type="button" class="us-choice${driveReady() ? '' : ' is-off'}" data-us="pick"${driveReady() ? '' : ' disabled'}><strong>Google Drive</strong><span>Browse ${esc(A.name)}’s photos, videos, scans and design files. STLs are compressed first.</span></button>
                 ${host.siteModels.length ? `<label class="us-choice"><strong>A 3D model already on the site</strong><select data-us="site-model"><option value="">Choose…</option>${host.siteModels.map(f => `<option value="${esc(f.path)}">${esc(f.label)}</option>`).join('')}</select></label>` : ''}
                 <form class="us-choice" data-us-form="link"><strong>Paste a Google Drive link</strong><span>The file must be shared with anyone who has the link.</span>
                     <span class="us-row"><input name="link" placeholder="https://drive.google.com/file/d/…" required><select name="kind"><option value="photo">Photo</option><option value="video">Video</option><option value="model">3D model (GLB)</option></select><button type="submit">Add</button></span></form>
@@ -439,11 +438,7 @@ export function openStudio(host, { updateId, mediaId = '', edit = false } = {}) 
     function track(label) { const b = { label, p: 0 }; busy.push(b); renderRail(); return { set(p, text) { b.p = p; if (text) b.label = text; renderRail(); }, done() { busy = busy.filter(x => x !== b); renderRail(); } }; }
 
     async function uploadBlob(blob, name, kind) {
-        if (host.demo) {
-            const id = 'demo-' + randomKey();
-            demoFiles.set(id, URL.createObjectURL(blob));
-            return { id, name, bytes: blob.size };
-        }
+        if (host.demo) return { id: demoPut(blob), name, bytes: blob.size };
         const t = track(`Uploading ${name}`);
         try {
             return await uploadFile(blob, { name, mimeType: blob.type || (kind === 'model' ? 'model/gltf-binary' : undefined), folderId: A.uploadFolder, folderLabel: A.name, hint: host.user().email, onProgress: p => t.set(p, `Uploading ${name} · ${Math.round(p * 100)}%`) });
@@ -477,19 +472,20 @@ export function openStudio(host, { updateId, mediaId = '', edit = false } = {}) 
     }
 
     async function pickFromDrive() {
-        const docs = await pickFiles({ hint: host.user().email, folderId: A.uploadFolder, title: `Add to ${A.name}’s update` });
+        const { openDriveGallery } = await import('./drive-gallery.js?v=1');
+        const files = await openDriveGallery({ animal: A, title: U()?.title || '' });
         let lastId = '';
-        for (const d of docs) {
-            if (MODEL_EXT.test(d.name) && !/\.glb$/i.test(d.name)) {
-                const t = track(`Downloading ${d.name}`);
+        for (const f of files) {
+            const k = fileKind(f);
+            if (k === 'mesh') {
+                const t = track(`Downloading ${f.name}`);
                 let blob;
-                try { blob = await downloadFile(d.id, { hint: host.user().email }); } finally { t.done(); }
-                const c = await compress(new File([blob], d.name), d.name);
+                try { blob = await downloadPublic(f.id, p => t.set(p, `Downloading ${f.name} · ${Math.round(p * 100)}%`)); } finally { t.done(); }
+                const c = await compress(new File([blob], f.name), f.name);
                 const up = await uploadBlob(c.blob, c.name, 'model');
-                lastId = await addMedia({ kind: 'model', file: up.id, name: d.name.replace(/\.[^.]+$/, ''), bytes: up.bytes });
-            } else {
-                const kind = /\.glb$/i.test(d.name) ? 'model' : String(d.mimeType).startsWith('video/') ? 'video' : 'photo';
-                lastId = await addMedia({ kind, file: d.id, name: d.name.replace(/\.[^.]+$/, ''), bytes: d.bytes });
+                lastId = await addMedia({ kind: 'model', file: up.id, name: f.name.replace(/\.[^.]+$/, ''), bytes: up.bytes });
+            } else if (k) {
+                lastId = await addMedia({ kind: k, file: f.id, name: f.name.replace(/\.[^.]+$/, ''), bytes: f.bytes });
             }
         }
         if (lastId) { current = lastId; mountStage(); renderRail(); }
@@ -649,7 +645,7 @@ export function openStudio(host, { updateId, mediaId = '', edit = false } = {}) 
         document.removeEventListener('fullscreenchange', onFs);
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         root.remove();
-        document.body.classList.remove('us-open');
+        if (!document.querySelector('.ue')) document.body.classList.remove('us-open'); // the editor may still be open underneath
         host.onClose?.();
         lastFocus?.focus?.();
     }

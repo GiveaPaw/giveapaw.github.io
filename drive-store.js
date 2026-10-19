@@ -73,8 +73,34 @@ export function getToken({ hint = '' } = {}) {
     return pending;
 }
 
+export const hasToken = () => !!(token && token.expires > Date.now() + 60000);
+
+// Google's consent window only opens from a click. When an upload needs Drive access and there is no
+// token yet, show a small prompt whose button makes that click.
+export function ensureToken({ hint = '' } = {}) {
+    if (hasToken()) return Promise.resolve(token.value);
+    preloadDrive().catch(() => {}); // so Google's script is ready by the time the button is clicked
+    return new Promise((resolve, reject) => {
+        document.querySelector('.ds-connect')?.remove();
+        const box = document.createElement('div');
+        box.className = 'ds-connect';
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-label', 'Connect Google Drive');
+        box.innerHTML = `<strong>Connect Google Drive</strong><p>To upload, Google asks once to let this site add files to Drive. It can only see files it adds or that you pick.</p>
+            <p class="ds-err" role="alert"></p><div><button type="button" data-ds="no">Cancel</button><button type="button" data-ds="go">Connect Google Drive</button></div>`;
+        document.body.append(box);
+        box.querySelector('[data-ds=go]').focus();
+        box.addEventListener('click', e => {
+            const act = e.target.closest('[data-ds]')?.dataset.ds;
+            if (act === 'no') { box.remove(); reject(new Error('Google Drive was not connected.')); }
+            if (act === 'go') getToken({ hint }).then(t => { box.remove(); resolve(t); }, err => { box.querySelector('.ds-err').textContent = err.message; });
+        });
+    });
+}
+
 // ---------------------------------------------------------------- picker
-function picker(view, { title, multi = false } = {}) {
+async function picker(view, { title, multi = false } = {}) {
+    await preloadDrive();
     return new Promise((resolve, reject) => {
         const P = window.google?.picker;
         if (!P) { reject(new Error('The Google Drive picker is still loading. Try again in a moment.')); return; }
@@ -98,6 +124,7 @@ function picker(view, { title, multi = false } = {}) {
 // which lets this app put files in it. Remembered per browser.
 async function grantFolder(folderId, label) {
     if (store.get(GRANTED_PREFIX + folderId)) return true;
+    await preloadDrive();
     const P = window.google.picker;
     const view = new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setFileIds(folderId);
     const docs = await picker(view, { title: `Click “Website uploads” for ${label}, then Select` });
@@ -108,7 +135,8 @@ async function grantFolder(folderId, label) {
 
 // Pick existing files (photos, videos, 3D files) from Drive, starting in a folder.
 export async function pickFiles({ hint, folderId, title = 'Pick files from Google Drive' } = {}) {
-    await getToken({ hint });
+    await ensureToken({ hint });
+    await preloadDrive();
     const P = window.google.picker;
     const view = new P.DocsView(P.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);
     if (folderId) view.setParent(folderId);
@@ -118,7 +146,7 @@ export async function pickFiles({ hint, folderId, title = 'Pick files from Googl
 
 // Download a picked file (e.g. an STL to compress). Needs the token: the app may read files picked with the Picker.
 export async function downloadFile(id, { hint } = {}) {
-    const t = await getToken({ hint });
+    const t = await ensureToken({ hint });
     const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media`, { headers: { Authorization: 'Bearer ' + t } });
     if (!r.ok) throw new Error('Could not download that file from Drive (' + r.status + ').');
     return r.blob();
@@ -127,7 +155,7 @@ export async function downloadFile(id, { hint } = {}) {
 // ---------------------------------------------------------------- upload
 // Resumable upload (any size), with progress. Returns { id, name, mimeType, bytes }.
 export async function uploadFile(blob, { name, mimeType, folderId, folderLabel, hint, onProgress = () => {} }) {
-    const t = await getToken({ hint });
+    const t = await ensureToken({ hint });
     if (folderId && !(await grantFolder(folderId, folderLabel || 'this animal'))) throw new Error('Pick the “Website uploads” folder to upload there.');
     const start = async parents => fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,mimeType,size', {
         method: 'POST',
@@ -153,3 +181,54 @@ export async function uploadFile(blob, { name, mimeType, folderId, folderLabel, 
     });
     return { id: file.id, name: file.name, mimeType: file.mimeType, bytes: Number(file.size) || blob.size };
 }
+
+// ---------------------------------------------------------------- browsing (no sign-in)
+// Lists a publicly shared folder with the browser key: folders first, then files, newest first.
+const LIST_FIELDS = 'nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,hasThumbnail,thumbnailLink,imageMediaMetadata(width,height,rotation),videoMediaMetadata(width,height,durationMillis))';
+export async function listFolder(folderId) {
+    if (!driveConfig.apiKey) throw new Error('Google Drive is not set up on this site yet (drive-config.js has no API key).');
+    const out = [];
+    let page = '';
+    do {
+        const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+        const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=${encodeURIComponent(LIST_FIELDS)}&pageSize=200&orderBy=folder,modifiedTime desc${page ? '&pageToken=' + encodeURIComponent(page) : ''}&key=${encodeURIComponent(driveConfig.apiKey)}`);
+        const d = await r.json();
+        if (!r.ok) throw new Error(d?.error?.message || 'Google Drive did not list that folder (' + r.status + ').');
+        out.push(...(d.files || []));
+        page = d.nextPageToken || '';
+    } while (page && out.length < 2000);
+    return out.map(f => ({ ...f, bytes: Number(f.size) || 0, isFolder: f.mimeType === 'application/vnd.google-apps.folder' }));
+}
+
+// Downloads a publicly shared file with the browser key (e.g. an STL to compress). No sign-in needed.
+export async function downloadPublic(id, onProgress = () => {}) {
+    const url = mediaUrl(id);
+    if (!url) throw new Error('Google Drive is not set up on this site yet.');
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Could not download that file from Drive (' + r.status + ').');
+    const total = Number(r.headers.get('Content-Length')) || 0;
+    if (!r.body || !total) return r.blob();
+    const reader = r.body.getReader();
+    const parts = [];
+    let got = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value); got += value.length; onProgress(got / total);
+    }
+    return new Blob(parts);
+}
+
+export const fileKind = f => {
+    const n = String(f.name || '').toLowerCase(), m = String(f.mimeType || '');
+    if (m.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/.test(n)) return 'photo';
+    if (m.startsWith('video/') || /\.(mov|mp4|m4v|webm)$/.test(n)) return 'video';
+    if (/\.glb$/.test(n)) return 'model';
+    if (/\.(stl|obj|3mf)$/.test(n)) return 'mesh';
+    return '';
+};
+
+// Demo mode (?casedemo=1): "uploads" stay in this tab as blob URLs, under ids shaped like Drive ids.
+const demoFiles = new Map();
+export const demoPut = blob => { const id = 'demo-' + Date.now().toString(36) + crypto.getRandomValues(new Uint32Array(2)).join('').slice(0, 16); demoFiles.set(id, URL.createObjectURL(blob)); return id; };
+export const demoGet = id => demoFiles.get(id) || '';

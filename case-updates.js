@@ -16,12 +16,11 @@
 //
 // ?casedemo=1 runs everything against this browser's localStorage, signed in as an admin;
 // ?casedemo=viewer signs in as someone who is not an editor. See CASE-UPDATES-SETUP.md.
-import { thumbUrl, isDriveId, driveIdFrom } from './drive-store.js?v=1';
+import { thumbUrl, isDriveId, driveIdFrom, demoGet, demoPut } from './drive-store.js?v=2';
 
 const FIREBASE_CDN = 'https://www.gstatic.com/firebasejs/10.14.1/';
 const SIGNED_IN_FLAG = 'gap-cases-signed-in';
 const DEMO_KEY = 'gap-cases-demo';
-const MAX_PHOTOS = 8;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -35,7 +34,7 @@ const keyToEmail = key => String(key).replace(/,/g, '.');
 
 export const driveId = driveIdFrom;
 const mediaOf = u => Object.entries(u?.media || {}).map(([id, m]) => ({ id, ...m })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.at || 0) - (b.at || 0));
-const mediaThumb = m => (m.kind === 'photo' || m.kind === 'video') && isDriveId(m.file) ? thumbUrl(m.file, 600) : '';
+const mediaThumb = m => (m.kind === 'photo' && demoGet(m.file)) || ((m.kind === 'photo' || m.kind === 'video') && isDriveId(m.file) && !demoGet(m.file) ? thumbUrl(m.file, 600) : '');
 
 // Plain text → paragraphs, line breaks and https links; everything else escaped.
 function textHTML(text) {
@@ -160,6 +159,28 @@ export async function initUpdates({ H, panels, show }, manifest) {
         newKey: () => db.newKey(),
         onClose: () => { studio = null; if (/^#update\//.test(location.hash)) history.replaceState(null, '', '#updates'); },
     };
+    // ---- update editor (update-editor.js), laid out like the presentation editor
+    let editor = null;
+    let justPublished = '';
+    async function openEditor(id = '') {
+        const mod = await import('./update-editor.js?v=1');
+        editor = mod.openUpdateEditor({
+            ...host,
+            animal: { ...host.animal, driveFolder: A.driveFolder || '' },
+            demoStore: blob => demoPut(blob),
+            demoUrl: fid => demoGet(fid),
+            renderFeedItem: u => updateHTML(u, { preview: true }),
+            renderCardSnippet: u => cardSnippet(u),
+            openPreview: async (u, mediaKey, onDone) => {
+                const st = await import('./update-studio.js?v=1');
+                st.openStudio({ ...host, getUpdate: () => u, canEdit: () => false, canChange: () => false, teamMarks: () => null, onClose: onDone }, { updateId: u.id, mediaId: mediaKey });
+            },
+            openStudio: (uid, mid, edit) => openUpdate(uid, mid, edit),
+            onPublished: uid => { justPublished = uid; },
+            // After publishing, closing the editor lands on the update in the Report tab.
+            onClose: () => { editor = null; if (justPublished) { justPublished = ''; goUpdates(); } },
+        }, { updateId: id });
+    }
     async function openUpdate(id, mediaId = '', edit = false) {
         if (!data.updates?.[id]) return;
         const mod = await import('./update-studio.js?v=1');
@@ -191,15 +212,10 @@ export async function initUpdates({ H, panels, show }, manifest) {
             }
         }
         if (latest && card) {
-            const photo = mediaOf(latest).find(m => m.kind === 'photo' && isDriveId(m.file))?.file;
-            const plain = String(latest.text || '').replace(/\s+/g, ' ').trim();
             const box = document.createElement('span');
             box.className = 'cu-card-update';
             box.dataset.cu = '';
-            box.innerHTML = `<span class="cu-latest-k">Latest update · ${esc(fmtDate(latest.date, { month: 'short', day: 'numeric' }))}</span>
-                <strong>${esc(latest.title)}</strong>
-                ${plain ? `<span class="cu-card-text">${esc(plain.length > 150 ? plain.slice(0, 147).replace(/\s+\S*$/, '') + '…' : plain)}</span>` : ''}
-                ${photo ? `<img src="${esc(thumbUrl(photo, 1000))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}`;
+            box.innerHTML = cardSnippet(latest);
             $('.chv-go', card).before(box);
         } else if (latest) {
             const banner = document.createElement('a');
@@ -235,9 +251,21 @@ export async function initUpdates({ H, panels, show }, manifest) {
         }
         renderTeamBar();
         studio?.refresh();
+        editor?.refresh();
     }
 
-    function updateHTML(u) {
+    // The latest update inside step 2 of the overview.
+    function cardSnippet(u) {
+        const first = mediaOf(u).find(m => m.kind === 'photo');
+        const photo = first && (demoGet(first.file) || (isDriveId(first.file) ? thumbUrl(first.file, 1000) : ''));
+        const plain = String(u.text || '').replace(/\s+/g, ' ').trim();
+        return `<span class="cu-latest-k">Latest update · ${esc(fmtDate(u.date, { month: 'short', day: 'numeric' }))}</span>
+            <strong>${esc(u.title)}</strong>
+            ${plain ? `<span class="cu-card-text">${esc(plain.length > 150 ? plain.slice(0, 147).replace(/\s+\S*$/, '') + '…' : plain)}</span>` : ''}
+            ${photo ? `<img src="${esc(photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}`;
+    }
+
+    function updateHTML(u, { preview = false } = {}) {
         const media = mediaOf(u);
         const notes = media.reduce((n, m) => n + Object.keys(m.marks || {}).length, 0);
         const by = String(u.author || '').split(' ')[0];
@@ -256,8 +284,9 @@ export async function initUpdates({ H, panels, show }, manifest) {
             ${media.length ? `<div class="cu-photos">${media.slice(0, 8).map(tile).join('')}</div>` : ''}
             <div class="cu-item-actions">
                 ${media.length ? `<button type="button" class="cu-btn cu-primary" data-cu-act="open" data-id="${esc(u.id)}">Open full screen${notes ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}</button>` : ''}
-                ${canEdit() ? `<button type="button" class="cu-btn" data-cu-act="annotate" data-id="${esc(u.id)}">${media.length ? 'Add media & notes' : 'Add photos, videos or 3D'}</button>` : ''}
-                ${canChange(u) ? `<button type="button" class="cu-btn" data-cu-act="edit" data-id="${esc(u.id)}">Edit text</button><button type="button" class="cu-btn cu-danger" data-cu-act="delete" data-id="${esc(u.id)}">Delete</button>` : ''}
+                ${!preview && canChange(u) ? `<button type="button" class="cu-btn" data-cu-act="edit" data-id="${esc(u.id)}">Edit update</button>` : ''}
+                ${!preview && canEdit() && media.length ? `<button type="button" class="cu-btn" data-cu-act="annotate" data-id="${esc(u.id)}">Pins &amp; notes</button>` : ''}
+                ${!preview && canChange(u) ? `<button type="button" class="cu-btn cu-danger" data-cu-act="delete" data-id="${esc(u.id)}">Delete</button>` : ''}
             </div>
         </li>`;
     }
@@ -321,21 +350,6 @@ export async function initUpdates({ H, panels, show }, manifest) {
             .catch(err => fail(new Error('Could not reach the sign-in service. Check your connection and try again.'), 'load'));
     }
 
-    function updateDialog(u) {
-        openDialog(`<form class="cu-form" data-cu-form="update" data-id="${esc(u?.id || '')}">
-            <h2>${u ? 'Edit update' : 'Post an update'} · ${esc(H.name)}</h2>
-            <label>Date <input type="date" name="date" required value="${esc(u?.date || today())}"></label>
-            <label>Title <input name="title" required maxlength="100" value="${esc(u?.title || '')}" placeholder="e.g. Second fitting went well"></label>
-            <label>What happened <textarea name="text" rows="6" maxlength="4000" placeholder="Plain text. Leave a blank line between paragraphs; links starting with https:// become clickable.">${esc(u?.text || '')}</textarea></label>
-            ${u ? '<p class="cu-hint">Photos, videos, 3D models and their notes are managed in full screen (“Add media &amp; notes”).</p>'
-                : `<label>Photos (optional) <textarea name="photos" rows="3" placeholder="Paste Google Drive links, one per line (up to ${MAX_PHOTOS}). The files must be shared publicly, like the Animals Spring 2026 folder.">${''}</textarea></label>
-            <label class="cu-check"><input type="checkbox" name="studio" checked> Open full screen next to upload photos, videos or 3D models and add pins, notes and drawings</label>`}
-            <p class="cu-hint">Everything here is public as soon as you post it.</p>
-            <p class="cu-error" role="alert"></p>
-            <div class="cu-form-actions"><button type="button" class="cu-btn" data-cu-act="close">Cancel</button><button type="submit" class="cu-btn cu-primary">${u ? 'Save changes' : 'Post update'}</button></div>
-        </form>`);
-    }
-
     function statusDialog() {
         const o = data.overview || {};
         openDialog(`<form class="cu-form" data-cu-form="status">
@@ -389,8 +403,8 @@ export async function initUpdates({ H, panels, show }, manifest) {
             db.signIn().then(() => { store.set(SIGNED_IN_FLAG, '1'); dialog.close(); })
                 .catch(err => { if (!/popup-closed|cancelled-popup/.test(err?.code || '')) fail(err?.code === 'auth/popup-blocked' ? new Error('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.') : err, 'sign in'); });
         } else if (act === 'signout') { store.set(SIGNED_IN_FLAG, null); db.signOut(); }
-        else if (act === 'new') updateDialog(null);
-        else if (act === 'edit') updateDialog(updates().find(u => u.id === btn.dataset.id));
+        else if (act === 'new') openEditor('');
+        else if (act === 'edit') openEditor(btn.dataset.id);
         else if (act === 'status') statusDialog();
         else if (act === 'editors') editorsDialog();
         else if (act === 'close') dialog.close();
@@ -416,32 +430,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
         const submit = $('button[type=submit]', form);
         submit.disabled = true;
         try {
-            if (form.dataset.cuForm === 'update') {
-                const lines = String(f.photos || '').split(/\s+/).filter(Boolean);
-                const ids = lines.map(driveId);
-                if (ids.includes(null)) throw new Error('One of the photo lines is not a Google Drive link.');
-                if (ids.length > MAX_PHOTOS) throw new Error(`Up to ${MAX_PHOTOS} photos per update.`);
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) throw new Error('Pick a date.');
-                const id = form.dataset.id;
-                const old = id ? updates().find(u => u.id === id) : null;
-                const now = Date.now();
-                const media = old ? old.media : Object.fromEntries([...new Set(ids)].map((file, i) => [db.newKey(), { kind: 'photo', file, name: 'Photo', order: i + 1, uid: user.uid, at: now }]));
-                const value = {
-                    uid: old ? old.uid : user.uid,
-                    author: old ? old.author : user.name,
-                    at: old ? old.at : now,
-                    date: f.date,
-                    title: f.title.trim().slice(0, 100),
-                    text: String(f.text || '').trim().slice(0, 4000),
-                    ...(media && Object.keys(media).length ? { media } : {}),
-                    ...(old ? { edited: now } : {}),
-                };
-                if (!value.title) throw new Error('Add a title.');
-                const newId = id || db.newKey();
-                await db.set(`${pagePath}/updates/${newId}`, value);
-                dialog.close();
-                if (!id) { goUpdates(); if (f.studio === 'on') openUpdate(newId, '', true); }
-            } else if (form.dataset.cuForm === 'status') {
+            if (form.dataset.cuForm === 'status') {
                 const status = String(f.status || '').trim().slice(0, 140);
                 await db.set(`${pagePath}/overview`, status ? { status, by: user.uid, byName: user.name, at: Date.now() } : null);
                 dialog.close();
@@ -464,7 +453,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
     });
 
     // ---- start
-    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=2">');
+    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=2"><link rel="stylesheet" href="update-editor.css?v=4">');
     data = await db.readPublic(animal).catch(() => ({}));
     render();
     if (location.hash === '#updates') goUpdates();
