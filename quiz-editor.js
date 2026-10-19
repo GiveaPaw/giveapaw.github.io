@@ -34,7 +34,7 @@ window.QuizEditor = function (ctx) {
     const isParked = it => !hasShape(it) && it.x === 4;
 
     // Touch screens (iPad) get bigger handles and wording for taps.
-    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const coarse = window.matchMedia('(any-pointer: coarse)').matches;
     const R = coarse ? 1.8 : 1;
     const tap = coarse ? 'Tap' : 'Click';
     const Cloud = window.AnatomyCloud || null;
@@ -269,11 +269,11 @@ window.QuizEditor = function (ctx) {
     // farthest from any edge that still resolves to this item - i.e. not
     // inside a smaller sibling, which the engine's smallest-area-wins hit
     // test would give to the sibling instead.
-    function placeMarker(it) {
+    function placeMarker(it, list) {
         if (!hasShape(it)) return;
         const a = aspect();
         const own = sample(it.points, it.smooth), ownA = area(own);
-        const rivals = items().filter(o => o !== it && hasShape(o))
+        const rivals = (list || items()).filter(o => o !== it && hasShape(o))
             .map(o => sample(o.points, o.smooth)).filter(o => area(o) < ownA);
         const xs = own.map(p => p[0]), ys = own.map(p => p[1]);
         const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -455,6 +455,7 @@ window.QuizEditor = function (ctx) {
             el.classList.toggle('selected', it === selected);
             el.classList.toggle('qe-traced', hasShape(it));
             el.classList.toggle('qe-parked', isParked(it));
+            el.style.display = hasShape(it) || isParked(it) ? 'none' : '';
         };
         place();
         status();
@@ -589,7 +590,7 @@ window.QuizEditor = function (ctx) {
         if (document.activeElement !== nameInput) nameInput.value = selected.name;
         const n = selected.points ? selected.points.length : 0;
         $('.qe-selmeta').textContent = tracing ? 'Tracing: ' + n + ' point' + (n === 1 ? '' : 's') + ' so far'
-            : hasShape(selected) ? n + ' points, marker at ' + selected.x + ', ' + selected.y
+            : hasShape(selected) ? n + ' points'
             : isParked(selected) ? 'Not placed yet - trace it, or drag its marker from the left edge'
             : 'Marker only, no shape';
         const slider = $('.qe-smooth input');
@@ -1133,7 +1134,7 @@ window.QuizEditor = function (ctx) {
         tracing = false;
         traceBackup = null;
         frame.classList.remove('quiz-tracing', 'qe-can-close');
-        placeMarker(done);
+        tidy(done);
         changed();
         if (!(o && o.quiet)) flash('Traced ' + done.name + ' (' + done.points.length + ' points).');
         if (opts.advance && !(o && o.noAdvance)) {
@@ -1618,7 +1619,8 @@ window.QuizEditor = function (ctx) {
     // ------------------------------------------------------- full screen
     // Automatic on touch screens and narrow windows (an iPad in either
     // orientation); "Full screen" / "Exit full screen" override it.
-    const autoStudio = window.matchMedia('(pointer: coarse), (max-width: 1100px)');
+    const autoStudio = window.matchMedia('(any-pointer: coarse), (max-width: 1100px)');
+    const narrowMQ = window.matchMedia('(max-width: 1100px)');
     const wideMQ = window.matchMedia('(min-width: 1000px)');
     const wideStudio = () => wideMQ.matches;
     let studio = false;
@@ -1650,18 +1652,53 @@ window.QuizEditor = function (ctx) {
             zoom = 1; panX = 0; panY = 0;
         }
         // "Exit full screen" only where full screen was asked for by hand
-        app.classList.toggle('qe-studio-manual', opts.studio === 'on' && !autoStudio.matches);
+        app.classList.toggle('qe-studio-manual', !narrowMQ.matches);
         fitStudio();
     }
-    const onMQ = () => applyStudio();
+    // Turning an iPad: landscape docks the list beside the image, portrait
+    // puts it away so it does not cover the picture.
+    let wasWide = wideStudio();
+    const onMQ = () => {
+        applyStudio();
+        if (studio && wideStudio() !== wasWide) setDrawer(wideStudio());
+        wasWide = wideStudio();
+    };
     [autoStudio, wideMQ].forEach(mq => (mq.addEventListener ? mq.addEventListener('change', onMQ) : mq.addListener(onMQ)));
 
     // Handle sizes depend on the rendered image size.
     imageEl.addEventListener('load', () => { drawHandles(); drawGuide(); });
-    window.addEventListener('resize', () => { fitStudio(); });
+    window.addEventListener('resize', onMQ);
+    window.addEventListener('orientationchange', () => setTimeout(onMQ, 300));
+
+    // An outlined item needs no circle size or angle, and its quiz pin (used
+    // by the Matching mode) must sit inside its own outline.
+    function tidy(it, list) {
+        if (!hasShape(it)) return false;
+        let fixed = false;
+        ['w', 'h', 'rot'].forEach(k => { if (k in it) { delete it[k]; fixed = true; } });
+        if (!inside(sample(it.points, it.smooth), it.x, it.y)) { placeMarker(it, list); fixed = true; }
+        return fixed;
+    }
+
+    const touchCss = document.createElement('style');
+    touchCss.textContent =
+        // no "Save image" callout, text selection or magnifier on long presses
+        '.anatomy-quiz.dev .quiz-viewport, .anatomy-quiz.dev .quiz-viewport * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }' +
+        '.qe-studio .qe-top, .qe-studio .qe-dock, .qe-studio .qe-row { -webkit-user-select: none; user-select: none; }' +
+        // markers are automatic now
+        '.qe-selected [data-act="center"] { display: none; }' +
+        // finished outlines in blue over a white halo: white-on-white vanished on line art
+        '#quiz-dev-polys .qe-halo:not(.selected) { stroke: rgba(255, 255, 255, 0.9); stroke-width: 4; }' +
+        '#quiz-dev-polys .qe-shape:not(.selected) { stroke: #1f5bd8; stroke-width: 1.75; fill: rgba(31, 91, 216, 0.12); }' +
+        '#quiz-dev-polys .qe-halo.selected { stroke: rgba(0, 0, 0, 0.35); }';
+    document.head.appendChild(touchCss);
+    // Safari's own pinch gesture would zoom the whole page over the image
+    ['gesturestart', 'gesturechange'].forEach(t => viewport.addEventListener(t, e => e.preventDefault(), { passive: false }));
 
     // ------------------------------------------------------------- boot
     loadDraft();
+    let repaired = 0;
+    Object.keys(QUIZZES).forEach(k => QUIZZES[k].items.forEach(it => { if (tidy(it, QUIZZES[k].items)) repaired++; }));
     frame.classList.toggle('qe-all-labels', opts.labels);
     applyStudio();
     setSet(devKey);
@@ -1669,6 +1706,7 @@ window.QuizEditor = function (ctx) {
         const bar = document.querySelector('.quiz-tabs');
         if (bar) bar.scrollIntoView({ block: 'start' });
     }
+    if (repaired) { saveDraft(); flash('Tidied ' + repaired + ' saved outline' + (repaired === 1 ? '' : 's') + ': quiz pins moved inside their outlines.'); }
     renderCloud();
     if (Cloud) {
         Cloud.onUser(u => {

@@ -64,7 +64,7 @@
     // on demand, so quiz visitors never download it.
     if (new URLSearchParams(window.location.search).has('dev')) {
         app.querySelector('.quiz-panel').hidden = true;
-        cloudReady.then(() => loadScript('quiz-editor.js?v=8')).then(() => window.QuizEditor({
+        cloudReady.then(() => loadScript('quiz-editor.js?v=9')).then(() => window.QuizEditor({
             CONFIG, QUIZZES, app, imageEl, marker, tabs, smoothPath,
         }));
         return;
