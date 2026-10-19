@@ -303,6 +303,11 @@ footer {
     transition: all 0.2s ease;
 }
 
+.footer-next {
+    margin-left: auto;
+    text-align: right;
+}
+
 .footer-next:hover,
 .footer-prev:hover {
     background: #e9ecef;
@@ -886,6 +891,24 @@ blockquote footer {
 .process {
     background: #f4f6f8;
     padding: 4rem 0;
+}
+
+.process.try-it {
+    background: transparent;
+}
+
+.related-links ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.related-links li {
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.related-links li a {
+    font-weight: 600;
 }
 
 .process-grid {

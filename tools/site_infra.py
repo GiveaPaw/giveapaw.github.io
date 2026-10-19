@@ -28,18 +28,30 @@ NAV_GROUPS = [
     ("How We Build", [
         ("3d-scanning.html", "3D Scanning"),
         ("preparing-ntop-input.html", "Preparing nTop Input"),
-        ("socket-walkthrough.html", "Socket Walkthrough"),
         ("ntop-socket-creation.html", "nTop Socket Creation"),
-        ("implicit-viewer.html", "Implicit Field Viewer"),
         ("pelvic-plane-locator.html", "Pelvic Plane Locator"),
         ("interface-plane-locator.html", "Interface Plane Locator"),
+        ("socket-walkthrough-sample.html", "Socket Walkthrough"),
+        ("implicit-viewer.html", "Implicit Field Viewer"),
+        ("mesh-tolerance.html", "Mesh Tolerance"),
         ("materials.html", "Materials"),
         ("3d-printing.html", "3D Printing"),
     ]),
     ("Learn &amp; Try", [
         ("anatomy-quiz.html", "Canine Anatomy Quiz"),
-        ("human-anatomy-quiz.html", "Human Anatomy Quiz"),
-        ("downloads.html", "Downloads"),
+    ]),
+    ("Human Anatomy", [
+        ("human-anatomy-quiz.html", "Full Skeleton"),
+        ("head-anatomy-quiz.html", "Head &amp; Neck"),
+        ("chest-anatomy-quiz.html", "Chest &amp; Lungs"),
+        ("heart-anatomy-quiz.html", "Heart"),
+        ("organs-anatomy-quiz.html", "Abdominal Organs"),
+        ("arm-anatomy-quiz.html", "Shoulder &amp; Arm"),
+        ("hand-anatomy-quiz.html", "Hand &amp; Forearm"),
+        ("spine-anatomy-quiz.html", "Spine &amp; Pelvis"),
+        ("knee-anatomy-quiz.html", "Knee"),
+        ("foot-anatomy-quiz.html", "Foot &amp; Ankle"),
+        ("ear-anatomy-quiz.html", "Ear"),
     ]),
     ("About", [
         ("meet-the-team.html", "Meet the Team"),
@@ -60,6 +72,166 @@ def build_nav(current):
         out.append('            </ul>')
     out.append('        </nav>')
     return '\n'.join(out)
+
+
+# ---- footer previous / next ----------------------------------------------
+# One reading order: Home, then every nav page in nav order. Pages with a
+# <footer> get the links generated; hand edits are overwritten.
+READING_ORDER = [("index.html", "Home")] + [
+    link for _, links in NAV_GROUPS for link in links]
+
+
+def build_footer_nav(current):
+    hrefs = [h for h, _ in READING_ORDER]
+    if current not in hrefs or current == "index.html":
+        return None
+    i = hrefs.index(current)
+    out = ['<div class="footer-navigation">']
+    for j, kind, label in ((i - 1, "prev", "Previous"), (i + 1, "next", "Next")):
+        if 0 <= j < len(READING_ORDER):
+            href, title = READING_ORDER[j]
+            out += [
+                '                    <a href="%s" class="footer-%s">' % (href, kind),
+                '                        <div class="footer-%s-label">%s</div>' % (kind, label),
+                '                        <div class="footer-%s-title">%s</div>' % (kind, title),
+                '                    </a>',
+            ]
+    out.append('                </div>')
+    return '\n'.join(out)
+
+
+# ---- related links -------------------------------------------------------
+# Connects each case study to the build pages behind it and each build page
+# to the patients it was used on. Generated between related:start/end
+# markers, before Referenced Papers on case studies, else at the article end.
+RELATED = {
+    "max-case-study.html": [("How We Built It", [
+        ("full-limb.html", "Full limb prosthetics", "Max's project next to the team's other full-limb builds"),
+        ("3d-scanning.html", "3D Scanning", "how the scan in the Files tab is captured"),
+        ("preparing-ntop-input.html", "Preparing nTop Input", "cleaning a scan before it goes into nTop"),
+        ("ntop-socket-creation.html", "nTop Socket Creation", "the blocks behind the nTop files"),
+        ("materials.html", "Materials", "where each material belongs in a device"),
+        ("3d-printing.html", "3D Printing", "printing the parts"),
+    ])],
+    "billie-case-study.html": [("How We Built It", [
+        ("full-limb.html", "Full limb prosthetics", "Billie's project next to the team's other full-limb builds"),
+        ("3d-scanning.html", "3D Scanning", "how both of Billie's scans were captured"),
+        ("preparing-ntop-input.html", "Preparing nTop Input", "getting the Onshape file ready for nTop"),
+        ("ntop-socket-creation.html", "nTop Socket Creation", "the socket and lattice blocks"),
+        ("pelvic-plane-locator.html", "Pelvic Plane Locator", "place the pelvic plane on Billie's scan"),
+        ("interface-plane-locator.html", "Interface Plane Locator", "place the interface plane on Billie's socket"),
+        ("implicit-viewer.html", "Implicit Field Viewer", "Billie's full prosthetic as a live distance field"),
+        ("materials.html", "Materials", "PETG, aluminum and TPU, and why"),
+        ("3d-printing.html", "3D Printing", "printing the socket and the lattice paw"),
+    ])],
+    "yana-case-study.html": [("How We Built It", [
+        ("full-limb.html", "Full limb prosthetics", "Yana's project next to the team's other full-limb builds"),
+        ("3d-scanning.html", "3D Scanning", "how the scan in the Files tab is captured"),
+        ("ntop-socket-creation.html", "nTop Socket Creation", "how the lattice harness is generated"),
+        ("materials.html", "Materials", "TPU for the harness and paw, aluminum for the leg"),
+        ("3d-printing.html", "3D Printing", "printing the harness and paw"),
+    ])],
+    "ollie-case-study.html": [("How We Built It", [
+        ("full-limb.html", "Full limb prosthetics", "Ollie's project next to the team's other full-limb builds"),
+        ("socket-walkthrough-sample.html", "Socket Walkthrough", "build Ollie's socket yourself, step by step"),
+        ("3d-scanning.html", "3D Scanning", "how Ollie's scan was captured"),
+        ("ntop-socket-creation.html", "nTop Socket Creation", "the blocks that generate the socket"),
+        ("interface-plane-locator.html", "Interface Plane Locator", "place the interface plane on Ollie's socket"),
+        ("implicit-viewer.html", "Implicit Field Viewer", "Ollie's socket as a live distance field"),
+        ("mesh-tolerance.html", "Mesh Tolerance", "how export settings change Ollie's socket file"),
+        ("materials.html", "Materials", "where each material belongs in a device"),
+    ])],
+    "kiki-case-study.html": [("How We Built It", [
+        ("wheel-chair.html", "Wheelchairs", "Kiki's project with the team's wheelchair builds"),
+        ("3d-scanning.html", "3D Scanning", "how scans like Kiki's lidar scan are captured"),
+        ("ntop-socket-creation.html", "nTop Socket Creation", "the nTop workflow used for the first prototype"),
+        ("materials.html", "Materials", "where each material belongs in a device"),
+        ("3d-printing.html", "3D Printing", "printing the parts"),
+    ])],
+    "3d-scanning.html": [("See It on Our Patients", [
+        ("billie-case-study.html#files", "Billie", "two scans, the second taken to improve the fit"),
+        ("ollie-case-study.html#files", "Ollie", "the scan used in the socket walkthrough"),
+        ("kiki-case-study.html#files", "Kiki", "a lidar scan"),
+        ("max-case-study.html#files", "Max", "scan files"),
+        ("yana-case-study.html#files", "Yana", "scan files"),
+    ])],
+    "preparing-ntop-input.html": [("See It on Our Patients", [
+        ("billie-case-study.html#iteration-design", "Billie", "the Onshape file that was imported into nTop"),
+        ("ollie-case-study.html", "Ollie", "the cleaned scan and attachment surface"),
+        ("socket-walkthrough-sample.html", "Socket Walkthrough", "import Ollie's prepared meshes in Step 1"),
+    ])],
+    "ntop-socket-creation.html": [
+        ("Try It Yourself", [
+            ("socket-walkthrough-sample.html", "Socket Walkthrough", "build Ollie's socket block by block"),
+            ("pelvic-plane-locator.html", "Pelvic Plane Locator", "the pelvic plane block on a real scan"),
+            ("interface-plane-locator.html", "Interface Plane Locator", "the interface plane block"),
+            ("implicit-viewer.html", "Implicit Field Viewer", "sockets as live distance fields"),
+            ("mesh-tolerance.html", "Mesh Tolerance", "what the export tolerance does to the file"),
+        ]),
+        ("See It on Our Patients", [
+            ("ollie-case-study.html", "Ollie", "the socket in the walkthrough"),
+            ("billie-case-study.html", "Billie", "socket and gyroid lattice paw"),
+            ("yana-case-study.html", "Yana", "lattice harness"),
+            ("max-case-study.html#files", "Max", "nTop files"),
+            ("kiki-case-study.html#iteration-design", "Kiki", "what changed after the first nTop prototype"),
+        ]),
+    ],
+    "materials.html": [("See It on Our Patients", [
+        ("max-case-study.html#materials", "Max", "materials chosen for water resistance"),
+        ("billie-case-study.html#materials", "Billie", "PETG socket, aluminum leg, TPU paw"),
+        ("yana-case-study.html#materials", "Yana", "TPU harness and paw"),
+        ("ollie-case-study.html#materials", "Ollie", "hollow aluminum leg"),
+        ("kiki-case-study.html#materials", "Kiki", "wheelchair materials"),
+    ])],
+    "3d-printing.html": [("See It on Our Patients", [
+        ("billie-case-study.html#iteration-design", "Billie", "changing shell and infill to make the paw compress"),
+        ("yana-case-study.html#iteration-design", "Yana", "a harness too large to print in one piece"),
+        ("max-case-study.html#files", "Max", "print files"),
+        ("kiki-case-study.html#files", "Kiki", "STL files"),
+    ])],
+    "pelvic-plane-locator.html": [("Related", [
+        ("ntop-socket-creation.html", "nTop Socket Creation", "where this block fits in the socket workflow"),
+        ("socket-walkthrough-sample.html", "Socket Walkthrough", "place the pelvic plane on Ollie in Step 2a"),
+        ("billie-case-study.html", "Billie", "the patient whose scan is shown here"),
+    ])],
+    "interface-plane-locator.html": [("Related", [
+        ("ntop-socket-creation.html", "nTop Socket Creation", "where this block fits in the socket workflow"),
+        ("socket-walkthrough-sample.html", "Socket Walkthrough", "place the interface plane on Ollie in Step 2b"),
+        ("billie-case-study.html", "Billie", "one of the two interfaces shown here"),
+        ("ollie-case-study.html", "Ollie", "the other interface shown here"),
+    ])],
+    "implicit-viewer.html": [("Related", [
+        ("ntop-socket-creation.html", "nTop Socket Creation", "the blocks that build these shapes"),
+        ("mesh-tolerance.html", "Mesh Tolerance", "the same socket as an exported mesh"),
+        ("ollie-case-study.html", "Ollie", "the patient behind the socket field"),
+        ("billie-case-study.html", "Billie", "the patient behind the full prosthetic field"),
+    ])],
+    "mesh-tolerance.html": [("Related", [
+        ("ollie-case-study.html", "Ollie", "the patient whose socket is compared here"),
+        ("ntop-socket-creation.html", "nTop Socket Creation", "the export block and its settings"),
+        ("implicit-viewer.html", "Implicit Field Viewer", "the socket with no mesh at all"),
+        ("3d-printing.html", "3D Printing", "what happens to the file next"),
+    ])],
+}
+
+REL_START = "<!-- related:start -->"
+REL_END = "<!-- related:end -->"
+
+
+def build_related(page):
+    out = [REL_START]
+    for k, (heading, items) in enumerate(RELATED[page]):
+        sid = "related" if k == 0 else "related-%d" % (k + 1)
+        out += [
+            '<section id="%s" class="related-links">' % sid,
+            '    <h2>%s<a class="headerlink" href="#%s" title="Permalink to this heading">&para;</a></h2>' % (heading, sid),
+            '    <ul>',
+        ] + ['        <li><a href="%s">%s</a> &mdash; %s</li>' % it for it in items] + [
+            '    </ul>',
+            '</section>',
+        ]
+    out.append(REL_END)
+    return '\n'.join(' ' * 16 + line for line in out) + '\n'
 
 
 # ---- footer credits ----------------------------------------------------
@@ -108,10 +280,16 @@ META = {
         "Interactive nTop socket design: 40+ live parameters across lattice, interface, attachment, and paw blocks, each driving a real 3D model in your browser."),
     "socket-walkthrough.html": (
         "Socket Workflow Walkthrough",
-        "A guided, interactive walkthrough of the Give a Paw nTop socket workflow, from importing source meshes to locating the pelvic plane."),
+        "A guided, interactive walkthrough of the Give a Paw nTop socket workflow, from source meshes through pelvic and mechanical-interface placement."),
+    "socket-walkthrough-sample.html": (
+        "Socket Workflow Walkthrough",
+        "Build Ollie's socket yourself, step by step as in nTop: import and scale the scan, place the pelvic and interface planes, lattice the socket, add attachment points, blend, and export, then compare your answers with the team's."),
     "implicit-viewer.html": (
         "Implicit Field Viewer",
         "Render nTop socket designs as signed distance fields in your browser: live wall offset, section cuts, a distance-field view, and in-shader lattices. No pre-baked mesh sweeps."),
+    "mesh-tolerance.html": (
+        "Mesh Tolerance",
+        "How nTop's mesh tolerance changes the socket file the website shows: 20 exports of Ollie's blended socket from 0.1 to 3.9 mm, compressed the way the site compresses models, with file size, shape error and lost lattice side by side."),
     "pelvic-plane-locator.html": (
         "Pelvic Plane Locator",
         "Interactive 3D explainer for the nTop Pelvic Plane Locator block: pick Min, Centroid or Max on each axis of the attachment surface bounding box, set the normal, and watch the plane move on a real scan."),
@@ -130,9 +308,39 @@ META = {
     "human-anatomy-quiz.html": (
         "Human Anatomy Quiz",
         "Quiz yourself on human skeletal anatomy in four modes: multiple choice, find-and-click, typed answers, and matching, across the full skeleton and a zoomed upper limb, covering 23 traced bones and 15 joints. Build a custom quiz and share it as a link."),
-    "downloads.html": (
-        "Downloads",
-        "Reference files from the Give a Paw program: example scans, measurements, and CAD source for each build."),
+    "knee-anatomy-quiz.html": (
+        "Knee Anatomy Quiz",
+        "Quiz yourself on the human knee in four modes: multiple choice, find-and-click, typed answers, and matching, on textbook illustrations of the joint and of the thigh and calf muscles that move it. Build a custom quiz and share it as a link."),
+    "ear-anatomy-quiz.html": (
+        "Ear Anatomy Quiz",
+        "Quiz yourself on the human ear in four modes: multiple choice, find-and-click, typed answers, and matching. Learn the landmarks of the external ear (helix, antihelix, tragus, concha and more) and the structures of the middle and inner ear. Build a custom quiz and share it as a link."),
+    "heart-anatomy-quiz.html": (
+        "Heart Anatomy Quiz",
+        "Quiz yourself on the human heart in four modes: multiple choice, find-and-click, typed answers, and matching, on textbook illustrations of the outside, the inside, and the blood flow through its chambers. Build a custom quiz and share it as a link."),
+    "hand-anatomy-quiz.html": (
+        "Hand &amp; Forearm Anatomy Quiz",
+        "Quiz yourself on the human hand and forearm in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "arm-anatomy-quiz.html": (
+        "Shoulder &amp; Arm Anatomy Quiz",
+        "Quiz yourself on the human shoulder and arm in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "chest-anatomy-quiz.html": (
+        "Chest &amp; Lungs Anatomy Quiz",
+        "Quiz yourself on the human chest in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "organs-anatomy-quiz.html": (
+        "Abdominal Organs Anatomy Quiz",
+        "Quiz yourself on the human abdominal organs in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "foot-anatomy-quiz.html": (
+        "Foot &amp; Ankle Anatomy Quiz",
+        "Quiz yourself on the human foot and ankle in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "head-anatomy-quiz.html": (
+        "Head &amp; Neck Anatomy Quiz",
+        "Quiz yourself on the human head in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "spine-anatomy-quiz.html": (
+        "Spine &amp; Pelvis Anatomy Quiz",
+        "Quiz yourself on the human spine and pelvis in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "anatomy-labelling.html": (
+        "Anatomy Labelling Hub",
+        "Progress checklist for labelling the human anatomy quiz sets in the shape editor."),
     "meet-the-team.html": (
         "Meet the Team",
         "The students and mentors behind Give a Paw, a UC Berkeley program building no-cost prosthetics for shelter animals."),
@@ -185,6 +393,29 @@ def process(path):
                       lambda m: FOOTER, text, flags=re.S)
     if n:
         notes.append("footer")
+
+    # 2b. footer previous / next (only on pages that have a footer)
+    fnav = build_footer_nav(page)
+    if fnav and "<footer>" in text:
+        text = re.sub(r'[ \t]*<div class="footer-navigation">.*?</a>\s*</div>'
+                      r'[ \t]*\n(?:[ \t]*\n)*', '', text, count=1, flags=re.S)
+        pad = ' ' * 16
+        text, n = re.subn(r'^[ \t]*<div class="footer-credits">',
+                          lambda m: pad + fnav + '\n' + pad + '<div class="footer-credits">',
+                          text, count=1, flags=re.M)
+        if n:
+            notes.append("footer-nav")
+
+    # 2c. related links (case studies <-> build pages)
+    if page in RELATED:
+        text = re.sub(r'[ \t]*' + re.escape(REL_START) + r'.*?' + re.escape(REL_END)
+                      + r'[ \t]*\n', '', text, count=1, flags=re.S)
+        anchor = (r'^[ \t]*<section id="referenced-papers">' if page.endswith("case-study.html")
+                  else r'^[ \t]*</article>')
+        text, n = re.subn(anchor, lambda m: build_related(page) + m.group(0),
+                          text, count=1, flags=re.M)
+        if n:
+            notes.append("related")
 
     # 3. head metadata (replace prior block, else insert after <title>)
     if META_START in text:

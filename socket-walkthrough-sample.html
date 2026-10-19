@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Socket Workflow Model Sample - Give a Paw</title>
+    <title>Socket Workflow Walkthrough - Give a Paw</title>
     <!-- meta:start -->
-    <meta name="description" content="A guided, interactive walkthrough of the Give a Paw nTop socket workflow, from source meshes through pelvic and mechanical-interface placement.">
+    <meta name="description" content="Build Ollie's socket yourself, step by step as in nTop: import and scale the scan, place the pelvic and interface planes, lattice the socket, add attachment points, blend, and export, then compare your answers with the team's.">
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Give a Paw">
     <meta property="og:title" content="Socket Workflow Walkthrough">
-    <meta property="og:description" content="A guided, interactive walkthrough of the Give a Paw nTop socket workflow, from source meshes through pelvic and mechanical-interface placement.">
+    <meta property="og:description" content="Build Ollie's socket yourself, step by step as in nTop: import and scale the scan, place the pelvic and interface planes, lattice the socket, add attachment points, blend, and export, then compare your answers with the team's.">
     <meta property="og:image" content="https://giveapaw.github.io/social-card.jpg">
-    <meta property="og:url" content="https://giveapaw.github.io/socket-walkthrough.html">
+    <meta property="og:url" content="https://giveapaw.github.io/socket-walkthrough-sample.html">
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
-    <link rel="stylesheet" href="style.css?v=37">
+    <link rel="stylesheet" href="style.css?v=43">
     <link rel="stylesheet" href="socket-walkthrough-sample.css?v=33">
     <link rel="stylesheet" href="walkthrough-grading.css?v=11">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,19 +58,32 @@
             <ul>
                 <li><a href="3d-scanning.html">3D Scanning</a></li>
                 <li><a href="preparing-ntop-input.html">Preparing nTop Input</a></li>
-                <li class="active"><a href="socket-walkthrough.html">Socket Walkthrough</a></li>
                 <li><a href="ntop-socket-creation.html">nTop Socket Creation</a></li>
-                <li><a href="implicit-viewer.html">Implicit Field Viewer</a></li>
                 <li><a href="pelvic-plane-locator.html">Pelvic Plane Locator</a></li>
                 <li><a href="interface-plane-locator.html">Interface Plane Locator</a></li>
+                <li class="active"><a href="socket-walkthrough-sample.html">Socket Walkthrough</a></li>
+                <li><a href="implicit-viewer.html">Implicit Field Viewer</a></li>
+                <li><a href="mesh-tolerance.html">Mesh Tolerance</a></li>
                 <li><a href="materials.html">Materials</a></li>
                 <li><a href="3d-printing.html">3D Printing</a></li>
             </ul>
             <p class="sidebar-nav-title">Learn &amp; Try</p>
             <ul>
                 <li><a href="anatomy-quiz.html">Canine Anatomy Quiz</a></li>
-                <li><a href="human-anatomy-quiz.html">Human Anatomy Quiz</a></li>
-                <li><a href="downloads.html">Downloads</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Human Anatomy</p>
+            <ul>
+                <li><a href="human-anatomy-quiz.html">Full Skeleton</a></li>
+                <li><a href="head-anatomy-quiz.html">Head &amp; Neck</a></li>
+                <li><a href="chest-anatomy-quiz.html">Chest &amp; Lungs</a></li>
+                <li><a href="heart-anatomy-quiz.html">Heart</a></li>
+                <li><a href="organs-anatomy-quiz.html">Abdominal Organs</a></li>
+                <li><a href="arm-anatomy-quiz.html">Shoulder &amp; Arm</a></li>
+                <li><a href="hand-anatomy-quiz.html">Hand &amp; Forearm</a></li>
+                <li><a href="spine-anatomy-quiz.html">Spine &amp; Pelvis</a></li>
+                <li><a href="knee-anatomy-quiz.html">Knee</a></li>
+                <li><a href="foot-anatomy-quiz.html">Foot &amp; Ankle</a></li>
+                <li><a href="ear-anatomy-quiz.html">Ear</a></li>
             </ul>
             <p class="sidebar-nav-title">About</p>
             <ul>
@@ -86,7 +99,7 @@
                 <header class="workflow-header">
                     <div>
                         <a class="workflow-home" href="index.html">Give a Paw</a>
-                        <h1>Socket workflow <span class="sample-label">Local sample</span></h1>
+                        <h1>Socket workflow</h1>
                     </div>
                     <div class="workflow-progress" aria-label="Six walkthrough steps">
                         <button type="button" class="workflow-progress-step active" data-go-step="1" aria-label="Go to step 1, import and scale">1</button>
