@@ -215,3 +215,73 @@ body.ch-drawer-open .ch-switcher { display: none; }
 @media (max-width: 968px) {
     .ch-tabs { top: calc(1rem + 44px + 0.4rem); }
 }
+
+/* ---------- team updates (case-updates.js) ---------- */
+.cu-latest { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; margin: 0.6rem 0 0.9rem; padding: 0.75rem 1.1rem; border-radius: 14px; background: #fffaf0; border: 1px solid #f5d98b; color: var(--ch-ink); text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.cu-latest:hover { border-color: var(--ch-gold); box-shadow: 0 6px 18px rgba(16, 35, 63, 0.08); text-decoration: none; }
+.cu-latest-k { font: 700 0.72rem var(--font-heading, Inter, sans-serif); letter-spacing: 0.08em; text-transform: uppercase; color: #8a5a00; }
+.cu-latest-d { font-size: 0.9rem; color: var(--ch-muted); }
+.cu-latest strong { flex: 1 1 14rem; font: 700 1.02rem/1.3 var(--font-heading, Inter, sans-serif); }
+.cu-latest-go { color: var(--ch-blue); font-weight: 700; }
+.cu-feed { scroll-margin-top: 5.5rem; margin: 0.4rem 0 1.6rem; padding: 1.1rem 1.25rem 1.2rem; border: 1px solid var(--ch-line); border-radius: 16px; background: #fff; }
+.chv-cards > .cu-feed { grid-column: 1 / -1; }
+.cu-feed-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.cu-feed-head h2 { margin: 0; }
+.cu-list { list-style: none; margin: 0.8rem 0 0; padding: 0; display: grid; gap: 1rem; }
+.cu-item { position: relative; padding: 0 0 0 1.1rem; border-left: 3px solid var(--ch-gold); }
+.cu-item h3 { margin: 0.15rem 0 0.35rem; font-size: 1.1rem; color: var(--ch-ink); }
+.cu-meta { display: flex; flex-wrap: wrap; gap: 0 0.7rem; font-size: 0.85rem; color: var(--ch-muted); }
+.cu-meta time { font-weight: 700; color: #8a5a00; }
+.cu-text p { margin: 0 0 0.6rem; color: #344054; overflow-wrap: anywhere; }
+.cu-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin: 0.4rem 0 0.2rem; }
+.cu-photos a { display: block; border-radius: 10px; overflow: hidden; background: #eef2f7; aspect-ratio: 4 / 3; }
+.cu-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cu-photos a.cu-broken { display: none; }
+.cu-item-actions { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
+.cu-empty { color: var(--ch-muted); margin: 0.6rem 0 0; }
+.cu-btn { border: 1px solid var(--ch-line); background: #fff; color: var(--ch-blue); border-radius: 999px; padding: 0.4rem 0.9rem; font: 700 0.85rem var(--font-heading, Inter, sans-serif); cursor: pointer; }
+.cu-btn:hover { border-color: var(--ch-blue); }
+.cu-btn:disabled { opacity: 0.55; cursor: default; }
+.cu-primary { background: var(--ch-blue); border-color: var(--ch-blue); color: #fff; }
+.cu-primary:hover { background: #001f3f; }
+.cu-danger { color: #b42318; }
+.cu-danger:hover { border-color: #b42318; }
+.cu-team-link { margin: 2rem 0 0.5rem; text-align: center; font-size: 0.85rem; color: var(--ch-muted); }
+.cu-team-link button { border: 0; background: none; padding: 0; color: var(--ch-blue); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.cu-bar { position: fixed; right: 14px; bottom: 14px; z-index: 950; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; max-width: calc(100vw - 28px); padding: 0.4rem 0.5rem; border-radius: 16px; background: #10233f; color: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); font: 600 13px var(--font-heading, Inter, sans-serif); }
+.cu-bar[hidden] { display: none; }
+.cu-bar button { border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #fff; padding: 0.4rem 0.75rem; font: inherit; cursor: pointer; }
+.cu-bar button:hover { background: rgba(255, 255, 255, 0.22); }
+.cu-who { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 0.3rem; }
+.cu-who img { width: 22px; height: 22px; border-radius: 50%; }
+.cu-role { padding: 2px 8px; border-radius: 999px; background: var(--ch-gold); color: #2b2000; font-size: 11px; }
+.cu-note { padding: 0 0.3rem; font-weight: 500; color: #dbe4ff; }
+.cu-dialog { margin: auto; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); padding: 0; border: 0; border-radius: 18px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3); color: var(--ch-ink); }
+.cu-dialog::backdrop { background: rgba(16, 35, 63, 0.45); }
+.cu-form { display: grid; gap: 0.75rem; padding: 1.3rem 1.4rem 1.2rem; }
+.cu-form h2 { margin: 0; font-size: 1.25rem; }
+.cu-form p { margin: 0; color: #344054; }
+.cu-form label { display: grid; gap: 0.3rem; font: 700 0.85rem var(--font-heading, Inter, sans-serif); color: var(--ch-ink); }
+.cu-form input:not([type=checkbox]), .cu-form textarea { width: 100%; box-sizing: border-box; padding: 0.55rem 0.7rem; border: 1px solid #c8cfd8; border-radius: 10px; font: 400 0.95rem/1.4 inherit; font-family: inherit; color: var(--ch-ink); background: #fff; }
+.cu-form textarea { resize: vertical; }
+.cu-form input:focus, .cu-form textarea:focus { outline: 2px solid var(--ch-blue-2); outline-offset: 1px; }
+.cu-form fieldset { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin: 0; padding: 0.6rem 0.8rem; border: 1px solid var(--ch-line); border-radius: 10px; }
+.cu-form legend { padding: 0 0.3rem; font: 700 0.85rem var(--font-heading, Inter, sans-serif); }
+.cu-form .cu-check { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 500; }
+.cu-hint { font-size: 0.85rem; color: var(--ch-muted) !important; }
+.cu-error { color: #b42318 !important; font-size: 0.9rem; min-height: 0; }
+.cu-error:empty { display: none; }
+.cu-form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
+.cu-google { justify-self: start; padding: 0.6rem 1.2rem; font-size: 0.95rem; }
+.cu-editors { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; max-height: 14rem; overflow-y: auto; }
+.cu-editors li { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 10px; background: var(--ch-soft); }
+.cu-editors li span { display: grid; min-width: 0; }
+.cu-editors small { color: var(--ch-muted); overflow-wrap: anywhere; }
+.cu-add { display: grid; gap: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--ch-line); }
+@media (max-width: 600px) {
+    .cu-feed { padding: 0.9rem 0.9rem 1rem; }
+    .cu-bar { left: 10px; right: 10px; bottom: 10px; justify-content: center; }
+}
+@media (max-width: 968px) {
+    .cu-feed { scroll-margin-top: 8.5rem; }
+}

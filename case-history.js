@@ -44,6 +44,8 @@ async function init(layout) {
     const view = params.get('view') ?? (params.has('layout') ? '' : DEFAULT_VIEW);
     if (layout === 'd' && view && view !== 'none') (await import('./case-views.js?v=8')).applyView(view, ctx);
     if (params.has('layout')) addSwitcher(layout);
+    // Team updates and "Team sign in" (case-updates.js, Firebase cases/pages/<animal>).
+    if (layout === 'd') import('./case-updates.js?v=1').then(m => m.initUpdates(ctx, manifest)).catch(error => console.error('Team updates could not be added.', error));
 }
 
 // ------------------------------------------------------------------ data

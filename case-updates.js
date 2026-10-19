@@ -1,0 +1,407 @@
+// Team updates on the case-study pages.
+//
+// Visitors: one plain request reads `cases/pages/<animal>` from the Realtime Database (public read)
+// and the page shows a "Latest update" banner, an Updates feed at the top of the Report tab, the
+// team's "Where it stands" status in the overview, and the newest date in the numbers strip.
+// The Firebase SDK is not loaded for visitors.
+//
+// Team: "Team sign in" (Google). Who may write is decided by the database rules, not this file:
+//   cases/admins/<email key>          true   set by hand in the Firebase console
+//   cases/editors/<email key>/<animal|all>  true   set by an admin from the page ("Editors")
+// The email key is the lowercased address with every "." turned into "," (keys cannot hold dots).
+// Editors post, edit and delete their own updates and set the status; admins can change anyone's.
+// Update text is shown as plain text (links become links); photos are public Google Drive files,
+// stored as Drive file ids only.
+//
+// ?casedemo=1 runs everything against this browser's localStorage, signed in as an admin;
+// ?casedemo=viewer signs in as someone who is not an editor. See CASE-UPDATES-SETUP.md.
+
+const FIREBASE_CDN = 'https://www.gstatic.com/firebasejs/10.14.1/';
+const SIGNED_IN_FLAG = 'gap-cases-signed-in';
+const DEMO_KEY = 'gap-cases-demo';
+const MAX_PHOTOS = 8;
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = (d, opts = { month: 'short', day: 'numeric', year: 'numeric' }) => { const t = new Date(String(d) + 'T12:00:00'); return isNaN(t) ? String(d ?? '') : t.toLocaleDateString('en-US', opts); };
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const randomKey = () => Date.now().toString(36) + '-' + crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+
+export const emailKey = email => String(email || '').trim().toLowerCase().replace(/\./g, ',');
+const keyToEmail = key => String(key).replace(/,/g, '.');
+
+// A Drive share link, an ?id= link or a bare file id → the file id.
+export function driveId(text) {
+    const s = String(text || '').trim();
+    const m = s.match(/\/d\/([A-Za-z0-9_-]{20,80})/) || s.match(/[?&]id=([A-Za-z0-9_-]{20,80})/) || s.match(/^([A-Za-z0-9_-]{20,80})$/);
+    return m ? m[1] : null;
+}
+const driveThumb = id => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1000`;
+const driveView = id => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
+
+// Plain text → paragraphs, line breaks and https links; everything else escaped.
+function textHTML(text) {
+    const link = line => line.split(/(https:\/\/[^\s<>"]+)/g).map((p, i) => (i % 2 ? `<a href="${esc(p)}" target="_blank" rel="noopener noreferrer">${esc(p)}</a>` : esc(p))).join('');
+    return String(text || '').trim().split(/\n\s*\n/).map(par => `<p>${par.split('\n').map(link).join('<br>')}</p>`).join('');
+}
+
+// ------------------------------------------------------------------ stores
+function createCloud() {
+    const cfgPromise = import(new URL('firebase-config.js?v=1', document.baseURI).href).then(m => m.firebaseConfig);
+    let sdkPromise = null, sdk = null;
+    const loadSdk = () => {
+        sdkPromise ||= Promise.all([cfgPromise, import(FIREBASE_CDN + 'firebase-app.js'), import(FIREBASE_CDN + 'firebase-auth.js'), import(FIREBASE_CDN + 'firebase-database.js')])
+            .then(([cfg, app, auth, db]) => {
+                const fbApp = app.getApps().find(a => a.name === 'cases') || app.initializeApp(cfg, 'cases');
+                sdk = { auth, db, a: auth.getAuth(fbApp), d: db.getDatabase(fbApp) };
+                return sdk;
+            });
+        sdkPromise.catch(() => { sdkPromise = null; });
+        return sdkPromise;
+    };
+    const role = async user => {
+        const key = emailKey(user.email);
+        if (!user.email || !user.emailVerified) return { admin: false, editor: {} };
+        const [admin, editor] = await Promise.all(['admins', 'editors'].map(n => sdk.db.get(sdk.db.ref(sdk.d, `cases/${n}/${key}`)).then(s => s.val()).catch(() => null)));
+        return { admin: admin === true, editor: editor || {} };
+    };
+    return {
+        kind: 'cloud',
+        async readPublic(animal) {
+            const cfg = await cfgPromise;
+            if (!cfg?.databaseURL) return {};
+            const r = await fetch(`${cfg.databaseURL}/cases/pages/${encodeURIComponent(animal)}.json`, { cache: 'no-cache' });
+            return r.ok ? (await r.json()) || {} : {};
+        },
+        loadSdk,
+        onAuth(cb) {
+            loadSdk().then(s => s.auth.onAuthStateChanged(s.a, async user => {
+                if (!user) { cb(null, null); return; }
+                cb({ uid: user.uid, name: (user.displayName || user.email || 'Team member').slice(0, 60), email: user.email || '', photo: user.photoURL || '' }, await role(user));
+            })).catch(err => cb(null, null, err));
+        },
+        // Called straight from a click with sdk already loaded, or Safari blocks the popup.
+        signIn() {
+            const provider = new sdk.auth.GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: 'select_account' });
+            return sdk.auth.signInWithPopup(sdk.a, provider);
+        },
+        signOut() { return sdk ? sdk.auth.signOut(sdk.a) : Promise.resolve(); },
+        watch(path, cb, onError) { return sdk.db.onValue(sdk.db.ref(sdk.d, path), s => cb(s.val()), onError); },
+        set(path, value) { return sdk.db.set(sdk.db.ref(sdk.d, path), value); },
+        newKey() { return sdk.db.push(sdk.db.ref(sdk.d, 'cases/keys')).key; },
+    };
+}
+
+function createDemo(mode) {
+    const load = () => { try { return JSON.parse(store.get(DEMO_KEY)) || {}; } catch { return {}; } };
+    const subs = new Set();
+    const get = (tree, path) => path.split('/').reduce((n, k) => (n == null ? n : n[k]), tree);
+    const put = (path, value) => {
+        const tree = load();
+        const keys = path.split('/');
+        let node = tree;
+        keys.slice(0, -1).forEach(k => { node = node[k] = node[k] && typeof node[k] === 'object' ? node[k] : {}; });
+        if (value == null) delete node[keys.at(-1)]; else node[keys.at(-1)] = JSON.parse(JSON.stringify(value));
+        store.set(DEMO_KEY, JSON.stringify(tree));
+        subs.forEach(s => s());
+    };
+    const user = mode === 'viewer'
+        ? { uid: 'demo-viewer', name: 'Visiting Student', email: 'visitor@example.com', photo: '' }
+        : { uid: 'demo-admin', name: 'Demo Editor', email: 'demo.editor@example.com', photo: '' };
+    const role = mode === 'viewer' ? { admin: false, editor: {} } : { admin: true, editor: { all: true } };
+    let authCb = null;
+    return {
+        kind: 'demo',
+        async readPublic(animal) { return get(load(), `cases/pages/${animal}`) || {}; },
+        loadSdk: () => Promise.resolve(),
+        onAuth(cb) { authCb = cb; setTimeout(() => (store.get(SIGNED_IN_FLAG) ? cb(user, role) : cb(null, null))); },
+        signIn() { store.set(SIGNED_IN_FLAG, '1'); authCb?.(user, role); return Promise.resolve(); },
+        signOut() { store.set(SIGNED_IN_FLAG, null); authCb?.(null, null); return Promise.resolve(); },
+        watch(path, cb) { const s = () => cb(get(load(), path) ?? null); subs.add(s); s(); return () => subs.delete(s); },
+        set(path, value) { put(path, value); return Promise.resolve(); },
+        newKey: randomKey,
+    };
+}
+
+// ------------------------------------------------------------------ page
+export async function initUpdates({ H, panels, show }, manifest) {
+    const animal = H.A.id;
+    const demo = new URLSearchParams(location.search).get('casedemo');
+    const db = demo ? createDemo(demo) : createCloud();
+    const animals = (manifest?.animals || []).map(a => ({ id: a.id, name: a.name }));
+    let data = {};
+    let user = null, role = null, unwatch = null;
+    const canEdit = () => !!role && (role.admin || role.editor.all === true || role.editor[animal] === true);
+    const canChange = u => canEdit() && (role.admin || u.uid === user?.uid);
+    const pagePath = `cases/pages/${animal}`;
+
+    // ---- public rendering
+    function updates() {
+        return Object.entries(data.updates || {}).map(([id, u]) => ({ id, ...u }))
+            .sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.at || 0) - (a.at || 0));
+    }
+
+    function render() {
+        document.querySelectorAll('[data-cu]').forEach(n => n.remove());
+        const list = updates();
+        const latest = list[0];
+        // Banner above the overview.
+        if (latest) {
+            const banner = document.createElement('a');
+            banner.className = 'cu-latest';
+            banner.dataset.cu = '';
+            banner.href = '#updates';
+            banner.innerHTML = `<span class="cu-latest-k">Latest update</span><span class="cu-latest-d">${esc(fmtDate(latest.date))}</span><strong>${esc(latest.title)}</strong><span class="cu-latest-go" aria-hidden="true">→</span>`;
+            banner.addEventListener('click', e => { e.preventDefault(); goUpdates(); });
+            const anchor = $('.chv-overview') || $('.ch-hub') || $('.ch-tabs');
+            anchor?.before(banner);
+        }
+        // Feed at the top of the Report tab.
+        if (list.length || canEdit()) {
+            const sec = document.createElement('section');
+            sec.id = 'updates';
+            sec.className = 'cu-feed';
+            sec.dataset.cu = '';
+            sec.innerHTML = `<div class="cu-feed-head"><h2>Updates from the team</h2>${canEdit() ? '<button type="button" class="cu-btn cu-primary" data-cu-act="new">Post an update</button>' : ''}</div>
+                ${list.length ? `<ol class="cu-list">${list.map(updateHTML).join('')}</ol>` : `<p class="cu-empty">No updates yet. Post the first one to tell visitors how ${esc(H.name)} is doing.</p>`}`;
+            panels.report.prepend(sec);
+        }
+        // Team status in the overview, and the newest date in the numbers strip.
+        const big = $('.chv-step.is-now .chv-step-big') || $('.chv-headline') || $('.ch-hub .ch-now strong');
+        if (big) {
+            big.dataset.cuOriginal ??= big.textContent;
+            big.textContent = data.overview?.status || big.dataset.cuOriginal;
+        }
+        const stamp = $('.chv-step-stats > span:nth-child(3) b');
+        if (stamp) {
+            stamp.dataset.cuOriginal ??= stamp.textContent;
+            const newest = [latest?.date, H.latest].filter(Boolean).sort().at(-1);
+            stamp.textContent = newest ? fmtDate(newest, { month: 'short', day: 'numeric' }) : stamp.dataset.cuOriginal;
+        }
+        renderTeamBar();
+    }
+
+    function updateHTML(u) {
+        const photos = Object.values(u.photos || {}).filter(id => /^[A-Za-z0-9_-]{20,80}$/.test(id));
+        const by = String(u.author || '').split(' ')[0];
+        return `<li class="cu-item" data-id="${esc(u.id)}">
+            <div class="cu-meta"><time datetime="${esc(u.date)}">${esc(fmtDate(u.date))}</time>${by ? `<span>by ${esc(by)}</span>` : ''}${u.edited ? '<span>edited</span>' : ''}</div>
+            <h3>${esc(u.title)}</h3>
+            <div class="cu-text">${textHTML(u.text)}</div>
+            ${photos.length ? `<div class="cu-photos">${photos.map(id => `<a href="${esc(driveView(id))}" target="_blank" rel="noopener"><img src="${esc(driveThumb(id))}" alt="Photo from this update" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('a').classList.add('cu-broken')"></a>`).join('')}</div>` : ''}
+            ${canChange(u) ? `<div class="cu-item-actions"><button type="button" class="cu-btn" data-cu-act="edit" data-id="${esc(u.id)}">Edit</button><button type="button" class="cu-btn cu-danger" data-cu-act="delete" data-id="${esc(u.id)}">Delete</button></div>` : ''}
+        </li>`;
+    }
+
+    function goUpdates() {
+        show('report');
+        history.replaceState(null, '', '#updates');
+        $('#updates')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ---- team bar and sign-in link
+    const teamLink = document.createElement('p');
+    teamLink.className = 'cu-team-link';
+    teamLink.innerHTML = '<button type="button" data-cu-act="signin">Team sign in</button><span> to post updates</span>';
+    (panels.history?.parentNode || $('main') || document.body).append(teamLink);
+
+    const bar = document.createElement('div');
+    bar.className = 'cu-bar';
+    bar.hidden = true;
+    bar.setAttribute('role', 'region');
+    bar.setAttribute('aria-label', 'Team editing');
+    document.body.append(bar);
+
+    function renderTeamBar() {
+        teamLink.hidden = !!user;
+        bar.hidden = !user;
+        if (!user) return;
+        const who = `<span class="cu-who">${user.photo ? `<img src="${esc(user.photo)}" alt="" referrerpolicy="no-referrer">` : ''}${esc(user.name.split(' ')[0])}</span>`;
+        bar.innerHTML = canEdit()
+            ? `${who}<span class="cu-role">${role.admin ? 'Admin' : 'Editor'}</span>
+               <button type="button" data-cu-act="new">Post update</button>
+               <button type="button" data-cu-act="status">Status</button>
+               ${role.admin ? '<button type="button" data-cu-act="editors">Editors</button>' : ''}
+               <button type="button" data-cu-act="signout">Sign out</button>`
+            : `${who}<span class="cu-note">Not an editor for ${esc(H.name)} yet. Ask an admin to add ${esc(user.email)}.</span>
+               <button type="button" data-cu-act="signout">Sign out</button>`;
+    }
+
+    // ---- dialogs
+    const dialog = document.createElement('dialog');
+    dialog.className = 'cu-dialog';
+    document.body.append(dialog);
+    dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
+    const openDialog = html => { dialog.innerHTML = html; dialog.showModal(); $('input, textarea, button.cu-primary', dialog)?.focus(); };
+    const fail = (err, where) => {
+        const msg = /permission/i.test(err?.code || err?.message || '') ? 'You do not have permission to do that.' : (err?.message || String(err));
+        const out = $('.cu-error', dialog);
+        if (out && dialog.open) out.textContent = msg; else alert(msg);
+        console.warn('Case updates: ' + where, err);
+    };
+
+    function signInDialog() {
+        openDialog(`<form method="dialog" class="cu-form">
+            <h2>Team sign in</h2>
+            <p>Team members sign in with Google to post updates on ${esc(H.name)}&rsquo;s page. Visitors don&rsquo;t need to sign in.</p>
+            <button type="button" class="cu-btn cu-primary cu-google" data-cu-act="google" disabled>Loading…</button>
+            <p class="cu-error" role="alert"></p>
+            <div class="cu-form-actions"><button type="submit" class="cu-btn" value="cancel">Cancel</button></div>
+        </form>`);
+        db.loadSdk().then(() => { const b = $('[data-cu-act=google]', dialog); if (b) { b.disabled = false; b.textContent = 'Sign in with Google'; } })
+            .catch(err => fail(new Error('Could not reach the sign-in service. Check your connection and try again.'), 'load'));
+    }
+
+    function updateDialog(u) {
+        const photos = Object.values(u?.photos || {}).map(driveView).join('\n');
+        openDialog(`<form class="cu-form" data-cu-form="update" data-id="${esc(u?.id || '')}">
+            <h2>${u ? 'Edit update' : 'Post an update'} · ${esc(H.name)}</h2>
+            <label>Date <input type="date" name="date" required value="${esc(u?.date || today())}"></label>
+            <label>Title <input name="title" required maxlength="100" value="${esc(u?.title || '')}" placeholder="e.g. Second fitting went well"></label>
+            <label>What happened <textarea name="text" rows="6" maxlength="4000" placeholder="Plain text. Leave a blank line between paragraphs; links starting with https:// become clickable.">${esc(u?.text || '')}</textarea></label>
+            <label>Photos (optional) <textarea name="photos" rows="3" placeholder="Paste Google Drive links, one per line (up to ${MAX_PHOTOS}). The files must be shared publicly, like the Animals Spring 2026 folder.">${esc(photos)}</textarea></label>
+            <p class="cu-hint">Everything here is public as soon as you post it.</p>
+            <p class="cu-error" role="alert"></p>
+            <div class="cu-form-actions"><button type="button" class="cu-btn" data-cu-act="close">Cancel</button><button type="submit" class="cu-btn cu-primary">${u ? 'Save changes' : 'Post update'}</button></div>
+        </form>`);
+    }
+
+    function statusDialog() {
+        const o = data.overview || {};
+        openDialog(`<form class="cu-form" data-cu-form="status">
+            <h2>Where ${esc(H.name)}&rsquo;s prosthetic stands</h2>
+            <p>Replaces the headline in step 3 of the overview. Leave it empty to show the design history&rsquo;s headline again.</p>
+            <label>Status <input name="status" maxlength="140" value="${esc(o.status || '')}" placeholder="e.g. Printing the final socket"></label>
+            ${o.at ? `<p class="cu-hint">Last set ${esc(new Date(o.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}${o.byName ? ' by ' + esc(o.byName.split(' ')[0]) : ''}.</p>` : ''}
+            <p class="cu-error" role="alert"></p>
+            <div class="cu-form-actions"><button type="button" class="cu-btn" data-cu-act="close">Cancel</button><button type="submit" class="cu-btn cu-primary">Save</button></div>
+        </form>`);
+    }
+
+    let unwatchEditors = null;
+    function editorsDialog() {
+        openDialog(`<div class="cu-form" data-cu-editors>
+            <h2>Editors</h2>
+            <p>People added here can sign in with that Google account and post updates. Admins are set in the Firebase console.</p>
+            <ul class="cu-editors"><li class="cu-hint">Loading…</li></ul>
+            <form class="cu-add" data-cu-form="editor">
+                <label>Google account email <input type="email" name="email" required placeholder="name@berkeley.edu"></label>
+                <label>Name (optional) <input name="name" maxlength="60"></label>
+                <fieldset><legend>Can post on</legend>
+                    <label class="cu-check"><input type="checkbox" name="animal" value="all"> All animals</label>
+                    ${animals.map(a => `<label class="cu-check"><input type="checkbox" name="animal" value="${esc(a.id)}"${a.id === animal ? ' checked' : ''}> ${esc(a.name)}</label>`).join('')}
+                </fieldset>
+                <p class="cu-error" role="alert"></p>
+                <div class="cu-form-actions"><button type="submit" class="cu-btn cu-primary">Add editor</button></div>
+            </form>
+            <div class="cu-form-actions"><button type="button" class="cu-btn" data-cu-act="close">Done</button></div>
+        </div>`);
+        unwatchEditors?.();
+        unwatchEditors = db.watch('cases/editors', list => {
+            const ul = $('.cu-editors', dialog);
+            if (!ul) return;
+            const rows = Object.entries(list || {}).sort(([a], [b]) => a.localeCompare(b));
+            ul.innerHTML = rows.length ? rows.map(([k, v]) => {
+                const where = v.all ? 'All animals' : animals.filter(a => v[a.id]).map(a => a.name).join(', ') || '—';
+                return `<li><span><strong>${esc(v.name || keyToEmail(k))}</strong>${v.name ? `<small>${esc(keyToEmail(k))}</small>` : ''}<small>${esc(where)}</small></span><button type="button" class="cu-btn cu-danger" data-cu-act="remove-editor" data-key="${esc(k)}">Remove</button></li>`;
+            }).join('') : '<li class="cu-hint">No editors yet.</li>';
+        }, err => fail(err, 'editors'));
+    }
+    dialog.addEventListener('close', () => { unwatchEditors?.(); unwatchEditors = null; });
+
+    // ---- actions
+    document.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-cu-act]');
+        if (!btn) return;
+        const act = btn.dataset.cuAct;
+        if (act === 'signin') signInDialog();
+        else if (act === 'google') {
+            db.signIn().then(() => { store.set(SIGNED_IN_FLAG, '1'); dialog.close(); })
+                .catch(err => { if (!/popup-closed|cancelled-popup/.test(err?.code || '')) fail(err?.code === 'auth/popup-blocked' ? new Error('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.') : err, 'sign in'); });
+        } else if (act === 'signout') { store.set(SIGNED_IN_FLAG, null); db.signOut(); }
+        else if (act === 'new') updateDialog(null);
+        else if (act === 'edit') updateDialog(updates().find(u => u.id === btn.dataset.id));
+        else if (act === 'status') statusDialog();
+        else if (act === 'editors') editorsDialog();
+        else if (act === 'close') dialog.close();
+        else if (act === 'delete') {
+            const u = updates().find(x => x.id === btn.dataset.id);
+            if (u && confirm(`Delete the update “${u.title}”? This cannot be undone.`)) db.set(`${pagePath}/updates/${u.id}`, null).catch(err => fail(err, 'delete'));
+        } else if (act === 'remove-editor') {
+            if (confirm(`Remove ${keyToEmail(btn.dataset.key)} as an editor?`)) db.set(`cases/editors/${btn.dataset.key}`, null).catch(err => fail(err, 'remove editor'));
+        }
+    });
+
+    dialog.addEventListener('submit', async e => {
+        const form = e.target.closest('form[data-cu-form]');
+        if (!form) return;
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(form));
+        const err = $('.cu-error', form);
+        err.textContent = '';
+        const submit = $('button[type=submit]', form);
+        submit.disabled = true;
+        try {
+            if (form.dataset.cuForm === 'update') {
+                const lines = String(f.photos || '').split(/\s+/).filter(Boolean);
+                const ids = lines.map(driveId);
+                if (ids.includes(null)) throw new Error('One of the photo lines is not a Google Drive link.');
+                if (ids.length > MAX_PHOTOS) throw new Error(`Up to ${MAX_PHOTOS} photos per update.`);
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) throw new Error('Pick a date.');
+                const id = form.dataset.id;
+                const old = id ? updates().find(u => u.id === id) : null;
+                const value = {
+                    uid: old ? old.uid : user.uid,
+                    author: old ? old.author : user.name,
+                    at: old ? old.at : Date.now(),
+                    date: f.date,
+                    title: f.title.trim().slice(0, 100),
+                    text: String(f.text || '').trim().slice(0, 4000),
+                    ...(ids.length ? { photos: [...new Set(ids)] } : {}),
+                    ...(old ? { edited: Date.now() } : {}),
+                };
+                if (!value.title) throw new Error('Add a title.');
+                await db.set(`${pagePath}/updates/${id || db.newKey()}`, value);
+                dialog.close();
+                if (!id) goUpdates();
+            } else if (form.dataset.cuForm === 'status') {
+                const status = String(f.status || '').trim().slice(0, 140);
+                await db.set(`${pagePath}/overview`, status ? { status, by: user.uid, byName: user.name, at: Date.now() } : null);
+                dialog.close();
+            } else if (form.dataset.cuForm === 'editor') {
+                const email = String(f.email || '').trim().toLowerCase();
+                if (!/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(email)) throw new Error('Enter a full email address.');
+                const picked = new FormData(form).getAll('animal');
+                if (!picked.length) throw new Error('Pick at least one animal.');
+                const entry = picked.includes('all') ? { all: true } : Object.fromEntries(picked.map(a => [a, true]));
+                if (f.name?.trim()) entry.name = f.name.trim().slice(0, 60);
+                await db.set(`cases/editors/${emailKey(email)}`, entry);
+                form.reset();
+                form.querySelector(`input[value="${CSS.escape(animal)}"]`).checked = true;
+            }
+        } catch (error) {
+            fail(error, 'save');
+        } finally {
+            submit.disabled = false;
+        }
+    });
+
+    // ---- start
+    data = await db.readPublic(animal).catch(() => ({}));
+    render();
+    if (location.hash === '#updates') goUpdates();
+    let authStarted = false;
+    const startAuth = () => !authStarted && (authStarted = true) && db.onAuth((u, r, error) => {
+        user = u; role = r;
+        if (error) console.warn('Case updates: sign-in unavailable', error);
+        unwatch?.(); unwatch = null;
+        if (user && canEdit()) unwatch = db.watch(pagePath, v => { data = v || {}; render(); }, err => console.warn('Case updates: live updates stopped', err));
+        if (!user) store.set(SIGNED_IN_FLAG, null);
+        render();
+    });
+    // The SDK only loads for people who signed in on this browser before, or who open the sign-in dialog.
+    if (db.kind === 'demo' || store.get(SIGNED_IN_FLAG)) startAuth();
+    else document.addEventListener('click', e => { if (e.target.closest('[data-cu-act=signin]')) startAuth(); }, { capture: true });
+}
