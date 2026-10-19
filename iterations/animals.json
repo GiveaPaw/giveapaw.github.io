@@ -833,7 +833,8 @@
     "ollie-v3-pelvic-t30-d190.glb",
     "ollie-v3-pelvic-t30-d200.glb"
    ],
-   "featuredCount": 7
+   "featuredCount": 7,
+   "uploadFolder": "1gFe1IRdJcpDECoT0ogKGKHuLxWwRr9XN"
   },
   {
    "id": "billie",
@@ -862,7 +863,8 @@
     "billie-solid-animal.glb",
     "billie-solid-full.glb"
    ],
-   "featuredCount": 6
+   "featuredCount": 6,
+   "uploadFolder": "1lCXehTTWvCRmMF_D_PsSbrEYX786KKZT"
   },
   {
    "id": "kiki",
@@ -873,7 +875,8 @@
    "caseStudy": "kiki-case-study.html",
    "designFiles": "https://drive.google.com/drive/folders/1Dar6mleVVj0yNl637npcbBqfp5RSp4Sp",
    "models": [],
-   "featuredCount": 0
+   "featuredCount": 0,
+   "uploadFolder": "1l17y2quOrxexrEKpI9Wl0tOay-GWvphr"
   },
   {
    "id": "max",
@@ -884,7 +887,8 @@
    "caseStudy": "max-case-study.html",
    "designFiles": "https://drive.google.com/drive/folders/1FIK-6iA2oJPjGh7hEAO-ImSfZ4iGRCl_",
    "models": [],
-   "featuredCount": 0
+   "featuredCount": 0,
+   "uploadFolder": "1OX0HcNm3v0stp49oihn0VZhvjFPQjHjv"
   },
   {
    "id": "yana",
@@ -895,7 +899,8 @@
    "caseStudy": "yana-case-study.html",
    "designFiles": "https://drive.google.com/drive/folders/1h1Hy3MmOJXvp7NSp415YoEIw1FOzZJA6",
    "models": [],
-   "featuredCount": 0
+   "featuredCount": 0,
+   "uploadFolder": "1IVKY0IBVs5vOYEqnGOwJuNLwa2fzid8t"
   }
  ]
 }

@@ -17,7 +17,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 export function applyView(view, ctx) {
     if (!VIEWS[view]) return;
     document.body.classList.add('chv', 'chv-' + view + '-page');
-    if (!document.querySelector('link[href^="case-views.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="case-views.css?v=8">');
+    if (!document.querySelector('link[href^="case-views.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="case-views.css?v=9">');
     groupFigures(ctx.panels.report);
     addLightbox();
     ({ wide: viewWide, split: viewSplit, bento: viewBento })[view](ctx);
@@ -235,7 +235,7 @@ function tilesHTML(H, P, D) {
             <div><b>${D.photoCount}</b><span>photos &amp; videos</span></div>
             <div><b>${esc(H.latest ? D.fmt(H.latest, { month: 'short', day: 'numeric' }) : '—')}</b><span>last update</span></div>
         </div>
-        <a class="chv-tile chv-t-log" href="design-log.html#${esc(H.A.id)}"><span class="ch-now-k">Team</span><strong>Design log ↗</strong><span class="chv-sub">pins, threads, working notes</span></a>
+        <a class="chv-tile chv-t-log team-only" href="design-log.html#${esc(H.A.id)}"><span class="ch-now-k">Team</span><strong>Design log ↗</strong><span class="chv-sub">pins, threads, working notes</span></a>
     </div>`;
 }
 

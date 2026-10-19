@@ -285,3 +285,14 @@ body.ch-drawer-open .ch-switcher { display: none; }
 @media (max-width: 968px) {
     .cu-feed { scroll-margin-top: 8.5rem; }
 }
+/* Latest update inside step 2 of the three-step overview */
+.cu-card-update { display: grid; gap: 0.3rem; margin-top: 0.3rem; padding: 0.75rem 0.85rem; border-radius: 12px; background: #fffaf0; border: 1px solid #f5d98b; }
+.cu-card-update strong { font: 700 1rem/1.3 var(--font-heading, Inter, sans-serif); color: var(--ch-ink); }
+.cu-card-text { font-size: 0.9rem; color: #344054; }
+.cu-card-update img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; margin-top: 0.2rem; }
+
+/* Links into the team design log: hidden unless a signed-in editor is on the page (case-updates.js sets html.is-team). */
+html:not(.is-team) .team-only { display: none !important; }
+@media (min-width: 761px) {
+    html:not(.is-team) .ch-jump { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

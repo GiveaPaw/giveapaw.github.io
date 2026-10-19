@@ -229,3 +229,7 @@ button.chv-tile:hover, a.chv-tile:hover { border-color: var(--ch-blue); transfor
 /* Animals without the component viewer: the file lists take the full width. */
 .chv-files:not(:has(> .model-viewer-figure)) { grid-template-columns: minmax(0, 1fr); }
 .chv-files:not(:has(> .model-viewer-figure)) > :not(h2) { grid-column: 1; }
+
+@media (min-width: 981px) {
+    html:not(.is-team) .chv-t-stats { grid-column: span 8; }
+}

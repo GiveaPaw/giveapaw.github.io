@@ -42,10 +42,10 @@ async function init(layout) {
     const ctx = ({ a: layoutTabs, b: layoutHub, c: layoutTimeline, d: (h, p) => layoutTabs(h, p, { hub: true }) })[layout](H, page);
     // ?view=wide|split|bento: wider arrangements of the hub + tabs page (prototype, case-views.js).
     const view = params.get('view') ?? (params.has('layout') ? '' : DEFAULT_VIEW);
-    if (layout === 'd' && view && view !== 'none') (await import('./case-views.js?v=8')).applyView(view, ctx);
+    if (layout === 'd' && view && view !== 'none') (await import('./case-views.js?v=9')).applyView(view, ctx);
     if (params.has('layout')) addSwitcher(layout);
     // Team updates and "Team sign in" (case-updates.js, Firebase cases/pages/<animal>).
-    if (layout === 'd') import('./case-updates.js?v=1').then(m => m.initUpdates(ctx, manifest)).catch(error => console.error('Team updates could not be added.', error));
+    if (layout === 'd') import('./case-updates.js?v=4').then(m => m.initUpdates(ctx, manifest)).catch(error => console.error('Team updates could not be added.', error));
 }
 
 // ------------------------------------------------------------------ data
@@ -121,13 +121,13 @@ function versionDetail(v, H, { heading = 'h3' } = {}) {
         ${v.changes?.length ? `<h4>What changed</h4><ul class="ch-changes">${v.changes.map(c => `<li><span class="ch-tag" data-tag="${esc(c.tag)}">${esc(c.tag)}</span>${rich(c.text)}${c.why ? `<span class="ch-why">Why: ${rich(c.why)}</span>` : ''}</li>`).join('')}</ul>` : ''}
         ${v.outcome ? `<div class="ch-outcome"><b>Result</b>${rich(v.outcome)}</div>` : ''}
         ${links.length ? `<h4>Files &amp; links</h4><ul class="ch-links">${links.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label || l.url)}</a></li>`).join('')}</ul>` : ''}
-        <p class="ch-team"><a href="design-log.html#${esc(H.A.id)}/${esc(v.id)}">Open in the team design log ↗</a></p>
+        <p class="ch-team team-only"><a href="design-log.html#${esc(H.A.id)}/${esc(v.id)}">Open in the team design log ↗</a></p>
     </div>`;
 }
 
 function emptyHistory(H) {
     return `<div class="ch-empty"><strong>No design history logged for ${esc(H.name)} yet.</strong>
-        <span>Each version of the prosthetic, with what changed and why, will appear here as the team logs it in the <a href="design-log.html#${esc(H.A.id)}">design log</a>.</span></div>`;
+        <span>Each version of the prosthetic, with what changed and why, will appear here as the team logs it<span class="team-only"> in the <a href="design-log.html#${esc(H.A.id)}">design log</a></span>.</span></div>`;
 }
 
 // One 3D area for the history: a version on its own, or two versions side by side or overlaid.
@@ -296,7 +296,7 @@ function layoutTabs(H, P, { hub = false } = {}) {
     if (!H.versions.length) hp.innerHTML = `<h2>Design history</h2>${emptyHistory(H)}`;
     else {
         hp.innerHTML = `<h2>Design history</h2>
-            <p class="ch-intro">Every version of ${esc(H.name)}'s prosthetic, newest at the bottom. Pick one to see it in 3D, compare it with another, and read what changed and why.${hub ? ` Pins, threads and working notes are in the ${teamLog}.` : ''}</p>
+            <p class="ch-intro">Every version of ${esc(H.name)}'s prosthetic, newest at the bottom. Pick one to see it in 3D, compare it with another, and read what changed and why.${hub ? `<span class="team-only"> Pins, threads and working notes are in the ${teamLog}.</span>` : ''}</p>
             <div class="ch-browser"><ol class="ch-tree" aria-label="Versions"></ol><div class="ch-main"><div data-viewer></div><div data-detail-host></div></div></div>`;
         const tree = $('.ch-tree', hp);
         const renderTree = () => {
@@ -464,7 +464,7 @@ function layoutHub(H, P) {
         ['files', '3D models & files', 'interactive models, downloads'],
     ];
     const hub = hubCard(H, P, {
-        after: `<nav class="ch-jump" aria-label="Jump to">${jump.map(([id, t, s]) => `<a href="#${esc(id)}"><strong>${esc(t)}</strong><span>${esc(s)}</span></a>`).join('')}<a href="design-log.html#${esc(H.A.id)}"><strong>Team design log ↗</strong><span>pins, threads, all notes</span></a></nav>`,
+        after: `<nav class="ch-jump" aria-label="Jump to">${jump.map(([id, t, s]) => `<a href="#${esc(id)}"><strong>${esc(t)}</strong><span>${esc(s)}</span></a>`).join('')}<a class="team-only" href="design-log.html#${esc(H.A.id)}"><strong>Team design log ↗</strong><span>pins, threads, all notes</span></a></nav>`,
     });
     // The hub replaces the bullet list of facts under the photos; the carousel stays.
     P.hero.querySelector(':scope > ul')?.classList.add('ch-hide');

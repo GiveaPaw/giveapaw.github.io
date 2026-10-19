@@ -10,11 +10,13 @@
 //   cases/editors/<email key>/<animal|all>  true   set by an admin from the page ("Editors")
 // The email key is the lowercased address with every "." turned into "," (keys cannot hold dots).
 // Editors post, edit and delete their own updates and set the status; admins can change anyone's.
-// Update text is shown as plain text (links become links); photos are public Google Drive files,
-// stored as Drive file ids only.
+// Update text is shown as plain text (links become links). Each update can hold media (photos,
+// videos, 3D models: Google Drive file ids or a site model path) with pins, notes and drawings;
+// update-studio.js shows them full screen. Team-only notes live under cases/team/<animal>.
 //
 // ?casedemo=1 runs everything against this browser's localStorage, signed in as an admin;
 // ?casedemo=viewer signs in as someone who is not an editor. See CASE-UPDATES-SETUP.md.
+import { thumbUrl, isDriveId, driveIdFrom } from './drive-store.js?v=1';
 
 const FIREBASE_CDN = 'https://www.gstatic.com/firebasejs/10.14.1/';
 const SIGNED_IN_FLAG = 'gap-cases-signed-in';
@@ -31,14 +33,9 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch { return 
 export const emailKey = email => String(email || '').trim().toLowerCase().replace(/\./g, ',');
 const keyToEmail = key => String(key).replace(/,/g, '.');
 
-// A Drive share link, an ?id= link or a bare file id → the file id.
-export function driveId(text) {
-    const s = String(text || '').trim();
-    const m = s.match(/\/d\/([A-Za-z0-9_-]{20,80})/) || s.match(/[?&]id=([A-Za-z0-9_-]{20,80})/) || s.match(/^([A-Za-z0-9_-]{20,80})$/);
-    return m ? m[1] : null;
-}
-const driveThumb = id => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1000`;
-const driveView = id => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
+export const driveId = driveIdFrom;
+const mediaOf = u => Object.entries(u?.media || {}).map(([id, m]) => ({ id, ...m })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.at || 0) - (b.at || 0));
+const mediaThumb = m => (m.kind === 'photo' || m.kind === 'video') && isDriveId(m.file) ? thumbUrl(m.file, 600) : '';
 
 // Plain text → paragraphs, line breaks and https links; everything else escaped.
 function textHTML(text) {
@@ -136,6 +133,39 @@ export async function initUpdates({ H, panels, show }, manifest) {
     const canEdit = () => !!role && (role.admin || role.editor.all === true || role.editor[animal] === true);
     const canChange = u => canEdit() && (role.admin || u.uid === user?.uid);
     const pagePath = `cases/pages/${animal}`;
+    const teamPath = `cases/team/${animal}`;
+    let teamData = {};
+    let unwatchTeam = null;
+    let studio = null;
+
+    // ---- full-screen view (update-studio.js, loaded on first use)
+    const A = manifest?.animals?.find(a => a.id === animal) || { id: animal, name: H.name };
+    const siteModels = [
+        ...H.versions.filter(v => v.model).map(v => ({ path: v.model, label: `${v.label}: ${v.title}` })),
+        ...(H.body?.file ? [{ path: H.body.file, label: H.body.label || `${H.name}'s body` }] : []),
+        ...(A.models || []).slice(0, A.featuredCount || 0).map(p => ({ path: p, label: p.replace(/\.glb$/, '') })),
+    ].filter((m, i, list) => list.findIndex(x => x.path === m.path) === i);
+    const host = {
+        animal: { id: animal, name: H.name, uploadFolder: A.uploadFolder || '' },
+        demo: db.kind === 'demo',
+        siteModels,
+        getUpdate: id => { const u = data.updates?.[id]; return u ? { id, ...u } : null; },
+        teamMarks: (u, m) => teamData?.[u]?.[m] || null,
+        updatePath: u => `${pagePath}/updates/${u}`,
+        teamPath: u => `${teamPath}/${u}`,
+        user: () => user,
+        canEdit: () => canEdit(),
+        canChange: obj => canChange(obj),
+        set: (path, value) => db.set(path, value),
+        newKey: () => db.newKey(),
+        onClose: () => { studio = null; if (/^#update\//.test(location.hash)) history.replaceState(null, '', '#updates'); },
+    };
+    async function openUpdate(id, mediaId = '', edit = false) {
+        if (!data.updates?.[id]) return;
+        const mod = await import('./update-studio.js?v=1');
+        studio = mod.openStudio(host, { updateId: id, mediaId, edit });
+        history.replaceState(null, '', `#update/${id}${mediaId ? '/' + mediaId : ''}`);
+    }
 
     // ---- public rendering
     function updates() {
@@ -147,8 +177,31 @@ export async function initUpdates({ H, panels, show }, manifest) {
         document.querySelectorAll('[data-cu]').forEach(n => n.remove());
         const list = updates();
         const latest = list[0];
-        // Banner above the overview.
-        if (latest) {
+        // In the three-step overview the latest update lives in step 2 ("What we are building");
+        // other overviews get a banner above them.
+        const card = $('.chv-step[data-go=report]');
+        if (card) {
+            const go = $('.chv-go', card);
+            go.dataset.cuOriginal ??= go.textContent;
+            go.textContent = latest ? 'Read the latest update →' : go.dataset.cuOriginal;
+            card.dataset.cuUpdates = latest ? '1' : '';
+            if (!card.dataset.cuWired) {
+                card.dataset.cuWired = '1';
+                card.addEventListener('click', e => { if (card.dataset.cuUpdates) { e.stopPropagation(); goUpdates(); } });
+            }
+        }
+        if (latest && card) {
+            const photo = mediaOf(latest).find(m => m.kind === 'photo' && isDriveId(m.file))?.file;
+            const plain = String(latest.text || '').replace(/\s+/g, ' ').trim();
+            const box = document.createElement('span');
+            box.className = 'cu-card-update';
+            box.dataset.cu = '';
+            box.innerHTML = `<span class="cu-latest-k">Latest update · ${esc(fmtDate(latest.date, { month: 'short', day: 'numeric' }))}</span>
+                <strong>${esc(latest.title)}</strong>
+                ${plain ? `<span class="cu-card-text">${esc(plain.length > 150 ? plain.slice(0, 147).replace(/\s+\S*$/, '') + '…' : plain)}</span>` : ''}
+                ${photo ? `<img src="${esc(thumbUrl(photo, 1000))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}`;
+            $('.chv-go', card).before(box);
+        } else if (latest) {
             const banner = document.createElement('a');
             banner.className = 'cu-latest';
             banner.dataset.cu = '';
@@ -181,17 +234,31 @@ export async function initUpdates({ H, panels, show }, manifest) {
             stamp.textContent = newest ? fmtDate(newest, { month: 'short', day: 'numeric' }) : stamp.dataset.cuOriginal;
         }
         renderTeamBar();
+        studio?.refresh();
     }
 
     function updateHTML(u) {
-        const photos = Object.values(u.photos || {}).filter(id => /^[A-Za-z0-9_-]{20,80}$/.test(id));
+        const media = mediaOf(u);
+        const notes = media.reduce((n, m) => n + Object.keys(m.marks || {}).length, 0);
         const by = String(u.author || '').split(' ')[0];
+        const tile = m => {
+            const th = mediaThumb(m);
+            const label = m.caption || m.name || ({ photo: 'Photo', video: 'Video', model: '3D model' })[m.kind];
+            return `<button type="button" class="cu-tile" data-cu-act="open" data-id="${esc(u.id)}" data-m="${esc(m.id)}" aria-label="Open ${esc(label)} full screen">
+                ${th ? `<img src="${esc(th)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+                ${m.kind !== 'photo' ? `<span class="cu-tile-kind">${m.kind === 'model' ? '3D' : '▶'}</span>` : ''}
+                ${Object.keys(m.marks || {}).length ? `<span class="cu-tile-n">${Object.keys(m.marks).length}</span>` : ''}</button>`;
+        };
         return `<li class="cu-item" data-id="${esc(u.id)}">
             <div class="cu-meta"><time datetime="${esc(u.date)}">${esc(fmtDate(u.date))}</time>${by ? `<span>by ${esc(by)}</span>` : ''}${u.edited ? '<span>edited</span>' : ''}</div>
-            <h3>${esc(u.title)}</h3>
+            <h3><button type="button" class="cu-title" data-cu-act="open" data-id="${esc(u.id)}">${esc(u.title)}</button></h3>
             <div class="cu-text">${textHTML(u.text)}</div>
-            ${photos.length ? `<div class="cu-photos">${photos.map(id => `<a href="${esc(driveView(id))}" target="_blank" rel="noopener"><img src="${esc(driveThumb(id))}" alt="Photo from this update" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('a').classList.add('cu-broken')"></a>`).join('')}</div>` : ''}
-            ${canChange(u) ? `<div class="cu-item-actions"><button type="button" class="cu-btn" data-cu-act="edit" data-id="${esc(u.id)}">Edit</button><button type="button" class="cu-btn cu-danger" data-cu-act="delete" data-id="${esc(u.id)}">Delete</button></div>` : ''}
+            ${media.length ? `<div class="cu-photos">${media.slice(0, 8).map(tile).join('')}</div>` : ''}
+            <div class="cu-item-actions">
+                ${media.length ? `<button type="button" class="cu-btn cu-primary" data-cu-act="open" data-id="${esc(u.id)}">Open full screen${notes ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}</button>` : ''}
+                ${canEdit() ? `<button type="button" class="cu-btn" data-cu-act="annotate" data-id="${esc(u.id)}">${media.length ? 'Add media & notes' : 'Add photos, videos or 3D'}</button>` : ''}
+                ${canChange(u) ? `<button type="button" class="cu-btn" data-cu-act="edit" data-id="${esc(u.id)}">Edit text</button><button type="button" class="cu-btn cu-danger" data-cu-act="delete" data-id="${esc(u.id)}">Delete</button>` : ''}
+            </div>
         </li>`;
     }
 
@@ -255,13 +322,14 @@ export async function initUpdates({ H, panels, show }, manifest) {
     }
 
     function updateDialog(u) {
-        const photos = Object.values(u?.photos || {}).map(driveView).join('\n');
         openDialog(`<form class="cu-form" data-cu-form="update" data-id="${esc(u?.id || '')}">
             <h2>${u ? 'Edit update' : 'Post an update'} · ${esc(H.name)}</h2>
             <label>Date <input type="date" name="date" required value="${esc(u?.date || today())}"></label>
             <label>Title <input name="title" required maxlength="100" value="${esc(u?.title || '')}" placeholder="e.g. Second fitting went well"></label>
             <label>What happened <textarea name="text" rows="6" maxlength="4000" placeholder="Plain text. Leave a blank line between paragraphs; links starting with https:// become clickable.">${esc(u?.text || '')}</textarea></label>
-            <label>Photos (optional) <textarea name="photos" rows="3" placeholder="Paste Google Drive links, one per line (up to ${MAX_PHOTOS}). The files must be shared publicly, like the Animals Spring 2026 folder.">${esc(photos)}</textarea></label>
+            ${u ? '<p class="cu-hint">Photos, videos, 3D models and their notes are managed in full screen (“Add media &amp; notes”).</p>'
+                : `<label>Photos (optional) <textarea name="photos" rows="3" placeholder="Paste Google Drive links, one per line (up to ${MAX_PHOTOS}). The files must be shared publicly, like the Animals Spring 2026 folder.">${''}</textarea></label>
+            <label class="cu-check"><input type="checkbox" name="studio" checked> Open full screen next to upload photos, videos or 3D models and add pins, notes and drawings</label>`}
             <p class="cu-hint">Everything here is public as soon as you post it.</p>
             <p class="cu-error" role="alert"></p>
             <div class="cu-form-actions"><button type="button" class="cu-btn" data-cu-act="close">Cancel</button><button type="submit" class="cu-btn cu-primary">${u ? 'Save changes' : 'Post update'}</button></div>
@@ -328,7 +396,11 @@ export async function initUpdates({ H, panels, show }, manifest) {
         else if (act === 'close') dialog.close();
         else if (act === 'delete') {
             const u = updates().find(x => x.id === btn.dataset.id);
-            if (u && confirm(`Delete the update “${u.title}”? This cannot be undone.`)) db.set(`${pagePath}/updates/${u.id}`, null).catch(err => fail(err, 'delete'));
+            if (u && confirm(`Delete the update “${u.title}” and its notes? This cannot be undone. Files stay in Google Drive.`)) {
+                db.set(`${pagePath}/updates/${u.id}`, null).then(() => db.set(`${teamPath}/${u.id}`, null).catch(() => {})).catch(err => fail(err, 'delete'));
+            }
+        } else if (act === 'open' || act === 'annotate') {
+            openUpdate(btn.dataset.id, btn.dataset.m || '', act === 'annotate');
         } else if (act === 'remove-editor') {
             if (confirm(`Remove ${keyToEmail(btn.dataset.key)} as an editor?`)) db.set(`cases/editors/${btn.dataset.key}`, null).catch(err => fail(err, 'remove editor'));
         }
@@ -352,20 +424,23 @@ export async function initUpdates({ H, panels, show }, manifest) {
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) throw new Error('Pick a date.');
                 const id = form.dataset.id;
                 const old = id ? updates().find(u => u.id === id) : null;
+                const now = Date.now();
+                const media = old ? old.media : Object.fromEntries([...new Set(ids)].map((file, i) => [db.newKey(), { kind: 'photo', file, name: 'Photo', order: i + 1, uid: user.uid, at: now }]));
                 const value = {
                     uid: old ? old.uid : user.uid,
                     author: old ? old.author : user.name,
-                    at: old ? old.at : Date.now(),
+                    at: old ? old.at : now,
                     date: f.date,
                     title: f.title.trim().slice(0, 100),
                     text: String(f.text || '').trim().slice(0, 4000),
-                    ...(ids.length ? { photos: [...new Set(ids)] } : {}),
-                    ...(old ? { edited: Date.now() } : {}),
+                    ...(media && Object.keys(media).length ? { media } : {}),
+                    ...(old ? { edited: now } : {}),
                 };
                 if (!value.title) throw new Error('Add a title.');
-                await db.set(`${pagePath}/updates/${id || db.newKey()}`, value);
+                const newId = id || db.newKey();
+                await db.set(`${pagePath}/updates/${newId}`, value);
                 dialog.close();
-                if (!id) goUpdates();
+                if (!id) { goUpdates(); if (f.studio === 'on') openUpdate(newId, '', true); }
             } else if (form.dataset.cuForm === 'status') {
                 const status = String(f.status || '').trim().slice(0, 140);
                 await db.set(`${pagePath}/overview`, status ? { status, by: user.uid, byName: user.name, at: Date.now() } : null);
@@ -389,16 +464,30 @@ export async function initUpdates({ H, panels, show }, manifest) {
     });
 
     // ---- start
+    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=2">');
     data = await db.readPublic(animal).catch(() => ({}));
     render();
     if (location.hash === '#updates') goUpdates();
+    // Links to one update (or one photo, video or model in it): #update/<id>[/<media id>].
+    const openFromHash = () => {
+        const deep = location.hash.match(/^#update\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?$/);
+        if (deep && studio?.updateId !== deep[1]) { show('report'); openUpdate(deep[1], deep[2] || ''); }
+    };
+    window.addEventListener('hashchange', openFromHash);
+    openFromHash();
     let authStarted = false;
     const startAuth = () => !authStarted && (authStarted = true) && db.onAuth((u, r, error) => {
         user = u; role = r;
         if (error) console.warn('Case updates: sign-in unavailable', error);
         unwatch?.(); unwatch = null;
-        if (user && canEdit()) unwatch = db.watch(pagePath, v => { data = v || {}; render(); }, err => console.warn('Case updates: live updates stopped', err));
+        unwatchTeam?.(); unwatchTeam = null; teamData = {};
+        if (user && canEdit()) {
+            unwatch = db.watch(pagePath, v => { data = v || {}; render(); }, err => console.warn('Case updates: live updates stopped', err));
+            unwatchTeam = db.watch(teamPath, v => { teamData = v || {}; studio?.refresh(); }, err => console.warn('Case updates: team notes unavailable', err));
+        }
         if (!user) store.set(SIGNED_IN_FLAG, null);
+        // Team-only links (the design log) show for signed-in editors only.
+        document.documentElement.classList.toggle('is-team', !!(user && canEdit()));
         render();
     });
     // The SDK only loads for people who signed in on this browser before, or who open the sign-in dialog.

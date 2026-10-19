@@ -1,5 +1,5 @@
-// Google Drive settings shared by the review builder and the review page.
-// Fill these in after following REVIEW-BUILDER-SETUP.md. All three values are public client identifiers
+// Google Drive settings shared by the review builder, the review page and the case-study updates
+// (drive-store.js). Fill these in after following CASE-UPDATES-SETUP.md step 4 (or REVIEW-BUILDER-SETUP.md). All three values are public client identifiers
 // (they ship to every visitor); access is limited by the OAuth consent screen and the key restrictions.
 //
 //   apiKey   - Google Cloud API key restricted to the Drive API + Picker API and to this site's origin.
@@ -9,8 +9,8 @@
 //   folderName - Drive folder that saved reviews go into (created on first save).
 
 export const driveConfig = {
-    apiKey: '',
-    clientId: '',
+    apiKey: 'AIzaSyDoFsHmqVNIWWE3eI2Udu5HK33FyAmAJmI',
+    clientId: '71300213332-q4gk06omr1fa621utgjv0qvkj6k14rec.apps.googleusercontent.com',
     appId: '71300213332',
     folderName: 'Give a Paw Reviews',
 };
