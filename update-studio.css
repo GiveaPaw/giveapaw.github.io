@@ -222,3 +222,8 @@ body.us-open .mobile-toggle, body.us-open .cu-bar { display: none !important; }
 .cu-files a:hover { border-color: #003262; background: #eef4fb; }
 .cu-files small { color: #566676; font-weight: 600; }
 .cu-file-ext { padding: 1px 6px; border-radius: 5px; background: #003262; color: #fff; font-size: 0.7rem; letter-spacing: 0.03em; }
+
+/* Team bar: your name is a button (change your display name) */
+button.cu-who { border: 0; background: rgba(255, 255, 255, 0.08); color: #fff; border-radius: 999px; padding: 0.25rem 0.6rem 0.25rem 0.3rem; font: inherit; cursor: pointer; }
+button.cu-who:hover { background: rgba(255, 255, 255, 0.2); }
+.cu-setname { background: #fdb515 !important; color: #2b2000 !important; }

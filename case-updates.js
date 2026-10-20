@@ -67,10 +67,11 @@ function createCloud() {
     };
     return {
         kind: 'cloud',
-        async readPublic(animal) {
+        async readPublic(animal) { return this.readPath(`cases/pages/${encodeURIComponent(animal)}`); },
+        async readPath(path) {
             const cfg = await cfgPromise;
             if (!cfg?.databaseURL) return {};
-            const r = await fetch(`${cfg.databaseURL}/cases/pages/${encodeURIComponent(animal)}.json`, { cache: 'no-cache' });
+            const r = await fetch(`${cfg.databaseURL}/${path}.json`, { cache: 'no-cache' });
             return r.ok ? (await r.json()) || {} : {};
         },
         loadSdk,
@@ -114,6 +115,7 @@ function createDemo(mode) {
     return {
         kind: 'demo',
         async readPublic(animal) { return get(load(), `cases/pages/${animal}`) || {}; },
+        async readPath(path) { return get(load(), path) || {}; },
         loadSdk: () => Promise.resolve(),
         onAuth(cb) { authCb = cb; setTimeout(() => (store.get(SIGNED_IN_FLAG) ? cb(user, role) : cb(null, null))); },
         signIn() { store.set(SIGNED_IN_FLAG, '1'); authCb?.(user, role); return Promise.resolve(); },
@@ -137,7 +139,10 @@ export async function initUpdates({ H, panels, show }, manifest) {
     const pagePath = `cases/pages/${animal}`;
     const teamPath = `cases/team/${animal}`;
     let teamData = {};
+    let people = {};          // uid -> { name }: display names chosen on the site
+    const nameOf = (uid, fallback = '') => people?.[uid]?.name || fallback || '';
     let unwatchTeam = null;
+    let unwatchPeople = null;
     let studio = null;
 
     // ---- full-screen view (update-studio.js, loaded on first use)
@@ -155,7 +160,9 @@ export async function initUpdates({ H, panels, show }, manifest) {
         teamMarks: (u, m) => teamData?.[u]?.[m] || null,
         updatePath: u => `${pagePath}/updates/${u}`,
         teamPath: u => `${teamPath}/${u}`,
-        user: () => user,
+        // The signed-in person, with the display name they chose on the site.
+        user: () => user && { ...user, name: nameOf(user.uid, user.name) },
+        nameOf,
         canEdit: () => canEdit(),
         canChange: obj => canChange(obj),
         set: (path, value) => db.set(path, value),
@@ -175,7 +182,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
             renderFeedItem: u => updateHTML(u, { preview: true }),
             renderCardSnippet: u => cardSnippet(u),
             openPreview: async (u, mediaKey, onDone) => {
-                const st = await import('./update-studio.js?v=3');
+                const st = await import('./update-studio.js?v=4');
                 st.openStudio({ ...host, getUpdate: () => u, canEdit: () => false, canChange: () => false, teamMarks: () => null, onClose: onDone }, { updateId: u.id, mediaId: mediaKey });
             },
             openStudio: (uid, mid, edit) => openUpdate(uid, mid, edit),
@@ -186,7 +193,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
     }
     async function openUpdate(id, mediaId = '', edit = false, markId = '') {
         if (!data.updates?.[id]) return;
-        const mod = await import('./update-studio.js?v=3');
+        const mod = await import('./update-studio.js?v=4');
         studio = mod.openStudio(host, { updateId: id, mediaId, markId, edit });
         history.replaceState(null, '', `#update/${id}${mediaId ? '/' + mediaId : ''}`);
     }
@@ -271,7 +278,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
     function updateHTML(u, { preview = false } = {}) {
         const media = mediaOf(u);
         const notes = media.reduce((n, m) => n + Object.keys(m.marks || {}).length, 0);
-        const by = String(u.author || '').split(' ')[0];
+        const by = nameOf(u.uid, u.author);
         const tile = m => {
             const th = mediaThumb(m);
             const label = m.caption || m.name || ({ photo: 'Photo', video: 'Video', model: '3D model' })[m.kind];
@@ -318,7 +325,11 @@ export async function initUpdates({ H, panels, show }, manifest) {
         teamLink.hidden = !!user;
         bar.hidden = !user;
         if (!user) return;
-        const who = `<span class="cu-who">${user.photo ? `<img src="${esc(user.photo)}" alt="" referrerpolicy="no-referrer">` : ''}${esc(user.name.split(' ')[0])}</span>`;
+        const shown = nameOf(user.uid, user.name);
+        const needsName = canEdit() && !people?.[user.uid]?.name && shown.replace(/[^A-Za-z]/g, '').length < 3;
+        const who = canEdit()
+            ? `<button type="button" class="cu-who" data-cu-act="name" title="Change the name shown on your updates and notes">${user.photo ? `<img src="${esc(user.photo)}" alt="" referrerpolicy="no-referrer">` : ''}${esc(shown)} <span aria-hidden="true">✎</span></button>${needsName ? '<button type="button" class="cu-setname" data-cu-act="name">Set your name</button>' : ''}`
+            : `<span class="cu-who">${user.photo ? `<img src="${esc(user.photo)}" alt="" referrerpolicy="no-referrer">` : ''}${esc(shown)}</span>`;
         bar.innerHTML = canEdit()
             ? `${who}<span class="cu-role">${role.admin ? 'Admin' : 'Editor'}</span>
                <button type="button" data-cu-act="new">Post update</button>
@@ -352,6 +363,17 @@ export async function initUpdates({ H, panels, show }, manifest) {
         </form>`);
         db.loadSdk().then(() => { const b = $('[data-cu-act=google]', dialog); if (b) { b.disabled = false; b.textContent = 'Sign in with Google'; } })
             .catch(err => fail(new Error('Could not reach the sign-in service. Check your connection and try again.'), 'load'));
+    }
+
+    function nameDialog() {
+        openDialog(`<form class="cu-form" data-cu-form="name">
+            <h2>Your name on the website</h2>
+            <p>Shown as “by …” on your updates, notes and drawings, on every animal’s page. Changing it updates the ones you already posted.</p>
+            <label>Display name <input name="name" required maxlength="40" value="${esc(people?.[user.uid]?.name || (user.name.length > 2 ? user.name : ''))}" placeholder="e.g. Tyler Lai"></label>
+            <p class="cu-hint">Signed in as ${esc(user.email)}. Your Google account name is not changed.</p>
+            <p class="cu-error" role="alert"></p>
+            <div class="cu-form-actions"><button type="button" class="cu-btn" data-cu-act="close">Cancel</button><button type="submit" class="cu-btn cu-primary">Save name</button></div>
+        </form>`);
     }
 
     function statusDialog() {
@@ -411,6 +433,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
         else if (act === 'edit') openEditor(btn.dataset.id);
         else if (act === 'status') statusDialog();
         else if (act === 'editors') editorsDialog();
+        else if (act === 'name') nameDialog();
         else if (act === 'close') dialog.close();
         else if (act === 'delete') {
             const u = updates().find(x => x.id === btn.dataset.id);
@@ -434,9 +457,18 @@ export async function initUpdates({ H, panels, show }, manifest) {
         const submit = $('button[type=submit]', form);
         submit.disabled = true;
         try {
+            if (form.dataset.cuForm === 'name') {
+                const name = String(f.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+                if (!name) throw new Error('Type a name.');
+                await db.set(`cases/people/${user.uid}`, { name, at: Date.now() });
+                people = { ...people, [user.uid]: { name } };
+                dialog.close();
+                render();
+                return;
+            }
             if (form.dataset.cuForm === 'status') {
                 const status = String(f.status || '').trim().slice(0, 140);
-                await db.set(`${pagePath}/overview`, status ? { status, by: user.uid, byName: user.name, at: Date.now() } : null);
+                await db.set(`${pagePath}/overview`, status ? { status, by: user.uid, byName: nameOf(user.uid, user.name).slice(0, 60), at: Date.now() } : null);
                 dialog.close();
             } else if (form.dataset.cuForm === 'editor') {
                 const email = String(f.email || '').trim().toLowerCase();
@@ -457,8 +489,8 @@ export async function initUpdates({ H, panels, show }, manifest) {
     });
 
     // ---- start
-    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=6"><link rel="stylesheet" href="update-editor.css?v=6">');
-    data = await db.readPublic(animal).catch(() => ({}));
+    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=7"><link rel="stylesheet" href="update-editor.css?v=6">');
+    [data, people] = await Promise.all([db.readPublic(animal).catch(() => ({})), db.readPath('cases/people').catch(() => ({}))]);
     render();
     if (location.hash === '#updates') goUpdates();
     // Links to one update (or one photo, video or model in it): #update/<id>[/<media id>].
@@ -474,9 +506,11 @@ export async function initUpdates({ H, panels, show }, manifest) {
         if (error) console.warn('Case updates: sign-in unavailable', error);
         unwatch?.(); unwatch = null;
         unwatchTeam?.(); unwatchTeam = null; teamData = {};
+        unwatchPeople?.(); unwatchPeople = null;
         if (user && canEdit()) {
             unwatch = db.watch(pagePath, v => { data = v || {}; render(); }, err => console.warn('Case updates: live updates stopped', err));
             unwatchTeam = db.watch(teamPath, v => { teamData = v || {}; studio?.refresh(); }, err => console.warn('Case updates: team notes unavailable', err));
+            unwatchPeople = db.watch('cases/people', v => { people = v || {}; render(); }, () => {});
         }
         if (!user) store.set(SIGNED_IN_FLAG, null);
         // Team-only links (the design log) show for signed-in editors only.

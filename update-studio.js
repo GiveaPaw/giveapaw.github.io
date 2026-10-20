@@ -158,7 +158,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         root.innerHTML = `
             <header class="us-head">
                 <button type="button" class="us-back" data-us="close" aria-label="Close and go back to ${esc(A.name)}'s page">← ${esc(A.name)}</button>
-                <div class="us-title"><span>${esc(fmtDate(u.date))}${u.author ? ' · by ' + esc(first(u.author)) : ''}</span><strong>${esc(u.title)}</strong></div>
+                <div class="us-title"><span>${esc(fmtDate(u.date))}${u.author ? ' · by ' + esc(host.nameOf ? host.nameOf(u.uid, u.author) : first(u.author)) : ''}</span><strong>${esc(u.title)}</strong></div>
                 <div class="us-head-actions">
                     ${host.canEdit() ? `<button type="button" class="us-hbtn${editing ? ' is-on' : ''}" data-us="edit" aria-pressed="${editing}">${editing ? 'Done annotating' : 'Annotate'}</button>` : ''}
                     <button type="button" class="us-hbtn" data-us="fullscreen">${document.fullscreenElement ? 'Exit full screen' : 'Full screen'}</button>
@@ -553,7 +553,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         return `<li class="us-mark${k.id === selected ? ' is-on' : ''}${k.decision ? ' is-decision' : ''}" data-id="${esc(k.id)}">
             <button type="button" class="us-num" data-us="mark" data-id="${esc(k.id)}" style="--c:${esc(k.color || '#003262')}" aria-label="Show note ${k.n}">${k.n}</button>
             <div class="us-mark-body">
-                <div class="us-mark-meta">${where}${icon ? `<span>${icon}</span>` : ''}${k.decision ? '<span class="us-badge us-badge-gold">Decision</span>' : ''}${k.team ? '<span class="us-badge">Team only</span>' : ''}<span class="us-by">${esc(first(k.author))}</span></div>
+                <div class="us-mark-meta">${where}${icon ? `<span>${icon}</span>` : ''}${k.decision ? '<span class="us-badge us-badge-gold">Decision</span>' : ''}${k.team ? '<span class="us-badge">Team only</span>' : ''}<span class="us-by">${esc(host.nameOf ? host.nameOf(k.uid, k.author) : first(k.author))}</span></div>
                 ${k.note ? `<p>${linkify(k.note)}</p>` : `<p class="us-muted">${k.kind === 'sketch' ? 'Drawing' : 'Pin'}${m.kind === 'model' && k.view ? ' — click the number to see it from its angle' : ''}</p>`}
                 ${editing && host.canChange(k) ? `<div class="us-mark-actions">${k.kind === 'sketch' ? `<button type="button" data-us="edit-drawing" data-id="${esc(k.id)}">Edit drawing</button>` : ''}<button type="button" data-us="edit-mark" data-id="${esc(k.id)}">${k.kind === 'sketch' ? 'Edit note' : 'Edit'}</button><button type="button" data-us="delete-mark" data-id="${esc(k.id)}">Delete</button></div>` : ''}
             </div></li>`;
