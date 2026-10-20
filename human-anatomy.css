@@ -1,0 +1,32 @@
+/* Human anatomy hub (human-anatomy.html, human-anatomy.js) */
+
+.ha-group { margin: 1.5rem 0 0; }
+.ha-group h2 { margin: 0 0 0.6rem; font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-light); }
+.ha-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.9rem; }
+.ha-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: #fff;
+    color: inherit;
+    text-decoration: none;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.ha-card:hover { border-color: #002676; box-shadow: 0 4px 14px rgba(0, 38, 118, 0.12); transform: translateY(-1px); }
+.ha-thumb { display: grid; place-items: center; height: 150px; background: #f6f7fa; border-bottom: 1px solid #eef1f6; }
+.ha-thumb img { max-width: 92%; max-height: 136px; object-fit: contain; }
+.ha-card-body { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.75rem 0.9rem 0.85rem; }
+.ha-card-body strong { font: 700 1.05rem/1.25 var(--font-heading); color: #002676; }
+.ha-blurb { font-size: 0.88rem; line-height: 1.45; color: var(--color-text); }
+.ha-count { font-size: 0.8rem; font-weight: 600; color: #2e7d46; }
+.ha-count.ha-soon { color: #8a5a00; }
+
+@media (max-width: 520px) {
+    .ha-cards { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .ha-thumb { height: 110px; }
+    .ha-thumb img { max-height: 98px; }
+    .ha-blurb { display: none; }
+}
