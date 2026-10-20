@@ -9,6 +9,18 @@
 //
 // A note can be a "decision point" (gold) and "team only" (stored under cases/team, which visitors
 // cannot read). Everything else is public with the update. Opened by case-updates.js.
+//
+// Side by side and tabs (like the design review's stage): any two photos, videos or 3D models can be
+// shown next to each other (3D cameras linked); the notes column follows the side last clicked.
+// Editors save a layout, with its 3D angles, as a named tab (updates/<u>/views/<v>: label, a, b,
+// link, cams) that everyone sees across the top. #update/<u>/tab_<v> opens a tab.
+//
+// Inline (options.inline = an element): the same view without the header or the update's text, inside
+// the update's card on the page, read-only, next to the text; the text's note links drive it.
+//
+// Drawings: only one shows at a time on a view (the selected one, else the first). Paired notes: a note
+// can name a note on another item (mark.pair = "<media>/<note>"); selecting either shows both side by
+// side, each item at its own note's angle.
 import { createViewer } from './iteration-viewer.js?v=4';
 import { modelUrl } from './model-base.js?v=2';
 import { driveReady, preloadDrive, thumbUrl, viewUrl, mediaUrl, driveIdFrom, isDriveId, uploadFile, downloadPublic, fileKind, demoPut, demoGet } from './drive-store.js?v=2';
@@ -111,15 +123,21 @@ export function mediaThumb(m) {
     return '';
 }
 
-export function openStudio(host, { updateId, mediaId = '', markId = '', edit = false } = {}) {
-    document.querySelector('.us')?.remove();
+export function openStudio(host, { updateId, mediaId = '', markId = '', edit = false, inline = null } = {}) {
+    if (!inline) document.querySelector('.us:not(.us-inline)')?.remove();
     const A = host.animal;
     const root = document.createElement('div');
-    root.className = 'us';
-    root.setAttribute('role', 'dialog');
-    root.setAttribute('aria-modal', 'true');
-    document.body.append(root);
-    document.body.classList.add('us-open');
+    if (inline) {
+        root.className = 'us us-inline';
+        root.setAttribute('role', 'region');
+        inline.append(root);
+    } else {
+        root.className = 'us';
+        root.setAttribute('role', 'dialog');
+        root.setAttribute('aria-modal', 'true');
+        document.body.append(root);
+        document.body.classList.add('us-open');
+    }
     const lastFocus = document.activeElement;
 
     let editing = false;
@@ -132,14 +150,33 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
     let brush = 'pen';      // 'pen' | 'text' | 'erase' while drawing
     let aboutOpen = true;   // "About this update" starts open
     let editingText = false;
-    let focusAfterLoad = '';
     let selected = '';
-    let stage = null;       // the active media renderer
+    let stage = null;       // the active media renderer (the side whose notes are shown)
     let busy = [];          // uploads / conversions in progress
+    const startTab = String(mediaId).startsWith('tab_') ? String(mediaId).slice(4) : '';
+    if (startTab) current = '';
+    let panes = current ? [current] : [];   // what is on screen: one item, or two side by side
+    const stages = new Map();               // media id -> its renderer
+    let activeTab = '';                     // the saved tab on screen, if any
+    let linked = true;                      // side by side 3D views turn together
+    let besideMenu = false;
+    let pendingCams = null;                 // 3D angles to open a tab with
+    let pairSel = null;                     // { m, k }: the paired note shown on the other side
+    let holdLink = false;                   // linked views wait while both fly to their own notes
 
     const U = () => host.getUpdate(updateId);
     const mediaList = () => Object.entries(U()?.media || {}).map(([id, m]) => ({ id, ...m })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.at || 0) - (b.at || 0));
     const curMedia = () => mediaList().find(m => m.id === current) || null;
+    const mediaById = id => mediaList().find(m => m.id === id) || null;
+    const SIDE_KINDS = new Set(['photo', 'video', 'model']);
+    const nameOfMedia = m => m ? (m.caption || m.name || KIND_LABEL[m.kind]) : '';
+    // Saved tabs, in order; a tab whose item was removed is skipped (or shows its remaining item).
+    const tabsOf = () => Object.entries(U()?.views || {}).map(([id, v]) => ({ id, ...v }))
+        .filter(v => mediaById(v.a))
+        .map(v => (v.b && !mediaById(v.b) ? { ...v, b: '' } : v))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.at || 0) - (b.at || 0));
+    const tabPath = id => `${host.updatePath(updateId)}/views/${id}`;
+    const setHash = () => !inline && history.replaceState(null, '', `#update/${updateId}${activeTab ? '/tab_' + activeTab : current ? '/' + current : ''}`);
     const marksOf = m => {
         if (!m) return [];
         const pub = Object.entries(m.marks || {}).map(([id, k]) => ({ id, ...k, team: false }));
@@ -153,9 +190,15 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
     function shell() {
         const u = U();
         if (!u) { close(); return; }
-        root.setAttribute('aria-label', 'Update: ' + (u.title || ''));
+        root.setAttribute('aria-label', (inline ? '3D view and notes: ' : 'Update: ') + (u.title || ''));
         root.classList.toggle('is-editing', editing);
-        root.innerHTML = `
+        root.innerHTML = inline ? `
+            <div class="us-ihead"><span>${inlineHint()}</span><button type="button" class="us-expand" data-us="expand">⤢ Full screen</button></div>
+            <div class="us-body">
+                <nav class="us-rail" aria-label="Photos, videos and 3D models in this update"></nav>
+                <section class="us-stage" aria-live="polite"></section>
+                <aside class="us-notes" aria-label="Notes"></aside>
+            </div>` : `
             <header class="us-head">
                 <button type="button" class="us-back" data-us="close" aria-label="Close and go back to ${esc(A.name)}'s page">← ${esc(A.name)}</button>
                 <div class="us-title"><span>${esc(fmtDate(u.date))}${u.author ? ' · by ' + esc(host.nameOf ? host.nameOf(u.uid, u.author) : first(u.author)) : ''}</span><strong>${esc(u.title)}</strong></div>
@@ -174,16 +217,19 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         mountStage();
     }
 
+    const inlineHint = () => (/\]\(note:/.test(U()?.text || '') ? 'Click the highlighted words to see each note' : 'Click a number to see its note');
+
     function renderRail() {
         const rail = $('.us-rail', root);
         if (!rail) return;
         const list = mediaList();
+        rail.hidden = !!inline && list.filter(m => m.kind !== 'file').length < 2;
         rail.innerHTML = `
-            <button type="button" class="us-ritem us-ritem-text${!current ? ' is-on' : ''}" data-us="go" data-id=""><span class="us-ricon">¶</span><span>The update</span></button>
+            ${inline ? '' : `<button type="button" class="us-ritem us-ritem-text${!current ? ' is-on' : ''}" data-us="go" data-id=""><span class="us-ricon">¶</span><span>The update</span></button>`}
             ${list.map((m, i) => {
                 const th = mediaThumb(m);
                 const n = marksOf(m).length;
-                return `<div class="us-rwrap"><button type="button" class="us-ritem${m.id === current ? ' is-on' : ''}" data-us="go" data-id="${esc(m.id)}" aria-current="${m.id === current}">
+                return `<div class="us-rwrap"><button type="button" class="us-ritem${m.id === current ? ' is-on' : panes.includes(m.id) ? ' is-beside' : ''}" data-us="go" data-id="${esc(m.id)}" aria-current="${panes.includes(m.id)}">
                     ${th ? `<img src="${esc(th)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'us-ricon',textContent:'${m.kind === 'model' ? '3D' : m.kind === 'video' ? '▶' : '🖼'}'}))">` : `<span class="us-ricon">${m.kind === 'model' ? '3D' : m.kind === 'video' ? '▶' : m.kind === 'file' ? '⬇' : '🖼'}</span>`}
                     <span>${esc(m.caption || m.name || KIND_LABEL[m.kind])}</span>${n ? `<span class="us-rcount">${n}</span>` : ''}${m.kind === 'video' ? '<span class="us-rkind">Video</span>' : m.kind === 'model' ? '<span class="us-rkind">3D</span>' : m.kind === 'file' ? '<span class="us-rkind">Download</span>' : ''}
                 </button>${editing && host.canChange(m) ? `<span class="us-rtools"><button type="button" data-us="up" data-id="${esc(m.id)}" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" data-us="down" data-id="${esc(m.id)}" aria-label="Move down"${i === list.length - 1 ? ' disabled' : ''}>↓</button><button type="button" data-us="remove-media" data-id="${esc(m.id)}" aria-label="Remove from the update">✕</button></span>` : ''}</div>`;
@@ -194,19 +240,182 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
 
     // ------------------------------------------------------------ stage
     function mountStage() {
-        stage?.dispose?.();
+        // A 3D view keeps its angle when the layout changes around it.
+        const cams = {};
+        stages.forEach((s, id) => { const v = s.view?.(); if (v) cams[id] = v; });
+        stages.forEach(s => s.dispose?.());
+        stages.clear();
         stage = null;
-        tool = ''; pending = null; drawing = null; selected = '';
+        tool = ''; pending = null; drawing = null; selected = ''; pairSel = null; holdLink = false;
+        besideMenu = false;
         const box = $('.us-stage', root);
-        const m = curMedia();
-        if (!m) { current = ''; box.innerHTML = textScreen(); renderNotes(); return; }
-        box.innerHTML = `
+        panes = panes.filter((id, i) => mediaById(id) && panes.indexOf(id) === i).slice(0, 2);
+        // Design files are a download card: never half of a side by side view.
+        if (panes.length === 2 && !panes.every(id => SIDE_KINDS.has(mediaById(id).kind))) panes = [panes.includes(current) ? current : panes[0]];
+        if (!panes.includes(current)) current = panes[0] || '';
+        box.classList.toggle('is-split', panes.length === 2);
+        if (!current) {
+            panes = [];
+            box.innerHTML = '<div class="us-viewbar"></div>' + textScreen();
+            renderViewbar(); renderNotes();
+            return;
+        }
+        const two = panes.length === 2;
+        box.innerHTML = `<div class="us-viewbar"></div>
+            <div class="us-panes" data-n="${panes.length}">${panes.map(id => paneHTML(mediaById(id), two)).join('')}</div>
+            <div class="us-under"></div>`;
+        for (const id of panes) {
+            const m = mediaById(id);
+            const pane = box.querySelector(`.us-pane[data-id="${CSS.escape(id)}"]`);
+            stages.set(id, ({ photo: photoStage, model: modelStage, video: videoStage, file: fileStage })[m.kind](m, $('.us-view', pane), pane, { cam: pendingCams?.[id] || cams[id] }));
+        }
+        pendingCams = null;
+        stage = stages.get(current);
+        if (two) linkModels();
+        renderUnder(); renderViewbar(); markPanes(); renderNotes();
+    }
+
+    function paneHTML(m, two) {
+        return `<section class="us-pane${m.id === current ? ' is-active' : ''}" data-id="${esc(m.id)}" aria-label="${esc(nameOfMedia(m))}">
+            ${two ? `<p class="us-pane-tag"><strong>${esc(nameOfMedia(m))}</strong><button type="button" class="us-pane-state" data-us="activate" data-id="${esc(m.id)}"></button></p>` : ''}
             <div class="us-view" data-kind="${m.kind}"><div class="us-media"></div><canvas class="us-sketch"></canvas><div class="us-pins"></div><p class="us-msg" hidden></p></div>
             ${m.kind === 'video' ? '<div class="us-timeline" aria-label="Notes on this video"><div class="us-track"></div></div>' : ''}
-            ${toolbarHTML(m)}
-            ${editing && host.canChange(m) ? `<label class="us-caption-edit">Caption <input data-us="caption" maxlength="300" value="${esc(m.caption || '')}" placeholder="What this shows"></label>` : m.caption ? `<p class="us-caption">${esc(m.caption)}</p>` : ''}`;
-        stage = ({ photo: photoStage, model: modelStage, video: videoStage, file: fileStage })[m.kind](m, $('.us-view', box));
-        renderNotes();
+        </section>`;
+    }
+
+    // Under the stage: the annotation tools and caption of the active side.
+    function renderUnder() {
+        const under = $('.us-under', root);
+        const m = curMedia();
+        if (!under || !m) return;
+        under.innerHTML = toolbarHTML(m) + (editing && host.canChange(m)
+            ? `<label class="us-caption-edit">Caption <input data-us="caption" maxlength="300" value="${esc(m.caption || '')}" placeholder="What this shows"></label>`
+            : m.caption && panes.length < 2 ? `<p class="us-caption">${esc(m.caption)}</p>` : '');
+    }
+
+    function markPanes() {
+        root.querySelectorAll('.us-pane').forEach(p => {
+            const on = p.dataset.id === current;
+            p.classList.toggle('is-active', on);
+            const tag = p.querySelector('.us-pane-tag strong');
+            if (tag) tag.textContent = nameOfMedia(mediaById(p.dataset.id));
+            const s = p.querySelector('.us-pane-state');
+            if (s) { s.textContent = on ? 'Notes shown' : 'Show its notes'; s.disabled = on; }
+        });
+    }
+
+    // Side by side: the notes column, tools and caption follow the side last clicked.
+    function activatePane(id) {
+        if (id === current || !stages.has(id)) return;
+        if (tool === 'draw' && drawing) return;   // save or cancel the drawing first
+        stage?.setTool?.('');
+        // A paired note stays shown: the other side's note becomes the selected one.
+        const swap = pairSel && pairSel.m === id ? { m: current, k: selected } : null;
+        selected = swap ? pairSel.k : '';
+        pairSel = swap;
+        tool = ''; pending = null; editingText = false;
+        current = id;
+        stage = stages.get(id);
+        if (!activeTab) setHash();
+        markPanes(); renderUnder(); renderRail(); renderViewbar(); renderNotes();
+        stages.forEach(s => s.redraw?.());
+    }
+
+    // Two 3D models turn, pan and zoom together while "Views linked" is on.
+    function linkModels() {
+        const [a, b] = panes.map(id => stages.get(id)?.viewer);
+        if (!a || !b) return;
+        let syncing = false;
+        const follow = (from, to) => () => {
+            if (syncing || !linked || holdLink) return;
+            syncing = true;
+            try { to.camera.position.copy(from.camera.position); to.controls.target.copy(from.controls.target); to.controls.update(); } finally { syncing = false; }
+        };
+        a.onChange(follow(a, b));
+        b.onChange(follow(b, a));
+        stages.get(panes[0]).follow = follow(a, b);
+        stages.get(panes[1]).follow = follow(b, a);
+    }
+
+    // Across the top: the saved tabs, and the side by side controls.
+    function renderViewbar() {
+        const bar = $('.us-viewbar', root);
+        if (!bar) return;
+        const tabs = tabsOf();
+        const m = curMedia();
+        const two = panes.length === 2;
+        const others = mediaList().filter(x => SIDE_KINDS.has(x.kind) && !panes.includes(x.id));
+        const bothModels = two && panes.every(id => mediaById(id)?.kind === 'model');
+        const tab = tabs.find(t => t.id === activeTab);
+        const mayTab = editing && host.canEdit() && m && SIDE_KINDS.has(m.kind);
+        const side = two
+            ? `<button type="button" data-us="swap" title="Swap left and right">⇄ Swap</button>
+               ${bothModels ? `<button type="button" data-us="link" aria-pressed="${linked}" title="Turning, panning or zooming one 3D view moves the other">🔗 ${linked ? 'Views linked' : 'Link views'}</button>` : ''}
+               <button type="button" data-us="single" title="Show one at a time">▢ One view</button>`
+            : m && SIDE_KINDS.has(m.kind) && others.length ? `<button type="button" data-us="beside" aria-expanded="${besideMenu}">⧉ Side by side</button>` : '';
+        const tabTools = mayTab ? `${tab && host.canChange(tab) ? '<button type="button" data-us="tab-update" title="Save what is on screen now, with its 3D angles, into this tab">Save to tab</button>' : ''}<button type="button" class="us-tabnew" data-us="tab-new" title="Save what is on screen now, with its 3D angles, as a tab everyone sees">+ Save as tab</button>` : '';
+        bar.innerHTML = (tabs.length ? `<div class="us-tabs" role="group" aria-label="Tabs in this update">${tabs.map(t => `<span class="us-tabwrap${t.id === activeTab ? ' is-on' : ''}"><button type="button" class="us-tab" data-us="tab" data-v="${esc(t.id)}" aria-pressed="${t.id === activeTab}" title="${esc(t.b ? `${nameOfMedia(mediaById(t.a))} and ${nameOfMedia(mediaById(t.b))} side by side` : nameOfMedia(mediaById(t.a)))}">${t.b ? '<span aria-hidden="true">⧉ </span>' : ''}${esc(t.label)}</button>${editing && host.canChange(t) && t.id === activeTab ? `<button type="button" class="us-tabx" data-us="tab-rename" data-v="${esc(t.id)}" aria-label="Rename this tab" title="Rename">✎</button><button type="button" class="us-tabx" data-us="tab-delete" data-v="${esc(t.id)}" aria-label="Delete this tab" title="Delete tab">×</button>` : ''}</span>`).join('')}</div>` : '')
+            + (side || tabTools ? `<div class="us-sbs">${side}${tabTools}</div>` : '')
+            + (besideMenu ? `<div class="us-beside" role="group" aria-label="Show beside ${esc(nameOfMedia(m))}">
+                <p>Show beside <strong>${esc(nameOfMedia(m))}</strong>:</p>
+                <div class="us-beside-list">${others.map(x => { const th = mediaThumb(x); return `<button type="button" data-us="beside-pick" data-id="${esc(x.id)}">${th ? `<img src="${esc(th)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="us-ricon">${x.kind === 'model' ? '3D' : '▶'}</span>`}<span>${esc(nameOfMedia(x))}</span></button>`; }).join('')}</div>
+            </div>` : '');
+    }
+
+    function openTab(id) {
+        const t = tabsOf().find(x => x.id === id);
+        if (!t) return;
+        const want = t.b ? [t.a, t.b] : [t.a];
+        activeTab = id;
+        linked = t.link !== false;
+        // Already on screen: just fly back to the saved angles.
+        if (want.length === panes.length && want.every((x, i) => panes[i] === x) && stages.size) {
+            want.forEach((x, i) => { const cam = t.cams?.[i ? 'b' : 'a']; if (cam) stages.get(x)?.flyTo?.(cam); });
+            if (current !== t.a) activatePane(t.a);
+            renderViewbar(); setHash();
+            return;
+        }
+        panes = want; current = t.a;
+        pendingCams = {};
+        if (t.cams?.a) pendingCams[t.a] = t.cams.a;
+        if (t.b && t.cams?.b) pendingCams[t.b] = t.cams.b;
+        mountStage(); renderRail(); setHash();
+    }
+
+    // The rail (and the pictures on the first screen): side by side, a new item replaces the active side.
+    function goTo(id) {
+        if (!id) { panes = []; current = ''; activeTab = ''; mountStage(); renderRail(); setHash(); return; }
+        if (panes.length === 2 && panes.includes(id)) { activatePane(id); return; }
+        const m = mediaById(id);
+        if (!m) return;
+        if (panes.length === 2 && SIDE_KINDS.has(m.kind)) panes[panes.indexOf(current)] = id;
+        else panes = [id];
+        current = id; activeTab = '';
+        mountStage(); renderRail(); setHash();
+    }
+    const showSingle = id => { if (!id) return; panes = [id]; current = id; activeTab = ''; mountStage(); renderRail(); setHash(); };
+
+    function tabDialog(t = null) {
+        const two = panes.length === 2;
+        const suggested = t ? t.label : two ? `${nameOfMedia(mediaById(panes[0]))} vs ${nameOfMedia(mediaById(panes[1]))}` : nameOfMedia(curMedia());
+        openDialog(`<form class="us-dlg" data-us-form="tab" data-id="${esc(t?.id || '')}">
+            <h2>${t ? 'Rename tab' : 'Save as a tab'}</h2>
+            ${t ? '' : `<p class="us-hint">Everyone who opens this update sees the tab across the top. It shows ${two ? 'these two side by side' : 'this one'}${panes.some(id => mediaById(id)?.kind === 'model') ? ', from the 3D angle you have now' : ''}.</p>`}
+            <label class="us-field">Tab name <input name="label" required maxlength="40" value="${esc(suggested.slice(0, 40))}" autocomplete="off"></label>
+            <p class="us-error" role="alert"></p>
+            <div class="us-form-actions"><button type="button" data-us="close-dlg">Cancel</button><button type="submit" class="us-primary">${t ? 'Rename' : 'Save tab'}</button></div>
+        </form>`);
+        setTimeout(() => dlg.querySelector('input[name=label]')?.select());
+    }
+
+    // The layout on screen, as stored in a tab.
+    function layoutValue() {
+        const value = { a: panes[0] };
+        if (panes[1]) { value.b = panes[1]; if (panes.every(id => mediaById(id)?.kind === 'model')) value.link = linked; }
+        const cams = {};
+        panes.forEach((id, i) => { const v = stages.get(id)?.view?.(); if (v) cams[i ? 'b' : 'a'] = v; });
+        if (Object.keys(cams).length) value.cams = cams;
+        return value;
     }
 
     function textScreen() {
@@ -253,7 +462,8 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
 
     // Shared overlay: drawing canvas + pin buttons. space 'rect' = 0..1 of the picture's rectangle;
     // 'view' = from the centre in units of the view height (3D models, see encodeDrawing).
-    function overlay(view, getRect, space = 'rect') {
+    // mid is the media item this view shows; self() its renderer. Only the active side takes input.
+    function overlay(view, getRect, space, mid, self) {
         const canvas = $('.us-sketch', view);
         const pinsEl = $('.us-pins', view);
         const ctx = canvas.getContext('2d');
@@ -297,6 +507,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
             return drawing.items.length !== before;
         };
         canvas.addEventListener('pointerdown', e => {
+            if (mid !== current) return;
             const [sx, sy] = local(e);
             if (tool === 'draw' && drawing) {
                 e.preventDefault();
@@ -314,9 +525,9 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 } else if (brush === 'text') {
                     placeText(view, sx, sy, text => { snapshot(); const [x, y] = clamp(toSpace(sx, sy - 0)); drawing.items.push({ type: 't', c: pen, x, y, s: text.slice(0, 120) }); redraw(); refreshDrawingButtons(); });
                 }
-            } else if (tool === 'pin' && stage?.pinAt) {
+            } else if (tool === 'pin' && self()?.pinAt) {
                 const p = toSpace(sx, sy);
-                if (space === 'rect' && p[0] >= 0 && p[0] <= 1 && p[1] >= 0 && p[1] <= 1) stage.pinAt(p);
+                if (space === 'rect' && p[0] >= 0 && p[0] <= 1 && p[1] >= 0 && p[1] <= 1) self().pinAt(p);
             }
         });
         canvas.addEventListener('pointermove', e => {
@@ -336,19 +547,25 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         size();
         function redraw() {
             ctx.clearRect(0, 0, W, Hh);
-            const m = curMedia();
-            const marks = marksOf(m);
-            for (const k of marks) {
-                if (k.kind !== 'sketch' || k.id === drawing?.editId || !stage?.visible(k)) continue;
+            const s = self();
+            if (!s) return;
+            const active = mid === current;
+            const marks = marksOf(mediaById(mid));
+            // One drawing at a time: the selected note's (none when a pin or note is selected), else the first.
+            // While drawing, only the new drawing shows.
+            const want = active ? selected : pairSel?.m === mid ? pairSel.k : '';
+            const sketches = active && drawing ? [] : marks.filter(k => k.kind === 'sketch' && s.visible(k));
+            const shown = want && marks.some(k => k.id === want) ? sketches.filter(k => k.id === want) : sketches.slice(0, 1);
+            for (const k of shown) {
                 const d = decodeDrawing(k.strokes);
-                paint(ctx, d.items, mapFor(d.v2), selected && selected !== k.id ? 0.45 : 1);
+                paint(ctx, d.items, mapFor(d.v2));
             }
-            if (drawing) paint(ctx, drawing.items, mapFor(true));
+            if (active && drawing) paint(ctx, drawing.items, mapFor(true));
             // Pins (photo and video; models draw their own on the surface).
-            if (stage?.flatPins) {
-                const pins = marks.filter(k => k.kind === 'pin' && stage.visible(k));
-                if (pending?.kind === 'pin' && pending.x != null) pins.push({ id: '__new', n: '+', x: pending.x, y: pending.y, color: pen });
-                pinsEl.innerHTML = pins.map(k => `<button type="button" class="us-pin${k.id === selected ? ' is-on' : ''}${k.decision ? ' is-decision' : ''}" data-us="mark" data-id="${esc(k.id)}" style="left:${rect.x + k.x * rect.w}px;top:${rect.y + k.y * rect.h}px;--c:${esc(k.color || PEN_COLORS[0])}" aria-label="Note ${k.n}">${k.n}</button>`).join('');
+            if (s.flatPins) {
+                const pins = marks.filter(k => k.kind === 'pin' && s.visible(k));
+                if (active && pending?.kind === 'pin' && pending.x != null) pins.push({ id: '__new', n: '+', x: pending.x, y: pending.y, color: pen });
+                pinsEl.innerHTML = pins.map(k => `<button type="button" class="us-pin${k.id === want ? ' is-on' : ''}${k.decision ? ' is-decision' : ''}" data-us="mark" data-id="${esc(k.id)}" style="left:${rect.x + k.x * rect.w}px;top:${rect.y + k.y * rect.h}px;--c:${esc(k.color || PEN_COLORS[0])}" aria-label="Note ${k.n}">${k.n}</button>`).join('');
             }
         }
         // Old (v1) drawings converted to this space, so editing one keeps it where it was.
@@ -377,6 +594,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
     }
 
     function photoStage(m, view) {
+        const mid = m.id;
         const media = $('.us-media', view);
         const img = new Image();
         img.alt = m.caption || m.name || 'Photo';
@@ -394,39 +612,41 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
             redraw: () => ov?.redraw(),
             dispose: () => ov?.dispose(),
         };
-        img.onload = () => { ov = overlay(view, (w, h) => fitRect(w, h, img.naturalWidth, img.naturalHeight)); api.setTool(tool); ov.redraw(); };
+        img.onload = () => { ov = overlay(view, (w, h) => fitRect(w, h, img.naturalWidth, img.naturalHeight), 'rect', mid, () => api); api.setTool(mid === current ? tool : ''); ov.redraw(); };
         img.onerror = () => message(view, 'This photo could not be loaded. Check that the Drive file is shared with anyone who has the link.');
         img.src = srcOf(m);
         return api;
     }
 
-    function videoStage(m, view) {
+    function videoStage(m, view, pane) {
+        const mid = m.id;
         const media = $('.us-media', view);
         const src = srcOf(m);
         if (!src) { message(view, 'Videos show once the Google Drive setup is finished (see CASE-UPDATES-SETUP.md).'); return { visible: () => false, dispose() {} }; }
+        let api = null;
         const v = document.createElement('video');
         v.className = 'us-video';
         v.controls = true; v.playsInline = true; v.preload = 'metadata';
         if (isDriveId(m.file)) v.poster = thumbUrl(m.file, 1200);
         v.src = src;
         media.append(v);
-        const ov = overlay(view, (w, h) => fitRect(w, h, v.videoWidth, v.videoHeight));
+        const ov = overlay(view, (w, h) => fitRect(w, h, v.videoWidth, v.videoHeight), 'rect', mid, () => api);
         let raf = 0;
         const loop = () => { ov.redraw(); renderTimelineNow(); raf = v.paused ? 0 : requestAnimationFrame(loop); };
         v.addEventListener('loadedmetadata', () => { ov.size(); ov.redraw(); renderTimeline(); });
-        v.addEventListener('play', () => { if (tool === 'draw' || pending) { v.pause(); return; } raf ||= requestAnimationFrame(loop); });
+        v.addEventListener('play', () => { if (mid === current && (tool === 'draw' || pending)) { v.pause(); return; } raf ||= requestAnimationFrame(loop); });
         v.addEventListener('seeked', () => { ov.redraw(); renderTimelineNow(); });
         v.addEventListener('error', () => message(view, 'This video could not be loaded. Check that the Drive file is shared with anyone who has the link.'));
         const near = k => Math.abs(v.currentTime - (k.t || 0)) < (v.paused ? 0.08 : 0.75) || (k.id === selected && Math.abs(v.currentTime - (k.t || 0)) < 0.3);
         function renderTimeline() {
-            const track = $('.us-track', root);
+            const track = $('.us-track', pane);
             if (!track) return;
             const d = v.duration || 0;
-            track.innerHTML = (d ? marksOf(curMedia()).map(k => `<button type="button" class="us-tick${k.decision ? ' is-decision' : ''}${k.team ? ' is-team' : ''}" data-us="mark" data-id="${esc(k.id)}" style="left:${(100 * (k.t || 0) / d).toFixed(2)}%" title="${esc(fmtTime(k.t) + ' ' + (k.note || ''))}" aria-label="Note ${k.n} at ${fmtTime(k.t)}">${k.n}</button>`).join('') : '') + '<i class="us-now"></i>';
+            track.innerHTML = (d ? marksOf(mediaById(mid)).map(k => `<button type="button" class="us-tick${k.decision ? ' is-decision' : ''}${k.team ? ' is-team' : ''}" data-us="mark" data-id="${esc(k.id)}" style="left:${(100 * (k.t || 0) / d).toFixed(2)}%" title="${esc(fmtTime(k.t) + ' ' + (k.note || ''))}" aria-label="Note ${k.n} at ${fmtTime(k.t)}">${k.n}</button>`).join('') : '') + '<i class="us-now"></i>';
             renderTimelineNow();
         }
-        function renderTimelineNow() { const now = $('.us-now', root); if (now && v.duration) now.style.left = (100 * v.currentTime / v.duration) + '%'; }
-        return {
+        function renderTimelineNow() { const now = $('.us-now', pane); if (now && v.duration) now.style.left = (100 * v.currentTime / v.duration) + '%'; }
+        return api = {
             flatPins: true,
             video: v,
             visible: near,
@@ -440,17 +660,24 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         };
     }
 
-    function modelStage(m, view) {
+    function modelStage(m, view, pane, opts = {}) {
+        const mid = m.id;
         const media = $('.us-media', view);
         media.classList.add('iv');
         const src = srcOf(m);
         if (!src) { message(view, '3D models from Drive show once the Google Drive setup is finished (see CASE-UPDATES-SETUP.md).'); return { visible: () => false, dispose() {} }; }
         const viewer = createViewer(media, { up: 'z', background: 0xf3f5f8 });
-        let loaded = false;
-        const ov = overlay(view, (w, h) => ({ x: 0, y: 0, w, h }), 'view');
+        if (inline) { viewer.controls.enableZoom = false; view.addEventListener('pointerdown', () => { viewer.controls.enableZoom = true; }, { once: true }); }
+        let loaded = false, focusLater = null, api = null;
+        const ov = overlay(view, (w, h) => ({ x: 0, y: 0, w, h }), 'view', mid, () => api);
         message(view, 'Loading the 3D model…');
-        viewer.setModel('main', src).then(() => { viewer.frame('main'); message(view, ''); loaded = true; syncPins(); ov.redraw(); if (focusAfterLoad) { const id = focusAfterLoad; focusAfterLoad = ''; select(id); } })
-            .catch(() => message(view, 'This 3D model could not be loaded. Check that the Drive file is shared with anyone who has the link.'));
+        viewer.setModel('main', src).then(() => {
+            viewer.frame('main');
+            // A tab's saved angle, or the angle this model had before the layout changed.
+            if (opts.cam && !focusLater) viewer.flyTo(opts.cam, 1);
+            message(view, ''); loaded = true; syncPins(); ov.redraw();
+            if (focusLater) { const k = focusLater; focusLater = null; if (k.view) viewer.flyTo(k.view, 1); syncPins(); }
+        }).catch(() => message(view, 'This 3D model could not be loaded. Check that the Drive file is shared with anyone who has the link.'));
         viewer.onChange(() => ov.redraw());
         const near = k => {
             if (!k.view) return true;
@@ -460,17 +687,22 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
             return d < reach * 0.04;
         };
         function syncPins() {
-            viewer.setPins(marksOf(curMedia()).filter(k => k.kind === 'pin' && k.pos).map(k => ({ ...k, active: k.id === selected })), k => select(k.id));
-            if (pending?.pos) viewer.setPins([...marksOf(curMedia()).filter(k => k.kind === 'pin' && k.pos), { id: '__new', pos: pending.pos, n: '+', active: true }], k => k.id !== '__new' && select(k.id));
+            const active = mid === current;
+            const on = active ? selected : pairSel?.m === mid ? pairSel.k : '';
+            const list = marksOf(mediaById(mid)).filter(k => k.kind === 'pin' && k.pos).map(k => ({ ...k, active: k.id === on }));
+            if (active && pending?.pos) list.push({ id: '__new', pos: pending.pos, n: '+', active: true });
+            viewer.setPins(list, k => { if (k.id === '__new') return; activatePane(mid); if (mid === current) select(k.id); });
         }
-        return {
+        return api = {
+            viewer,
+            flyTo: v => viewer.flyTo(v),
             visible: near,
             setTool(t) {
                 viewer.controls.enabled = t !== 'draw';
                 viewer.setPickMode(t === 'pin' ? hit => { pending = { kind: 'pin', pos: hit.pos, normal: hit.normal, view: viewer.getView() }; tool = ''; refreshTools(); syncPins(); renderNotes(); } : null);
                 ov.setActive(t === 'draw');
             },
-            focus(k) { if (!loaded) { focusAfterLoad = k.id; return; } if (k.view) viewer.flyTo(k.view); syncPins(); },
+            focus(k) { if (!loaded) { focusLater = k; return; } if (k.view) viewer.flyTo(k.view); syncPins(); },
             view: () => viewer.getView(),
             fromV1: items => ov.fromV1(items),
             redraw: () => { syncPins(); ov.redraw(); },
@@ -511,9 +743,10 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 ${canText ? '<button type="button" class="us-linkbtn" data-us="about-edit">Edit text and link notes</button>' : ''}`}
             </details>`;
         aside.innerHTML = `
-            ${m ? about : ''}
+            ${m && !inline ? about : ''}
             ${m && tool === 'draw' && drawing ? drawPanel(m) : ''}
-            ${m ? `<div class="us-notes-head"><h3>Notes on this ${what}</h3><span>${marks.length}</span></div>
+            ${m && panes.length === 2 ? `<p class="us-sidehint">⧉ Side by side. These are the notes on the side outlined in blue; click the other side to see its notes.</p>` : ''}
+            ${m ? `<div class="us-notes-head"><h3>${panes.length === 2 ? `Notes on “${esc(nameOfMedia(m))}”` : `Notes on this ${what}`}</h3><span>${marks.length}</span></div>
             ${marks.length ? `<ol class="us-marks">${marks.map(k => markRow(m, k)).join('')}</ol>` : `<p class="us-empty">${editing ? `Use Pin, Draw or Note to mark ${m.kind === 'video' ? 'moments that' : 'what'} guided the design.` : 'No notes on this one yet.'}</p>`}
             ${editing && tool !== 'draw' ? noteForm(m) : ''}` : `<div class="us-notes-head"><h3>In this update</h3><span>${mediaList().length}</span></div>
             <p class="us-empty">${mediaList().length ? 'Pick a photo, video or 3D model on the left to see its notes.' : 'Nothing attached yet.'}</p>`}`;
@@ -524,10 +757,11 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
     // Edit the update's words here, and turn chosen words into links to notes.
     function aboutEditor(u) {
         const options = mediaList().flatMap((mm, i) => marksOf(mm).filter(k => !k.team).map(k => `<option value="${esc(mm.id)}/${esc(k.id)}">${esc(`${i + 1}. ${mm.caption || mm.name || KIND_LABEL[mm.kind]} · note ${k.n}: ${(k.note || (k.kind === 'sketch' ? 'drawing' : 'pin')).slice(0, 40)}`)}</option>`)).join('');
+        const tabs = tabsOf().map(t => `<option value="tab_${esc(t.id)}/view">${esc('Tab: ' + t.label)}</option>`).join('');
         return `<form class="us-about-edit" data-us-form="about">
             <textarea name="text" rows="10" maxlength="4000">${esc(u.text || '')}</textarea>
-            <label>Link a note <select data-us="link-note"><option value="">Select words above, then pick a note…</option>${options}</select></label>
-            <p class="us-hint">The selected words become a link: readers click it to see that note${mediaList().some(mm => mm.kind === 'model') ? ' and the 3D view it was made from' : ''}. Team-only notes can't be linked.</p>
+            <label>Link a note${tabs ? ' or tab' : ''} <select data-us="link-note"><option value="">Select words above, then pick a note${tabs ? ' or tab' : ''}…</option>${tabs ? `<optgroup label="Notes">${options}</optgroup><optgroup label="Tabs">${tabs}</optgroup>` : options}</select></label>
+            <p class="us-hint">The selected words become a link: readers click it to see that note${mediaList().some(mm => mm.kind === 'model') ? ' and the 3D view it was made from' : ''}${tabs ? ', or to open that tab' : ''}. Team-only notes can't be linked.</p>
             <p class="us-error" role="alert"></p>
             <div class="us-form-actions"><button type="button" data-us="about-cancel">Cancel</button><button type="submit" class="us-primary">Save text</button></div>
         </form>`;
@@ -547,6 +781,43 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         </section>`;
     }
 
+    // ------------------------------------------------------------ paired notes
+    // The note paired with k (on item m): its own "pair", or another note that names it.
+    function pairOf(m, k) {
+        if (!m || !k || !SIDE_KINDS.has(m.kind)) return null;
+        const parse = v => { const [pm, pk] = String(v || '').split('/'); return pm && pk ? { m: pm, k: pk } : null; };
+        let p = parse(k.pair);
+        if (!p) {
+            for (const mm of mediaList()) {
+                if (mm.id === m.id) continue;
+                const hit = marksOf(mm).find(x => x.pair === `${m.id}/${k.id}`);
+                if (hit) { p = { m: mm.id, k: hit.id }; break; }
+            }
+        }
+        const other = p && p.m !== m.id ? mediaById(p.m) : null;
+        return other && SIDE_KINDS.has(other.kind) && marksOf(other).some(x => x.id === p.k) ? p : null;
+    }
+    const canPair = m => SIDE_KINDS.has(m.kind) && mediaList().some(x => x.id !== m.id && SIDE_KINDS.has(x.kind) && marksOf(x).length);
+    function pairHTML(m, k) {
+        const p = pairOf(m, k);
+        if (!p) return '';
+        const pk = marksOf(mediaById(p.m)).find(x => x.id === p.k);
+        return `<button type="button" class="us-pairnote" data-us="mark" data-id="${esc(k.id)}" title="Show both side by side">
+            <span class="us-pairnote-k">⧉ Paired with note ${pk.n} on “${esc(nameOfMedia(mediaById(p.m)))}”</span>
+            ${pk.note ? `<span>${esc(pk.note.length > 160 ? pk.note.slice(0, 157) + '…' : pk.note)}</span>` : ''}</button>`;
+    }
+    function pairDialog(k) {
+        const m = curMedia();
+        const groups = mediaList().filter(x => x.id !== m.id && SIDE_KINDS.has(x.kind)).map(x => ({ x, marks: marksOf(x) })).filter(g => g.marks.length);
+        openDialog(`<form class="us-dlg" data-us-form="pair" data-id="${esc(k.id)}">
+            <h2>Pair note ${k.n}</h2>
+            <p class="us-hint">Choose the note on another photo, video or 3D model that goes with this one. Clicking either note then shows both side by side, each from its own angle.</p>
+            <label class="us-field">Pair with <select name="pair" required><option value="">Choose a note…</option>${groups.map(g => `<optgroup label="${esc(nameOfMedia(g.x))}">${g.marks.map(x => `<option value="${esc(g.x.id)}/${esc(x.id)}"${k.pair === `${g.x.id}/${x.id}` ? ' selected' : ''}>${esc(`Note ${x.n}: ${(x.note || (x.kind === 'sketch' ? 'drawing' : 'pin')).slice(0, 70)}`)}</option>`).join('')}</optgroup>`).join('')}</select></label>
+            <p class="us-error" role="alert"></p>
+            <div class="us-form-actions"><button type="button" data-us="close-dlg">Cancel</button><button type="submit" class="us-primary">Pair notes</button></div>
+        </form>`);
+    }
+
     function markRow(m, k) {
         const where = m.kind === 'video' ? `<button type="button" class="us-time" data-us="mark" data-id="${esc(k.id)}">${fmtTime(k.t)}</button>` : '';
         const icon = k.kind === 'sketch' ? '✏️' : k.kind === 'pin' ? '' : '💬';
@@ -555,7 +826,8 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
             <div class="us-mark-body">
                 <div class="us-mark-meta">${where}${icon ? `<span>${icon}</span>` : ''}${k.decision ? '<span class="us-badge us-badge-gold">Decision</span>' : ''}${k.team ? '<span class="us-badge">Team only</span>' : ''}<span class="us-by">${esc(host.nameOf ? host.nameOf(k.uid, k.author) : first(k.author))}</span></div>
                 ${k.note ? `<p>${linkify(k.note)}</p>` : `<p class="us-muted">${k.kind === 'sketch' ? 'Drawing' : 'Pin'}${m.kind === 'model' && k.view ? ' — click the number to see it from its angle' : ''}</p>`}
-                ${editing && host.canChange(k) ? `<div class="us-mark-actions">${k.kind === 'sketch' ? `<button type="button" data-us="edit-drawing" data-id="${esc(k.id)}">Edit drawing</button>` : ''}<button type="button" data-us="edit-mark" data-id="${esc(k.id)}">${k.kind === 'sketch' ? 'Edit note' : 'Edit'}</button><button type="button" data-us="delete-mark" data-id="${esc(k.id)}">Delete</button></div>` : ''}
+                ${pairHTML(m, k)}
+                ${editing && host.canChange(k) ? `<div class="us-mark-actions">${k.kind === 'sketch' ? `<button type="button" data-us="edit-drawing" data-id="${esc(k.id)}">Edit drawing</button>` : ''}<button type="button" data-us="edit-mark" data-id="${esc(k.id)}">${k.kind === 'sketch' ? 'Edit note' : 'Edit'}</button>${canPair(m) ? `<button type="button" data-us="pair" data-id="${esc(k.id)}">${k.pair ? 'Change pair' : 'Pair…'}</button>` : ''}${k.pair ? `<button type="button" data-us="unpair" data-id="${esc(k.id)}">Unpair</button>` : ''}<button type="button" data-us="delete-mark" data-id="${esc(k.id)}">Delete</button></div>` : ''}
             </div></li>`;
     }
 
@@ -625,23 +897,43 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         renderRail();
     }
     // A note link in the text: show that item and that note.
+    // A link to a tab is written as note:tab_<tab id>/view.
     function openNoteLink(mId, kId) {
-        if (!mediaList().some(x => x.id === mId)) return;
-        if (current !== mId) {
-            current = mId;
-            history.replaceState(null, '', `#update/${updateId}/${mId}`);
-            mountStage(); renderRail();
-        }
-        select(kId);
+        if (mId.startsWith('tab_')) { openTab(mId.slice(4)); return; }
+        if (!mediaById(mId)) return;
+        if (panes.includes(mId)) activatePane(mId);
+        else { panes = [mId]; current = mId; activeTab = ''; mountStage(); renderRail(); setHash(); }
+        if (current === mId) select(kId);
     }
 
     function select(id) {
         selected = id;
-        const k = marksOf(curMedia()).find(x => x.id === id);
+        const m = curMedia();
+        const k = marksOf(m).find(x => x.id === id);
+        const p = k ? pairOf(m, k) : null;
+        if (p && !panes.includes(p.m)) {
+            // Open the paired item beside this one (in the update's order), this side active.
+            panes = [m, mediaById(p.m)].sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.at || 0) - (b.at || 0)).map(x => x.id);
+            activeTab = '';
+            mountStage(); renderRail(); setHash();
+            selected = id;
+        }
+        pairSel = p && panes.includes(p.m) ? p : null;
+        if (!pairSel) holdLink = false;
+        if (pairSel) {
+            holdLink = panes.every(x => mediaById(x)?.kind === 'model');
+            const other = stages.get(pairSel.m);
+            const pk = marksOf(mediaById(pairSel.m)).find(x => x.id === pairSel.k);
+            if (pk) other?.focus?.(pk);
+            other?.redraw?.();
+        }
         if (k) stage?.focus?.(k);
-        stage?.redraw?.();
+        stages.forEach(x => x.redraw?.());
         root.querySelectorAll('.us-mark').forEach(li => li.classList.toggle('is-on', li.dataset.id === id));
-        root.querySelector(`.us-mark[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        const li = root.querySelector(`.us-mark[data-id="${CSS.escape(id)}"]`);
+        const aside = $('.us-notes', root);
+        if (li && inline && aside) aside.scrollTo({ top: li.offsetTop - aside.offsetTop - 8, behavior: 'smooth' });
+        else li?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     // ------------------------------------------------------------ adding media
@@ -711,7 +1003,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 lastId = await addMedia({ kind, file: up.id, name: f.name.replace(/\.[^.]+$/, ''), bytes: up.bytes });
             }
         }
-        if (lastId) { current = lastId; mountStage(); renderRail(); }
+        showSingle(lastId);
     }
 
     async function pickFromDrive() {
@@ -731,7 +1023,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 lastId = await addMedia({ kind: k, file: f.id, name: f.name.replace(/\.[^.]+$/, ''), bytes: f.bytes });
             }
         }
-        if (lastId) { current = lastId; mountStage(); renderRail(); }
+        showSingle(lastId);
     }
 
     // ------------------------------------------------------------ dialogs (inside the studio)
@@ -749,8 +1041,31 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
             if (act === 'close') close();
             else if (act === 'fullscreen') { if (document.fullscreenElement) await document.exitFullscreen(); else await root.requestFullscreen?.(); shellButtons(); }
             else if (act === 'edit') { editing = !editing; if (editing) preloadDrive().catch(() => {}); tool = ''; pending = null; drawing = null; editingText = false; shell(); }
-            else if (act === 'go') { current = b.dataset.id; history.replaceState(null, '', `#update/${updateId}${current ? '/' + current : ''}`); mountStage(); renderRail(); }
-            else if (act === 'mark') select(b.dataset.id);
+            else if (act === 'pair') { const k = marksOf(curMedia()).find(x => x.id === b.dataset.id); if (k) pairDialog(k); }
+            else if (act === 'unpair') {
+                const m = curMedia();
+                const k = marksOf(m).find(x => x.id === b.dataset.id);
+                if (k) { const { id, n, team, pair, ...rest } = k; await host.set(markPath(m, k), { ...rest, edited: Date.now() }); renderNotes(); stages.forEach(x => x.redraw?.()); }
+            }
+            else if (act === 'expand') host.openFull?.(activeTab ? 'tab_' + activeTab : current);
+            else if (act === 'go') goTo(b.dataset.id);
+            else if (act === 'activate') activatePane(b.dataset.id);
+            else if (act === 'tab') openTab(b.dataset.v);
+            else if (act === 'beside') { besideMenu = !besideMenu; renderViewbar(); if (besideMenu) root.querySelector('.us-beside button')?.focus(); }
+            else if (act === 'beside-pick') { panes = [current, b.dataset.id]; activeTab = ''; mountStage(); renderRail(); setHash(); }
+            else if (act === 'swap') { panes.reverse(); activeTab = ''; mountStage(); renderRail(); setHash(); }
+            else if (act === 'single') { panes = [current]; activeTab = ''; mountStage(); renderRail(); setHash(); }
+            else if (act === 'link') { linked = !linked; if (linked) stage?.follow?.(); renderViewbar(); }
+            else if (act === 'tab-new') tabDialog();
+            else if (act === 'tab-rename') { const t = tabsOf().find(x => x.id === b.dataset.v); if (t) tabDialog(t); }
+            else if (act === 'tab-update') {
+                const t = tabsOf().find(x => x.id === activeTab);
+                if (t) { const { id, a, b: _b, link, cams, ...keep } = t; await host.set(tabPath(id), { ...keep, ...layoutValue(), edited: Date.now() }); flash('Tab saved'); }
+            } else if (act === 'tab-delete') {
+                const t = tabsOf().find(x => x.id === b.dataset.v);
+                if (t && confirm(`Delete the tab “${t.label}”? The photos, videos and models stay in the update.`)) { await host.set(tabPath(t.id), null); if (activeTab === t.id) { activeTab = ''; setHash(); } renderViewbar(); }
+            }
+            else if (act === 'mark') { const p = b.closest('.us-pane'); if (p) activatePane(p.dataset.id); if (!p || p.dataset.id === current) select(b.dataset.id); }
             else if (act === 'tool') {
                 const t = b.dataset.tool;
                 if (t === 'note') { pending = noteGeometry(); tool = ''; refreshTools(); renderNotes(); return; }
@@ -794,7 +1109,17 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 if (m && confirm(`Remove “${m.caption || m.name}” and its notes from this update? The file stays in Google Drive.`)) {
                     await host.set(`${host.updatePath(updateId)}/media/${m.id}`, null);
                     await host.set(`${host.teamPath(updateId)}/${m.id}`, null).catch(() => {});
-                    if (current === m.id) { current = ''; mountStage(); }
+                    // Tabs that showed it: gone, or down to the other item.
+                    for (const [vid, v] of Object.entries(U()?.views || {})) {
+                        if (v.a === m.id && !v.b) await host.set(tabPath(vid), null).catch(() => {});
+                        else if (v.a === m.id || v.b === m.id) {
+                            const { a, b: _b, link, cams, ...keep } = v;
+                            const left = v.a === m.id ? v.b : v.a;
+                            const cam = v.a === m.id ? cams?.b : cams?.a;
+                            await host.set(tabPath(vid), { ...keep, a: left, ...(cam ? { cams: { a: cam } } : {}), edited: Date.now() }).catch(() => {});
+                        }
+                    }
+                    if (panes.includes(m.id)) { panes = panes.filter(x => x !== m.id); activeTab = ''; mountStage(); renderRail(); setHash(); }
                 }
             }
         } catch (err) { dlgError(err); }
@@ -816,13 +1141,14 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 const f = host.siteModels.find(x => x.path === t.value);
                 dlg.close();
                 const id = await addMedia({ kind: 'model', path: f.path, name: f.label });
-                current = id; mountStage(); renderRail();
+                showSingle(id);
             } else if (t.dataset.us === 'link-note' && t.value) {
                 const ta = t.closest('form').querySelector('textarea');
                 const [mId, kId] = t.value.split('/');
-                const k = marksOf(mediaList().find(x => x.id === mId)).find(x => x.id === kId);
+                const tab = mId.startsWith('tab_') ? tabsOf().find(x => 'tab_' + x.id === mId) : null;
+                const k = tab ? null : marksOf(mediaById(mId)).find(x => x.id === kId);
                 const a = ta.selectionStart, z = ta.selectionEnd;
-                const words = ta.value.slice(a, z).replace(/[\[\]\n]/g, ' ').trim() || `note ${k?.n || ''}`.trim();
+                const words = ta.value.slice(a, z).replace(/[\[\]\n]/g, ' ').trim() || (tab ? tab.label.replace(/[\[\]]/g, ' ') : `note ${k?.n || ''}`.trim());
                 const link = `[${words.slice(0, 80)}](note:${mId}/${kId})`;
                 ta.setRangeText(link, a, z, 'end');
                 ta.focus();
@@ -850,13 +1176,40 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 renderNotes();
                 return;
             }
+            if (form.dataset.usForm === 'pair') {
+                const m = curMedia();
+                const k = marksOf(m).find(x => x.id === form.dataset.id);
+                const value = String(new FormData(form).get('pair') || '');
+                if (!k || !/^[A-Za-z0-9_-]{1,40}\/[A-Za-z0-9_-]{1,40}$/.test(value)) throw new Error('Choose a note.');
+                const { id, n, team, ...rest } = k;
+                await host.set(markPath(m, k), { ...rest, pair: value, edited: Date.now() });
+                dlg.close();
+                renderNotes();
+                select(k.id);
+                return;
+            }
+            if (form.dataset.usForm === 'tab') {
+                const label = String(new FormData(form).get('label') || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+                if (!label) throw new Error('Give the tab a name.');
+                if (form.dataset.id) await host.set(`${tabPath(form.dataset.id)}/label`, label);
+                else {
+                    const id = host.newKey();
+                    const order = Math.max(0, ...tabsOf().map(t => t.order ?? 0)) + 1;
+                    await host.set(tabPath(id), { label, ...layoutValue(), order, uid: host.user().uid, at: Date.now() });
+                    activeTab = id;
+                    setHash();
+                }
+                dlg.close();
+                renderViewbar();
+                return;
+            }
             if (form.dataset.usForm === 'link') {
                 const f = Object.fromEntries(new FormData(form));
                 const id = driveIdFrom(f.link);
                 if (!id) throw new Error('That is not a Google Drive link.');
                 dlg.close();
                 const mid = await addMedia({ kind: f.kind, file: id, name: KIND_LABEL[f.kind] });
-                current = mid; mountStage(); renderRail();
+                showSingle(mid);
             } else if (form.dataset.usForm === 'mark') {
                 const m = curMedia();
                 const f = new FormData(form);
@@ -900,23 +1253,40 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
     root.addEventListener('toggle', e => { if (e.target.matches?.('[data-us-about]')) aboutOpen = e.target.open; }, true);
     function shellButtons() { const b = root.querySelector('[data-us=fullscreen]'); if (b) b.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; }
     const onFs = () => shellButtons();
-    document.addEventListener('fullscreenchange', onFs);
+    if (!inline) document.addEventListener('fullscreenchange', onFs);
+    // Side by side: pressing on a side makes it the active one (before the 3D view or video gets the press).
+    root.addEventListener('pointerdown', e => {
+        const p = e.target.closest?.('.us-pane');
+        // Pins and timeline marks are redrawn on activation, which would swallow their click; they switch sides on click.
+        if (p && panes.length === 2 && !e.target.closest('.iv-pin, .us-pin, .us-tick')) activatePane(p.dataset.id);
+        if (holdLink && e.target.closest?.('.us-view')) holdLink = false;   // touching a view links them again
+        if (besideMenu && !e.target.closest?.('.us-beside, [data-us=beside]')) { besideMenu = false; renderViewbar(); }
+    }, true);
+    function flash(text) {
+        const t = document.createElement('div');
+        t.className = 'us-flash'; t.setAttribute('role', 'status'); t.textContent = text;
+        root.append(t);
+        setTimeout(() => t.remove(), 1800);
+    }
     const onKey = e => {
         if (e.key !== 'Escape' || dlg.open) return;
         if (e.target.closest?.('.us-textbox')) return;
+        if (besideMenu) { e.preventDefault(); besideMenu = false; renderViewbar(); root.querySelector('[data-us=beside]')?.focus(); return; }
         if (tool === 'draw' && drawing) { e.preventDefault(); if (!drawing.items.length || drawing.editId || confirm('Throw away this drawing?')) endDrawing(); return; }
         if (editingText) { e.preventDefault(); editingText = false; renderNotes(); return; }
         if (tool || pending) { tool = ''; pending = null; refreshTools(); renderNotes(); stage?.redraw?.(); e.preventDefault(); return; }
         if (!document.fullscreenElement) close();
     };
-    document.addEventListener('keydown', onKey);
+    if (!inline) document.addEventListener('keydown', onKey);
 
     function close() {
-        stage?.dispose?.();
+        stages.forEach(s => s.dispose?.());
+        stages.clear();
         document.removeEventListener('keydown', onKey);
         document.removeEventListener('fullscreenchange', onFs);
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         root.remove();
+        if (inline) return;
         if (!document.querySelector('.ue')) document.body.classList.remove('us-open'); // the editor may still be open underneath
         host.onClose?.();
         lastFocus?.focus?.();
@@ -926,18 +1296,25 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
     function refresh() {
         if (!root.isConnected) return;
         if (!U()) { close(); return; }
-        const m = curMedia();
-        if (current && !m) { current = ''; mountStage(); renderRail(); return; }
+        // Something on screen was removed (by someone else, or in the editor).
+        if (panes.some(id => !mediaById(id))) { panes = panes.filter(id => mediaById(id)); activeTab = ''; mountStage(); renderRail(); setHash(); return; }
+        if (activeTab && !tabsOf().some(t => t.id === activeTab)) { activeTab = ''; setHash(); }
         renderRail();
+        if (!root.querySelector('.us-beside')) renderViewbar();
+        markPanes();
         const typing = root.querySelector('.us-notes textarea:focus, .us-mark textarea:focus, .us-notes select:focus');
         if (!typing && !editingText && tool !== 'draw') renderNotes();
-        stage?.redraw?.();
+        stages.forEach(s => s.redraw?.());
         const t = $('.us-title strong', root); if (t) t.textContent = U().title;
+        const hint = $('.us-ihead span', root); if (hint) hint.textContent = inlineHint();
     }
 
     shell();
     if (edit && host.canEdit()) { editing = true; preloadDrive().catch(() => {}); shell(); }
-    if (markId && current) select(markId);   // a link to one note: #update/<u>/<media>/<note>
-    $('.us-back', root)?.focus();
-    return { refresh, close, get updateId() { return updateId; } };
+    // For tests and debugging: what is on screen.
+    root._us = { state: () => ({ panes: [...panes], current, activeTab, linked, views: Object.fromEntries([...stages].map(([id, s]) => [id, s.view?.() || null])) }) };
+    if (startTab) openTab(startTab);         // a link to a tab: #update/<u>/tab_<tab>
+    else if (markId && current) select(markId);   // a link to one note: #update/<u>/<media>/<note>
+    if (!inline) $('.us-back', root)?.focus();
+    return { refresh, close, openNoteLink, root, get updateId() { return updateId; } };
 }

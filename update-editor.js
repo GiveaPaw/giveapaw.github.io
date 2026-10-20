@@ -235,8 +235,13 @@ export function openUpdateEditor(host, { updateId = '' } = {}) {
     function noteLinkPicker() {
         const opts = draft.media.flatMap((m, i) => Object.entries(live()?.media?.[m.key]?.marks || {}).sort((a, b) => (a[1].at || 0) - (b[1].at || 0))
             .map(([k, mk], j) => `<option value="${esc(m.key)}/${esc(k)}">${esc(`${i + 1}. ${m.caption || m.name || KIND_LABEL[m.kind]} · note ${j + 1}: ${(mk.note || (mk.kind === 'sketch' ? 'drawing' : 'pin')).slice(0, 40)}`)}</option>`));
-        return `<label class="ue-field"><span>Link a note</span><select data-ue="link-note"${opts.length ? '' : ' disabled'}><option value="">${opts.length ? 'Select words in the text, then pick a note…' : 'Publish, then add pins, drawings or notes in full screen to link them here'}</option>${opts.join('')}</select>
-            <small>Readers click the linked words to open that note${draft.media.some(m => m.kind === 'model') ? ' and the 3D view it was drawn from' : ''}.</small></label>`;
+        // Tabs saved in full screen can be linked too (written as note:tab_<id>/view).
+        const tabs = Object.entries(live()?.views || {}).filter(([, v]) => draft.media.some(m => m.key === v.a))
+            .sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0) || (a[1].at || 0) - (b[1].at || 0))
+            .map(([k, v]) => `<option value="tab_${esc(k)}/view">${esc('Tab: ' + v.label)}</option>`);
+        const any = opts.length || tabs.length;
+        return `<label class="ue-field"><span>Link a note${tabs.length ? ' or tab' : ''}</span><select data-ue="link-note"${any ? '' : ' disabled'}><option value="">${any ? `Select words in the text, then pick a note${tabs.length ? ' or tab' : ''}…` : 'Publish, then add pins, drawings or notes in full screen to link them here'}</option>${tabs.length ? `<optgroup label="Notes">${opts.join('')}</optgroup><optgroup label="Tabs">${tabs.join('')}</optgroup>` : opts.join('')}</select>
+            <small>Readers click the linked words to open that note${draft.media.some(m => m.kind === 'model') ? ' and the 3D view it was drawn from' : ''}${tabs.length ? ', or that tab' : ''}.</small></label>`;
     }
 
     function addCard() {
@@ -379,10 +384,20 @@ export function openUpdateEditor(host, { updateId = '' } = {}) {
         });
         // Media someone else added while this was open stays, unless it was removed here.
         Object.entries(old?.media || {}).forEach(([k, m]) => { if (!media[k] && !removed.has(k)) media[k] = { ...m, order: Object.keys(media).length + 1 }; });
+        // Tabs saved in full screen stay, minus the items removed here.
+        const views = {};
+        Object.entries(old?.views || {}).forEach(([k, v]) => {
+            const a = media[v.a] ? v.a : v.b && media[v.b] ? v.b : '';
+            if (!a) return;
+            const b = v.b && media[v.b] && v.b !== a ? v.b : '';
+            const { a: _a, b: _b, link, cams, ...keep } = v;
+            const cam = a === v.a ? cams?.a : cams?.b;
+            views[k] = { ...keep, a, ...(b ? { b, ...(typeof link === 'boolean' ? { link } : {}), ...(cams ? { cams } : {}) } : cam ? { cams: { a: cam } } : {}) };
+        });
         const value = {
             uid: old?.uid || user.uid, author: old?.author || user.name, at: old?.at || now,
             date: draft.date, title: draft.title.trim().slice(0, 100), text: draft.text.trim().slice(0, 4000),
-            ...(Object.keys(media).length ? { media } : {}), ...(old ? { edited: now } : {}),
+            ...(Object.keys(media).length ? { media } : {}), ...(Object.keys(views).length ? { views } : {}), ...(old ? { edited: now } : {}),
         };
         const btn = $('[data-ue=publish]');
         btn.disabled = true; btn.textContent = 'Publishing…';
@@ -461,7 +476,8 @@ export function openUpdateEditor(host, { updateId = '' } = {}) {
                 const ta = $('[data-f=text]');
                 const [mId, kId] = t.value.split('/');
                 const a = ta.selectionStart, z = ta.selectionEnd;
-                const label = t.selectedOptions[0].textContent.match(/note \d+/)?.[0] || 'this note';
+                const optText = t.selectedOptions[0].textContent;
+                const label = mId.startsWith('tab_') ? optText.replace(/^Tab: /, '').replace(/[\[\]]/g, ' ') : optText.match(/note \d+/)?.[0] || 'this note';
                 const words = ta.value.slice(a, z).replace(/[\[\]\n]/g, ' ').trim() || label;
                 ta.setRangeText(`[${words.slice(0, 80)}](note:${mId}/${kId})`, a, z, 'end');
                 typed(() => { draft.text = ta.value; });

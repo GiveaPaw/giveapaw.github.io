@@ -173,7 +173,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
     let editor = null;
     let justPublished = '';
     async function openEditor(id = '') {
-        const mod = await import('./update-editor.js?v=3');
+        const mod = await import('./update-editor.js?v=4');
         editor = mod.openUpdateEditor({
             ...host,
             animal: { ...host.animal, driveFolder: A.driveFolder || '' },
@@ -182,7 +182,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
             renderFeedItem: u => updateHTML(u, { preview: true }),
             renderCardSnippet: u => cardSnippet(u),
             openPreview: async (u, mediaKey, onDone) => {
-                const st = await import('./update-studio.js?v=4');
+                const st = await import('./update-studio.js?v=7');
                 st.openStudio({ ...host, getUpdate: () => u, canEdit: () => false, canChange: () => false, teamMarks: () => null, onClose: onDone }, { updateId: u.id, mediaId: mediaKey });
             },
             openStudio: (uid, mid, edit) => openUpdate(uid, mid, edit),
@@ -191,9 +191,73 @@ export async function initUpdates({ H, panels, show }, manifest) {
             onClose: () => { editor = null; if (justPublished) { justPublished = ''; goUpdates(); } },
         }, { updateId: id });
     }
+    // ---- the 3D view and notes next to each update's text (update-studio.js, inline)
+    const INLINE_KINDS = new Set(['photo', 'video', 'model']);
+    const inlines = new Map();     // update id -> inline view
+    const mounting = new Map();    // update id -> promise
+    let inlineIO = null;
+    // Opens on the first saved tab, else the first 3D model, else the first photo or video.
+    function inlineStart(u) {
+        const tabs = tabsOfUpdate(u);
+        if (tabs.length) return 'tab_' + tabs[0].id;
+        const media = mediaOf(u).filter(m => INLINE_KINDS.has(m.kind));
+        return (media.find(m => m.kind === 'model') || media[0])?.id || '';
+    }
+    function mountInline(slot) {
+        const id = slot.dataset.id;
+        if (inlines.has(id)) return Promise.resolve(inlines.get(id));
+        if (!mounting.has(id)) {
+            mounting.set(id, import('./update-studio.js?v=7').then(mod => {
+                mounting.delete(id);
+                const live = document.querySelector(`.cu-inline[data-id="${CSS.escape(id)}"]`);
+                const u = data.updates?.[id];
+                if (!live || !u) return null;
+                if (inlines.has(id)) return inlines.get(id);
+                live.replaceChildren();
+                const view = mod.openStudio({ ...host, canEdit: () => false, canChange: () => false, onClose: () => {}, openFull: mid => openUpdate(id, mid) },
+                    { updateId: id, mediaId: inlineStart({ id, ...u }), inline: live });
+                inlines.set(id, view);
+                return view;
+            }));
+        }
+        return mounting.get(id);
+    }
+    function placeInlines() {
+        if (window.gapNoInlineViews) return;   // tests of the full-screen view only
+        inlineIO ??= new IntersectionObserver(entries => entries.forEach(en => {
+            const id = en.target.dataset.id;
+            if (en.isIntersecting) mountInline(en.target);
+            // Browsers allow about sixteen 3D views at once: far-away ones are closed (and reopen when scrolled back).
+            else if (inlines.has(id) && inlines.size > 3) { inlines.get(id).close(); inlines.delete(id); en.target.innerHTML = '<div class="cu-inline-wait">Loading the 3D view…</div>'; }
+        }), { rootMargin: '400px 0px' });
+        inlineIO.disconnect();
+        const slots = [...document.querySelectorAll('.cu-inline[data-id]')];
+        for (const [id, view] of inlines) {
+            const slot = slots.find(x => x.dataset.id === id);
+            if (!slot) { view.close(); inlines.delete(id); continue; }
+            slot.replaceChildren(view.root);
+            view.refresh();
+        }
+        slots.forEach(x => inlineIO.observe(x));
+    }
+    // Note links in an update's text show the note in the view next to it (full screen when there is none).
+    document.addEventListener('click', async e => {
+        const a = e.target.closest?.('.cu-item a.cu-notelink');
+        const item = a?.closest('.cu-item');
+        const slot = item?.querySelector('.cu-inline[data-id]');
+        const link = a?.getAttribute('href')?.match(/^#update\/[A-Za-z0-9_-]+\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/);
+        if (!slot || !link || window.gapNoInlineViews) return;
+        e.preventDefault();
+        item.querySelectorAll('a.cu-notelink.is-on').forEach(x => x.classList.remove('is-on'));
+        a.classList.add('is-on');
+        const view = await mountInline(slot);
+        view?.openNoteLink(link[1], link[2]);
+        if (matchMedia('(max-width: 900px)').matches) slot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
     async function openUpdate(id, mediaId = '', edit = false, markId = '') {
         if (!data.updates?.[id]) return;
-        const mod = await import('./update-studio.js?v=4');
+        const mod = await import('./update-studio.js?v=7');
         studio = mod.openStudio(host, { updateId: id, mediaId, markId, edit });
         history.replaceState(null, '', `#update/${id}${mediaId ? '/' + mediaId : ''}`);
     }
@@ -261,6 +325,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
         }
         renderTeamBar();
         studio?.refresh();
+        placeInlines();
         editor?.refresh();
     }
 
@@ -273,6 +338,13 @@ export async function initUpdates({ H, panels, show }, manifest) {
             <strong>${esc(u.title)}</strong>
             ${plain ? `<span class="cu-card-text">${esc(plain.length > 150 ? plain.slice(0, 147).replace(/\s+\S*$/, '') + '…' : plain)}</span>` : ''}
             ${photo ? `<img src="${esc(photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}`;
+    }
+
+    // Tabs saved in full screen (one item, or two side by side), in order.
+    function tabsOfUpdate(u) {
+        return Object.entries(u.views || {}).map(([id, v]) => ({ id, ...v }))
+            .filter(v => u.media?.[v.a] && !/^tab_/.test(v.a))
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.at || 0) - (b.at || 0));
     }
 
     function updateHTML(u, { preview = false } = {}) {
@@ -290,9 +362,12 @@ export async function initUpdates({ H, panels, show }, manifest) {
         return `<li class="cu-item" data-id="${esc(u.id)}">
             <div class="cu-meta"><time datetime="${esc(u.date)}">${esc(fmtDate(u.date))}</time>${by ? `<span>by ${esc(by)}</span>` : ''}${u.edited ? '<span>edited</span>' : ''}</div>
             <h3><button type="button" class="cu-title" data-cu-act="open" data-id="${esc(u.id)}">${esc(u.title)}</button></h3>
+            ${!preview && media.some(m => INLINE_KINDS.has(m.kind)) ? '<div class="cu-split"><div class="cu-main">' : ''}
             <div class="cu-text">${textHTML(u.text, preview ? '' : u.id)}</div>
+            ${tabsOfUpdate(u).length ? `<div class="cu-tabchips" role="group" aria-label="Tabs in this update">${tabsOfUpdate(u).map(t => `<button type="button" class="cu-tabchip" data-cu-act="open" data-id="${esc(u.id)}" data-m="tab_${esc(t.id)}" title="Open this tab full screen">${t.b ? '⧉ ' : ''}${esc(t.label)}</button>`).join('')}</div>` : ''}
             ${media.some(m => m.kind !== 'file') ? `<div class="cu-photos">${media.filter(m => m.kind !== 'file').slice(0, 8).map(tile).join('')}</div>` : ''}
             ${media.some(m => m.kind === 'file') ? `<ul class="cu-files">${media.filter(m => m.kind === 'file').map(m => `<li><a href="${esc(isDriveId(m.file) && !demoGet(m.file) ? `https://drive.google.com/file/d/${m.file}/view` : demoGet(m.file) || '#')}" target="_blank" rel="noopener"><span class="cu-file-ext">${esc(((String(m.name || '').match(/\.([a-z0-9]+)$/i) || [])[1] || 'file').toUpperCase().slice(0, 6))}</span>${esc(m.name || 'Design file')}${m.bytes ? `<small>${esc(m.bytes >= 1e6 ? Math.round(m.bytes / 1e6) + ' MB' : Math.max(1, Math.round(m.bytes / 1e3)) + ' KB')}</small>` : ''}<span aria-hidden="true">⬇</span></a></li>`).join('')}</ul>` : ''}
+            ${!preview && media.some(m => INLINE_KINDS.has(m.kind)) ? `</div><div class="cu-inline" data-id="${esc(u.id)}"><div class="cu-inline-wait">Loading the 3D view…</div></div></div>` : ''}
             <div class="cu-item-actions">
                 ${media.length ? `<button type="button" class="cu-btn cu-primary" data-cu-act="open" data-id="${esc(u.id)}">Open full screen${notes ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}</button>` : ''}
                 ${!preview && canChange(u) ? `<button type="button" class="cu-btn" data-cu-act="edit" data-id="${esc(u.id)}">Edit update</button>` : ''}
@@ -489,7 +564,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
     });
 
     // ---- start
-    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=7"><link rel="stylesheet" href="update-editor.css?v=6">');
+    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=10"><link rel="stylesheet" href="update-editor.css?v=6">');
     [data, people] = await Promise.all([db.readPublic(animal).catch(() => ({})), db.readPath('cases/people').catch(() => ({}))]);
     render();
     if (location.hash === '#updates') goUpdates();
@@ -509,7 +584,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
         unwatchPeople?.(); unwatchPeople = null;
         if (user && canEdit()) {
             unwatch = db.watch(pagePath, v => { data = v || {}; render(); }, err => console.warn('Case updates: live updates stopped', err));
-            unwatchTeam = db.watch(teamPath, v => { teamData = v || {}; studio?.refresh(); }, err => console.warn('Case updates: team notes unavailable', err));
+            unwatchTeam = db.watch(teamPath, v => { teamData = v || {}; studio?.refresh(); inlines.forEach(x => x.refresh()); }, err => console.warn('Case updates: team notes unavailable', err));
             unwatchPeople = db.watch('cases/people', v => { people = v || {}; render(); }, () => {});
         }
         if (!user) store.set(SIGNED_IN_FLAG, null);
