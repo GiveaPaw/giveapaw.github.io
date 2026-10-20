@@ -227,3 +227,9 @@
 }
 .ue-eyebrow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 1100px) { .ue-eyebrow { display: none; } .ue-brand { width: 32px; height: 32px; } }
+
+.ue-ext { display: grid; place-items: center; background: #003262 !important; color: #fff; font: 800 0.6rem var(--font); }
+.ue-filecard { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #f5f7fa; }
+.ue-filecard svg { width: 34px; height: 34px; color: var(--navy); }
+.ue-filecard strong { display: block; color: var(--navy); overflow-wrap: anywhere; }
+.ue-filecard span { color: var(--muted); font-size: 0.8rem; }

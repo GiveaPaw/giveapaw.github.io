@@ -37,10 +37,13 @@ const mediaOf = u => Object.entries(u?.media || {}).map(([id, m]) => ({ id, ...m
 const mediaThumb = m => (m.kind === 'photo' && demoGet(m.file)) || ((m.kind === 'photo' || m.kind === 'video') && isDriveId(m.file) && !demoGet(m.file) ? thumbUrl(m.file, 600) : '');
 
 // Plain text → paragraphs, line breaks and https links; everything else escaped.
-function textHTML(text) {
+// Note links written in the full-screen view: [words](note:<media id>/<note id>) open that note.
+function textHTML(text, updateId = '') {
     const link = line => line.split(/(https:\/\/[^\s<>"]+)/g).map((p, i) => (i % 2 ? `<a href="${esc(p)}" target="_blank" rel="noopener noreferrer">${esc(p)}</a>` : esc(p))).join('');
-    return String(text || '').trim().split(/\n\s*\n/).map(par => `<p>${par.split('\n').map(link).join('<br>')}</p>`).join('');
+    const html = String(text || '').trim().split(/\n\s*\n/).map(par => `<p>${par.split('\n').map(link).join('<br>')}</p>`).join('');
+    return html.replace(/\[([^\]<\n]{1,80})\]\(note:([A-Za-z0-9_-]{1,40})\/([A-Za-z0-9_-]{1,40})\)/g, (all, words, m, k) => (updateId ? `<a class="cu-notelink" href="#update/${esc(updateId)}/${m}/${k}">${words}</a>` : `<span class="cu-notelink">${words}</span>`));
 }
+const plainText = text => String(text || '').replace(/\[([^\]<\n]{1,80})\]\(note:([A-Za-z0-9_-]{1,40})\/([A-Za-z0-9_-]{1,40})\)/g, '$1');
 
 // ------------------------------------------------------------------ stores
 function createCloud() {
@@ -163,7 +166,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
     let editor = null;
     let justPublished = '';
     async function openEditor(id = '') {
-        const mod = await import('./update-editor.js?v=1');
+        const mod = await import('./update-editor.js?v=3');
         editor = mod.openUpdateEditor({
             ...host,
             animal: { ...host.animal, driveFolder: A.driveFolder || '' },
@@ -172,7 +175,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
             renderFeedItem: u => updateHTML(u, { preview: true }),
             renderCardSnippet: u => cardSnippet(u),
             openPreview: async (u, mediaKey, onDone) => {
-                const st = await import('./update-studio.js?v=1');
+                const st = await import('./update-studio.js?v=3');
                 st.openStudio({ ...host, getUpdate: () => u, canEdit: () => false, canChange: () => false, teamMarks: () => null, onClose: onDone }, { updateId: u.id, mediaId: mediaKey });
             },
             openStudio: (uid, mid, edit) => openUpdate(uid, mid, edit),
@@ -181,10 +184,10 @@ export async function initUpdates({ H, panels, show }, manifest) {
             onClose: () => { editor = null; if (justPublished) { justPublished = ''; goUpdates(); } },
         }, { updateId: id });
     }
-    async function openUpdate(id, mediaId = '', edit = false) {
+    async function openUpdate(id, mediaId = '', edit = false, markId = '') {
         if (!data.updates?.[id]) return;
-        const mod = await import('./update-studio.js?v=1');
-        studio = mod.openStudio(host, { updateId: id, mediaId, edit });
+        const mod = await import('./update-studio.js?v=3');
+        studio = mod.openStudio(host, { updateId: id, mediaId, markId, edit });
         history.replaceState(null, '', `#update/${id}${mediaId ? '/' + mediaId : ''}`);
     }
 
@@ -258,7 +261,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
     function cardSnippet(u) {
         const first = mediaOf(u).find(m => m.kind === 'photo');
         const photo = first && (demoGet(first.file) || (isDriveId(first.file) ? thumbUrl(first.file, 1000) : ''));
-        const plain = String(u.text || '').replace(/\s+/g, ' ').trim();
+        const plain = plainText(u.text).replace(/\s+/g, ' ').trim();
         return `<span class="cu-latest-k">Latest update · ${esc(fmtDate(u.date, { month: 'short', day: 'numeric' }))}</span>
             <strong>${esc(u.title)}</strong>
             ${plain ? `<span class="cu-card-text">${esc(plain.length > 150 ? plain.slice(0, 147).replace(/\s+\S*$/, '') + '…' : plain)}</span>` : ''}
@@ -280,8 +283,9 @@ export async function initUpdates({ H, panels, show }, manifest) {
         return `<li class="cu-item" data-id="${esc(u.id)}">
             <div class="cu-meta"><time datetime="${esc(u.date)}">${esc(fmtDate(u.date))}</time>${by ? `<span>by ${esc(by)}</span>` : ''}${u.edited ? '<span>edited</span>' : ''}</div>
             <h3><button type="button" class="cu-title" data-cu-act="open" data-id="${esc(u.id)}">${esc(u.title)}</button></h3>
-            <div class="cu-text">${textHTML(u.text)}</div>
-            ${media.length ? `<div class="cu-photos">${media.slice(0, 8).map(tile).join('')}</div>` : ''}
+            <div class="cu-text">${textHTML(u.text, preview ? '' : u.id)}</div>
+            ${media.some(m => m.kind !== 'file') ? `<div class="cu-photos">${media.filter(m => m.kind !== 'file').slice(0, 8).map(tile).join('')}</div>` : ''}
+            ${media.some(m => m.kind === 'file') ? `<ul class="cu-files">${media.filter(m => m.kind === 'file').map(m => `<li><a href="${esc(isDriveId(m.file) && !demoGet(m.file) ? `https://drive.google.com/file/d/${m.file}/view` : demoGet(m.file) || '#')}" target="_blank" rel="noopener"><span class="cu-file-ext">${esc(((String(m.name || '').match(/\.([a-z0-9]+)$/i) || [])[1] || 'file').toUpperCase().slice(0, 6))}</span>${esc(m.name || 'Design file')}${m.bytes ? `<small>${esc(m.bytes >= 1e6 ? Math.round(m.bytes / 1e6) + ' MB' : Math.max(1, Math.round(m.bytes / 1e3)) + ' KB')}</small>` : ''}<span aria-hidden="true">⬇</span></a></li>`).join('')}</ul>` : ''}
             <div class="cu-item-actions">
                 ${media.length ? `<button type="button" class="cu-btn cu-primary" data-cu-act="open" data-id="${esc(u.id)}">Open full screen${notes ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}</button>` : ''}
                 ${!preview && canChange(u) ? `<button type="button" class="cu-btn" data-cu-act="edit" data-id="${esc(u.id)}">Edit update</button>` : ''}
@@ -453,14 +457,14 @@ export async function initUpdates({ H, panels, show }, manifest) {
     });
 
     // ---- start
-    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=2"><link rel="stylesheet" href="update-editor.css?v=4">');
+    if (!document.querySelector('link[href^="update-studio.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="update-studio.css?v=6"><link rel="stylesheet" href="update-editor.css?v=6">');
     data = await db.readPublic(animal).catch(() => ({}));
     render();
     if (location.hash === '#updates') goUpdates();
     // Links to one update (or one photo, video or model in it): #update/<id>[/<media id>].
     const openFromHash = () => {
-        const deep = location.hash.match(/^#update\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?$/);
-        if (deep && studio?.updateId !== deep[1]) { show('report'); openUpdate(deep[1], deep[2] || ''); }
+        const deep = location.hash.match(/^#update\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?$/);
+        if (deep && studio?.updateId !== deep[1]) { show('report'); openUpdate(deep[1], deep[2] || '', false, deep[3] || ''); }
     };
     window.addEventListener('hashchange', openFromHash);
     openFromHash();

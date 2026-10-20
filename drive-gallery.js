@@ -20,7 +20,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const fmtBytes = b => (!b ? '' : b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(b >= 1e7 ? 0 : 1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
 const fmtDate = s => (s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
 const fmtDur = ms => { const s = Math.round((Number(ms) || 0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-const KIND_LABEL = { photo: 'Picture', video: 'Video', model: '3D model', mesh: '3D mesh' };
+const KIND_LABEL = { photo: 'Picture', video: 'Video', model: '3D model', mesh: '3D mesh', file: 'Design file' };
 // Folders a visitor-facing update should draw from. Documents (intake forms) is left out on purpose.
 const PLACE_ORDER = ['Website uploads', 'Photos and videos', 'Scans', 'Design files', 'Print files'];
 
@@ -55,7 +55,7 @@ export function openDriveGallery({ animal, title = '', upload, onAdd }) {
                 <section class="dg-main">
                     <div class="dg-tools">
                         <div class="dg-crumbs"></div>
-                        <div class="dg-seg" role="group" aria-label="Show">${[['all', 'All'], ['photo', 'Pictures'], ['video', 'Videos'], ['model', '3D models']].map(([k, n]) => `<button type="button" data-dg="filter" data-k="${k}" aria-pressed="${k === 'all'}">${n}</button>`).join('')}</div>
+                        <div class="dg-seg" role="group" aria-label="Show">${[['all', 'All'], ['photo', 'Pictures'], ['video', 'Videos'], ['model', '3D models'], ['file', 'Design files']].map(([k, n]) => `<button type="button" data-dg="filter" data-k="${k}" aria-pressed="${k === 'all'}">${n}</button>`).join('')}</div>
                         <select data-dg="sort" aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="name">Name</option></select>
                         <input type="search" data-dg="search" placeholder="Search this folder" aria-label="Search this folder">
                         <button type="button" class="dg-btn dg-icon" data-dg="refresh" aria-label="Refresh">${svg('refresh')}</button>
@@ -66,7 +66,7 @@ export function openDriveGallery({ animal, title = '', upload, onAdd }) {
                 <aside class="dg-detail" aria-live="polite"></aside>
             </div>
             <footer class="dg-foot">
-                <label class="dg-btn dg-upload${upload ? '' : ' is-off'}">${svg('upload')} Upload from this computer<input type="file" multiple accept="image/*,video/*,.stl,.obj,.3mf,.glb" data-dg="upload"${upload ? '' : ' disabled'}></label>
+                <label class="dg-btn dg-upload${upload ? '' : ' is-off'}">${svg('upload')} Upload from this computer<input type="file" multiple accept="image/*,video/*,.stl,.obj,.3mf,.glb,.ntop,.step,.stp,.iges,.igs,.sldprt,.sldasm,.f3d,.mix,.pdf,.zip" data-dg="upload"${upload ? '' : ' disabled'}></label>
                 <span class="dg-count"></span>
                 <button type="button" class="dg-btn" data-dg="close">Cancel</button>
                 <button type="button" class="dg-btn dg-primary" data-dg="add" disabled>Add to update</button>
@@ -145,6 +145,7 @@ export function openDriveGallery({ animal, title = '', upload, onAdd }) {
                     <dt>Changed</dt><dd>${esc(fmtDate(f.modifiedTime))}</dd>
                 </dl>
                 ${k === 'mesh' ? '<p class="dg-note">This mesh is compressed into a web 3D model (about a tenth of the size) and saved in “Website uploads” when you add it.</p>' : ''}
+                ${k === 'file' ? '<p class="dg-note">Added as a download: visitors get the file itself from Google Drive. Big files (over 100 MB) show Google’s “can’t scan for viruses” page first, which is normal.</p>' : ''}
                 ${k === 'video' && /quicktime/.test(f.mimeType) ? '<p class="dg-note">iPhone videos (.MOV) play in Safari; Chrome on Windows may not play HEVC ones. If the preview stays black, convert it to MP4 first.</p>' : ''}
                 <a class="dg-btn" href="${esc(viewUrl(f.id))}" target="_blank" rel="noopener">${svg('ext')} Open in Drive</a>`;
         }

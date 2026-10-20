@@ -219,12 +219,16 @@ export async function downloadPublic(id, onProgress = () => {}) {
     return new Blob(parts);
 }
 
+// Design files offered as downloads (not shown in a viewer): nTop notebooks, CAD, MeshMixer, PDFs, zips.
+export const DESIGN_FILE = /\.(ntop|step|stp|iges|igs|sldprt|sldasm|f3d|mix|pdf|zip)$/i;
+export const DESIGN_ACCEPT = '.ntop,.step,.stp,.iges,.igs,.sldprt,.sldasm,.f3d,.mix,.pdf,.zip';
 export const fileKind = f => {
     const n = String(f.name || '').toLowerCase(), m = String(f.mimeType || '');
     if (m.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/.test(n)) return 'photo';
     if (m.startsWith('video/') || /\.(mov|mp4|m4v|webm)$/.test(n)) return 'video';
     if (/\.glb$/.test(n)) return 'model';
     if (/\.(stl|obj|3mf)$/.test(n)) return 'mesh';
+    if (DESIGN_FILE.test(n)) return 'file';
     return '';
 };
 
