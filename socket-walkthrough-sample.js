@@ -723,6 +723,242 @@ const SOLUTION = {
     ],
 };
 
+// ---- practice mode -------------------------------------------------------------------------
+// The same two planes, on a body that has been turned. One problem turns the scan and its surface
+// one way and the interfaces another, independently, and the answer for that problem is the
+// recorded answer carried through the same turn.
+//
+// Only quarter turns, the 24 ways a cube can sit. The task is to name a face of the axis-aligned
+// bounding box, and a mesh tilted by anything else has no face that answers it: the box stops
+// touching the body where the plane should go, so the question would have no right answer.
+
+const QUARTER_TURNS = (() => {
+    const out = [];
+    for (const perm of [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]) {
+        for (let bits = 0; bits < 8; bits++) {
+            const sign = [bits & 1 ? -1 : 1, bits & 2 ? -1 : 1, bits & 4 ? -1 : 1];
+            // The body's own axis i ends up along world axis perm[i], pointing that way.
+            const m = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+            for (let i = 0; i < 3; i++) m[perm[i]][i] = sign[i];
+            const det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+                - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+                + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+            if (det > 0) out.push({ axis: [...perm], sign, m });   // a turn, not a mirror
+        }
+    }
+    return out;
+})();
+
+function practiceIcon(name) { return `<i data-lucide="${name}" aria-hidden="true"></i>`; }
+
+function turnQuaternion(turn) {
+    const m = turn.m;
+    return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().set(
+        m[0][0], m[0][1], m[0][2], 0,
+        m[1][0], m[1][1], m[1][2], 0,
+        m[2][0], m[2][1], m[2][2], 0,
+        0, 0, 0, 1));
+}
+
+// The recorded answer seen from the turned body: the face it names moves to another world axis and
+// swaps end if that axis now points the other way. Centroid stays centroid either way.
+const OTHER_END = [2, 1, 0];
+function turnAnswer(answer, turn) {
+    const pick = [1, 1, 1];
+    const normal = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+        const axis = turn.axis[i];
+        pick[axis] = turn.sign[i] > 0 ? answer.pick[i] : OTHER_END[answer.pick[i]];
+        normal[axis] = turn.sign[i] * answer.normal[i];
+    }
+    return { pick, normal };
+}
+
+const practice = {
+    on: false,
+    problem: 0,
+    attempted: 0,       // problems that have been checked at least once
+    firstTry: 0,        // of those, the ones right the first time
+    checked: false,     // this problem has had its first check
+    result: null,
+    answer: { pelvic: SOLUTION.pelvicPlane, interface: SOLUTION.interfacePlane },
+    saved: null,        // the student's real answers, parked while practice runs
+};
+
+// The turn goes on the copies in the two scenes, never on the imported meshes, so leaving practice
+// is only a matter of putting the copies back upright.
+const practiceBodyRoots = () => [pelvicBody, pelvicAttach, socketPreviewRoot, interfaceAnimal];
+const practiceInterfaceRoots = () => [interfaceReferenceMechanical, interfaceMechanical, interfaceSolid];
+
+function applyPracticeTurns(bodyTurn, interfaceTurn) {
+    const body = bodyTurn ? turnQuaternion(bodyTurn) : new THREE.Quaternion();
+    const iface = interfaceTurn ? turnQuaternion(interfaceTurn) : new THREE.Quaternion();
+    practiceBodyRoots().forEach(root => root.quaternion.copy(body));
+    practiceInterfaceRoots().forEach(root => root.quaternion.copy(iface));
+    // Both scenes measure their own bounding box as they are rebuilt, so this is what makes the
+    // box, the plane and the answer agree about where the body now is.
+    rebuildPelvicScene();
+    buildInterfaceScene();
+    updatePlane();
+}
+
+function sameAnswer(a, b) {
+    return !!a && !!b && a.pick.join() === b.pick.join() && a.normal.join() === b.normal.join();
+}
+
+function newPracticeProblem() {
+    const roll = () => QUARTER_TURNS[Math.floor(Math.random() * QUARTER_TURNS.length)];
+    const previous = practice.answer.pelvic;
+    let bodyTurn = roll();
+    // Two problems in a row with the same pelvic answer would read as nothing having changed.
+    for (let guard = 0; guard < 40 && sameAnswer(turnAnswer(SOLUTION.pelvicPlane, bodyTurn), previous); guard++) {
+        bodyTurn = roll();
+    }
+    const interfaceTurn = roll();
+    practice.problem += 1;
+    practice.checked = false;
+    practice.result = null;
+    practice.bodyTurn = bodyTurn;
+    practice.interfaceTurn = interfaceTurn;
+    practice.answer = {
+        pelvic: turnAnswer(SOLUTION.pelvicPlane, bodyTurn),
+        interface: turnAnswer(SOLUTION.interfacePlane, interfaceTurn),
+    };
+    applyPracticeTurns(bodyTurn, interfaceTurn);
+    // Start scrambled away from this problem's answer, as the walkthrough itself does.
+    randomizePelvicPlane();
+    randomizeInterfacePlane();
+    closePlaneHelp();
+    updatePlane();
+    updateInterfacePlane();
+    renderPractice();
+    frameActiveStep();
+}
+
+// Showing the previous problem's answer over this one would be nonsense, so the help closes with it.
+function closePlaneHelp() {
+    stopPlaneGuide();
+    if (pelvicAnswerShown) { pelvicAnswerShown = false; toggleHelpCard(pelvicAnswerHelpButton, pelvicHelpCard); }
+    if (interfaceAnswerShown) { interfaceAnswerShown = false; toggleHelpCard(interfacePlaneHelpButton, interfaceHelpCard); }
+    pelvicAnswerRoot.clear();
+    interfaceAnswerRoot.clear();
+    syncPelvicAnswer();
+    syncInterfaceAnswer();
+}
+
+function setPractice(on) {
+    if (on === practice.on) return;
+    if (on && !importsReady()) {
+        practice.result = { blocked: true };
+        renderPractice();
+        return;
+    }
+    practice.on = on;
+    if (on) {
+        practice.saved = {
+            pelvic: { pick: [...planeState.pick], normal: [...planeState.normal] },
+            interface: { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
+        };
+        practice.problem = 0;
+        practice.attempted = 0;
+        practice.firstTry = 0;
+        practice.answer = { pelvic: SOLUTION.pelvicPlane, interface: SOLUTION.interfacePlane };
+        newPracticeProblem();
+        return;
+    }
+    practice.answer = { pelvic: SOLUTION.pelvicPlane, interface: SOLUTION.interfacePlane };
+    practice.result = null;
+    applyPracticeTurns(null, null);
+    if (practice.saved) {
+        showPelvicPlane(practice.saved.pelvic);
+        showInterfacePlane(practice.saved.interface);
+    }
+    closePlaneHelp();
+    updatePlane();
+    updateInterfacePlane();
+    renderPractice();
+    frameActiveStep();
+}
+
+function practiceKind() {
+    return activeStep === '2b' ? 'interface' : 'pelvic';
+}
+
+function checkPractice() {
+    if (!practice.on) return;
+    const kind = practiceKind();
+    const state = kind === 'pelvic' ? planeState : interfacePlaneState;
+    const answer = practice.answer[kind];
+    const right = state.pick.join() === answer.pick.join()
+        && answer.normal.every((n, i) => Math.abs(state.normal[i] - n) < 1e-6);
+    // Only the first check on a problem counts, so a student can fix it and see it go green
+    // without that reading as a score they did not earn.
+    if (!practice.checked) {
+        practice.checked = true;
+        practice.attempted += 1;
+        if (right) practice.firstTry += 1;
+    }
+    practice.result = { right, kind, wrongPick: state.pick.join() !== answer.pick.join() };
+    renderPractice();
+}
+
+function renderPractice() {
+    document.querySelectorAll('[data-practice-bar]').forEach(bar => {
+        const on = practice.on;
+        bar.classList.toggle('is-on', on);
+        const toggle = bar.querySelector('[data-practice-toggle]');
+        toggle.setAttribute('aria-pressed', String(on));
+        // Not span:last-child: the switch has a knob span of its own inside it.
+        toggle.querySelector('[data-practice-label]').textContent = on ? 'Practice mode on' : 'Practice mode';
+        const count = bar.querySelector('[data-practice-count]');
+        count.hidden = !on;
+        count.textContent = `Problem ${practice.problem}`;
+        const score = bar.querySelector('[data-practice-score]');
+        score.hidden = !on || !practice.attempted;
+        score.textContent = `${practice.firstTry}/${practice.attempted} first try`;
+        bar.querySelector('[data-practice-check]').hidden = !on;
+        bar.querySelector('[data-practice-next]').hidden = !on;
+
+        const note = bar.querySelector('[data-practice-note]');
+        const result = practice.result;
+        note.className = 'practice-note';
+        if (!on && !result) { note.hidden = true; note.textContent = ''; return; }
+        if (result?.blocked) {
+            note.hidden = false;
+            note.classList.add('is-wrong');
+            note.innerHTML = `${practiceIcon('triangle-alert')}<span>Import all four meshes first, then practice can turn them.</span>`;
+        } else if (result?.right) {
+            note.hidden = false;
+            note.classList.add('is-right');
+            note.innerHTML = `${practiceIcon('circle-check')}<span>That is the ${result.kind === 'pelvic' ? 'pelvic' : 'interface'} plane for this one. Press Next problem for another.</span>`;
+        } else if (result) {
+            note.hidden = false;
+            note.classList.add('is-wrong');
+            note.innerHTML = `${practiceIcon('circle-alert')}<span>Not yet &mdash; the ${result.wrongPick ? 'bounding box pick' : 'normal'} is off. The <strong>?</strong> will show you the answer, or walk you to it.</span>`;
+        } else {
+            note.hidden = false;
+            note.innerHTML = `${practiceIcon('shuffle')}<span>The body has been turned. Find the ${practiceKind() === 'pelvic' ? 'pelvic' : 'interface'} plane on it, then press Check.</span>`;
+        }
+    });
+    window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+}
+
+
+document.addEventListener('click', event => {
+    if (event.target.closest('[data-practice-toggle]')) { setPractice(!practice.on); return; }
+    if (event.target.closest('[data-practice-check]')) { checkPractice(); return; }
+    if (event.target.closest('[data-practice-next]')) { if (practice.on) newPracticeProblem(); }
+});
+
+renderPractice();
+
+// The answer being worked towards: Ollie's own, or, in practice mode, the one for the problem on
+// screen. Everything that shows, checks or walks the student to an answer goes through this.
+function planeAnswer(kind) {
+    if (practice.on) return practice.answer[kind];
+    return kind === 'pelvic' ? SOLUTION.pelvicPlane : SOLUTION.interfacePlane;
+}
+
 // One scrambled plane: a bounding-box pick that is not all-centroid, plus the outward normal of one
 // of the faces it names. Never the answer, so no one starts on it by luck.
 function randomPlaneChoice(answer) {
@@ -739,7 +975,7 @@ function randomPlaneChoice(answer) {
 }
 
 function randomizePelvicPlane() {
-    const choice = randomPlaneChoice(SOLUTION.pelvicPlane);
+    const choice = randomPlaneChoice(planeAnswer('pelvic'));
     planeState.pick = choice.pick;
     planeState.normal = choice.normal;
     activePelvicPlaneAxis = choice.axis;
@@ -750,11 +986,29 @@ function randomizePelvicPlane() {
 }
 randomizePelvicPlane();
 
-const interfacePlaneChoice = randomPlaneChoice(SOLUTION.interfacePlane);
-const interfacePlaneState = { pick: interfacePlaneChoice.pick, normal: interfacePlaneChoice.normal };
-document.querySelectorAll('[data-interface-axis]').forEach(select => { select.value = String(interfacePlaneState.pick[+select.dataset.interfaceAxis]); });
-document.querySelectorAll('[data-interface-axis-slider]').forEach(slider => { slider.value = String(interfacePlaneState.pick[+slider.dataset.interfaceAxisSlider]); });
-document.querySelectorAll('[data-interface-normal]').forEach(input => { input.value = String(interfacePlaneState.normal[+input.dataset.interfaceNormal]); });
+const interfacePlaneState = { pick: [1, 1, 1], normal: [0, 0, 0] };
+
+// The same for the interface plane, and the way its boxes are filled in from a plane either way.
+function showInterfacePlane(state) {
+    interfacePlaneState.pick = [...state.pick];
+    interfacePlaneState.normal = [...state.normal];
+    document.querySelectorAll('[data-interface-axis]').forEach(select => { select.value = String(interfacePlaneState.pick[+select.dataset.interfaceAxis]); });
+    document.querySelectorAll('[data-interface-axis-slider]').forEach(slider => { slider.value = String(interfacePlaneState.pick[+slider.dataset.interfaceAxisSlider]); });
+    document.querySelectorAll('[data-interface-normal]').forEach(input => { input.value = String(interfacePlaneState.normal[+input.dataset.interfaceNormal]); });
+}
+
+function showPelvicPlane(state) {
+    planeState.pick = [...state.pick];
+    planeState.normal = [...state.normal];
+    document.querySelectorAll('[data-axis]').forEach(select => { select.value = String(planeState.pick[+select.dataset.axis]); });
+    document.querySelectorAll('[data-pelvic-axis-slider]').forEach(slider => { slider.value = String(planeState.pick[+slider.dataset.pelvicAxisSlider]); });
+    document.querySelectorAll('[data-normal]').forEach(input => { input.value = String(planeState.normal[+input.dataset.normal]); });
+}
+
+function randomizeInterfacePlane() {
+    showInterfacePlane(randomPlaneChoice(planeAnswer('interface')));
+}
+randomizeInterfacePlane();
 const interfacePositionState = new THREE.Vector3();
 const orientationState = {
     lateral: 0,
@@ -1060,8 +1314,8 @@ function buildAnswerPlane(group, bounds, answer) {
     return true;
 }
 
-const buildPelvicAnswer = () => buildAnswerPlane(pelvicAnswerRoot, pelvicBounds, SOLUTION.pelvicPlane);
-const buildInterfaceAnswer = () => buildAnswerPlane(interfaceAnswerRoot, interfaceBounds, SOLUTION.interfacePlane);
+const buildPelvicAnswer = () => buildAnswerPlane(pelvicAnswerRoot, pelvicBounds, planeAnswer('pelvic'));
+const buildInterfaceAnswer = () => buildAnswerPlane(interfaceAnswerRoot, interfaceBounds, planeAnswer('interface'));
 
 // The same green answer, on the solid interface, for Step 2b.
 const interfaceAnswerRoot = new THREE.Group();
@@ -1093,7 +1347,7 @@ function updateInterfaceHelpNote() {
     const lines = [];
     if (interfaceAnswerShown) {
         lines.push(interfaceBounds
-            ? `The answer is in green: X ${SPOT_WORD[SOLUTION.interfacePlane.pick[0]]}, Y ${SPOT_WORD[SOLUTION.interfacePlane.pick[1]]}, Z ${SPOT_WORD[SOLUTION.interfacePlane.pick[2]]}, normal ${SOLUTION.interfacePlane.normal.join(', ')}. Yours is the blue one.`
+            ? `The answer is in green: X ${SPOT_WORD[planeAnswer('interface').pick[0]]}, Y ${SPOT_WORD[planeAnswer('interface').pick[1]]}, Z ${SPOT_WORD[planeAnswer('interface').pick[2]]}, normal ${planeAnswer('interface').normal.join(', ')}. Yours is the blue one.`
             : 'Import the meshes first, then this shows the answer in the viewer.');
     }
     if (splitEnabled && !splitNarrow.matches) {
@@ -1117,7 +1371,7 @@ function syncPelvicAnswer() {
     if (!pelvicAnswerShown) { pelvicAnswerNote.hidden = true; return; }
     pelvicAnswerNote.hidden = false;
     pelvicAnswerNote.textContent = pelvicBounds
-        ? `The answer is in green: X ${SPOT_WORD[SOLUTION.pelvicPlane.pick[0]]}, Y ${SPOT_WORD[SOLUTION.pelvicPlane.pick[1]]}, Z ${SPOT_WORD[SOLUTION.pelvicPlane.pick[2]]}, normal ${SOLUTION.pelvicPlane.normal.join(', ')}. Yours is the blue one.`
+        ? `The answer is in green: X ${SPOT_WORD[planeAnswer('pelvic').pick[0]]}, Y ${SPOT_WORD[planeAnswer('pelvic').pick[1]]}, Z ${SPOT_WORD[planeAnswer('pelvic').pick[2]]}, normal ${planeAnswer('pelvic').normal.join(', ')}. Yours is the blue one.`
         : 'Import the meshes first, then this shows the answer in the viewer.';
 }
 
@@ -1129,7 +1383,7 @@ const PLANE_GUIDE_HOME = { pelvic: '#workflow-step-2a', interface: '#workflow-st
 let planeGuide = null;
 
 function planeGuideSteps(kind) {
-    const answer = kind === 'pelvic' ? SOLUTION.pelvicPlane : SOLUTION.interfacePlane;
+    const answer = planeAnswer(kind);
     const axisAttr = kind === 'pelvic' ? 'data-axis' : 'data-interface-axis';
     const home = PLANE_GUIDE_HOME[kind];
     const steps = [0, 1, 2].map(axis => ({
@@ -2450,6 +2704,8 @@ function showStep(step, shouldScroll = false) {
         positionTransform.enabled = false;
         positionTransformHelper.visible = false;
     }
+    if (practice.on && activeStep !== '2a' && activeStep !== '2b') setPractice(false);
+    renderPractice();
     viewerStepEl.textContent = paired ? 'Steps 2b + 2c' : 'Step ' + activeStep;
     viewerTitleEl.textContent = paired ? 'Interface position and plane' : titles[activeStep];
     document.querySelectorAll('.workflow-step').forEach(section => {
@@ -3409,11 +3665,27 @@ window.gapWalkthrough = {
     notes: walkthroughNotes,
     attachmentSolo: () => attachmentSolo,
     solution: SOLUTION,
+    practice: {
+        on: () => practice.on,
+        state: () => ({ problem: practice.problem, attempted: practice.attempted,
+                        firstTry: practice.firstTry, checked: practice.checked,
+                        result: practice.result && { ...practice.result } }),
+        answer: kind => ({ ...planeAnswer(kind) }),
+        turns: () => QUARTER_TURNS.length,
+        set: on => setPractice(on),
+        next: () => newPracticeProblem(),
+        check: () => checkPractice(),
+        // For tests: answer the problem on screen outright.
+        solve: kind => { const a = planeAnswer(kind);
+            if (kind === 'pelvic') showPelvicPlane(a); else showInterfacePlane(a);
+            updatePlane(); updateInterfacePlane(); },
+    },
     // For scripted tests: import a catalog file by role and name, as the explorer would.
     importFile: (role, name) => { const entry = filesForRole(role).find(e => e.name === name); if (!entry) throw new Error(`No ${role} file named ${name}`); return loadImportSelection(role, entry); },
     answers: () => ({
-        pelvicPlane: { pick: [...planeState.pick], normal: [...planeState.normal] },
-        interfacePlane: { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
+        // Practice runs on the same controls, so while it is on the saved answers are the real ones.
+        pelvicPlane: practice.on ? { ...practice.saved.pelvic } : { pick: [...planeState.pick], normal: [...planeState.normal] },
+        interfacePlane: practice.on ? { ...practice.saved.interface } : { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
         ...socketParameterChoices,
         lateral: orientationState.lateral,
         medial: orientationState.medial,

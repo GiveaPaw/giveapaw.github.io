@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=43">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=59">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=61">
     <link rel="stylesheet" href="walkthrough-grading.css?v=11">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -276,6 +276,20 @@
                             <div><small class="workflow-step-group">Step 2: Interface Positioning</small><h2>Locate pelvic plane</h2></div>
                         </div>
 
+                        <div class="practice-bar" data-practice-bar="pelvic">
+                            <button type="button" class="practice-toggle" data-practice-toggle aria-pressed="false" title="Practise this plane on a body that has been turned">
+                                <span class="workflow-mode-switch" aria-hidden="true"><span></span></span>
+                                <span data-practice-label>Practice mode</span>
+                            </button>
+                            <span class="practice-count" data-practice-count hidden></span>
+                            <span class="practice-score" data-practice-score hidden></span>
+                            <span class="practice-actions">
+                                <button type="button" class="practice-check" data-practice-check hidden><i data-lucide="check" aria-hidden="true"></i> Check</button>
+                                <button type="button" class="practice-next" data-practice-next hidden><i data-lucide="shuffle" aria-hidden="true"></i> Next problem</button>
+                            </span>
+                            <p class="practice-note" data-practice-note hidden></p>
+                        </div>
+
                         <div class="workflow-block workflow-plane-block slider-mode">
                             <div class="workflow-block-title">
                                 <i data-lucide="panel-top" aria-hidden="true"></i>
@@ -345,6 +359,20 @@
                         <div class="workflow-step-heading">
                             <span class="workflow-step-number">Step 2b</span>
                             <div><small class="workflow-step-group">Step 2: Interface Positioning</small><h2>Define interface plane</h2></div>
+                        </div>
+
+                        <div class="practice-bar" data-practice-bar="interface">
+                            <button type="button" class="practice-toggle" data-practice-toggle aria-pressed="false" title="Practise this plane on a body that has been turned">
+                                <span class="workflow-mode-switch" aria-hidden="true"><span></span></span>
+                                <span data-practice-label>Practice mode</span>
+                            </button>
+                            <span class="practice-count" data-practice-count hidden></span>
+                            <span class="practice-score" data-practice-score hidden></span>
+                            <span class="practice-actions">
+                                <button type="button" class="practice-check" data-practice-check hidden><i data-lucide="check" aria-hidden="true"></i> Check</button>
+                                <button type="button" class="practice-next" data-practice-next hidden><i data-lucide="shuffle" aria-hidden="true"></i> Next problem</button>
+                            </span>
+                            <p class="practice-note" data-practice-note hidden></p>
                         </div>
                         <div class="workflow-block workflow-plane-block slider-mode">
                             <div class="workflow-block-title workflow-block-title-with-mode">
@@ -776,7 +804,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=92"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=96"></script>
     <script type="module" src="walkthrough-grading.js?v=10"></script>
 </body>
 </html>

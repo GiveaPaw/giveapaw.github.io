@@ -1324,3 +1324,50 @@ output.workflow-number.is-fixed {
 .viewer-tool-labelled { display: grid; height: auto; min-height: 44px; gap: 2px; padding: 6px 5px 5px; place-items: center; }
 .viewer-tool-labelled small { font: 700 0.55rem var(--font-heading); letter-spacing: 0.04em; line-height: 1; text-transform: uppercase; }
 .viewer-tool-labelled[aria-pressed="true"] small { color: inherit; }
+
+/* ---- practice mode: the same two planes on a body that has been turned ----------------------- */
+.practice-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin: 0 0 12px; padding: 8px 10px;
+    border: 1px solid #d7dde4; border-radius: 8px; background: #f6f8fa;
+}
+.practice-bar.is-on { border-color: #9fc6ad; background: #eef7f1; }
+.practice-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 10px 5px 6px; border: 0; border-radius: 999px; background: transparent;
+    color: #41505e; font: 700 0.76rem var(--font-heading); cursor: pointer;
+}
+.practice-toggle:hover { color: #003262; }
+.practice-toggle:focus-visible { outline: 2px solid #fdb515; outline-offset: 2px; }
+.practice-bar.is-on .practice-toggle { color: #146c3a; }
+/* The switch takes its on-state from the pressed button, as the block toggles do. */
+.practice-toggle[aria-pressed="true"] .workflow-mode-switch { border-color: #58b57f; background: #1d6b41; }
+.practice-toggle[aria-pressed="true"] .workflow-mode-switch > span { background: #b9ecce; transform: translateX(18px); }
+.practice-count { color: #173958; font: 700 0.76rem var(--font-heading); }
+.practice-score { color: #6a7a89; font: 600 0.74rem var(--font-heading); }
+.practice-actions { display: inline-flex; gap: 6px; margin-left: auto; }
+.practice-check, .practice-next {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 34px;
+    padding: 6px 13px; border: 1px solid #b6c0ca; border-radius: 6px; background: #fff;
+    color: #173958; font: 700 0.74rem var(--font-heading); cursor: pointer;
+}
+.practice-check svg, .practice-next svg { width: 14px; height: 14px; }
+.practice-check { border-color: #146c3a; background: #146c3a; color: #fff; }
+.practice-check:hover { background: #0f5a30; }
+.practice-next:hover { border-color: #003262; background: #eaf1f7; }
+.practice-check[hidden], .practice-next[hidden], .practice-count[hidden], .practice-score[hidden], .practice-note[hidden] { display: none; }
+.practice-note {
+    flex-basis: 100%; margin: 2px 0 0; display: flex; align-items: flex-start; gap: 7px;
+    color: #41505e; font: 600 0.74rem/1.4 var(--font-heading);
+}
+.practice-note > span { flex: 1 1 auto; }
+.practice-note svg { width: 15px; height: 15px; flex: none; }
+.practice-note.is-right { color: #146c3a; }
+.practice-note.is-right svg { color: #146c3a; }
+.practice-note.is-wrong { color: #8a5a00; }
+.practice-note.is-wrong svg { color: #fdb515; }
+
+@media (max-width: 640px) {
+    .practice-actions { width: 100%; margin-left: 0; }
+    .practice-check, .practice-next { flex: 1 1 0; justify-content: center; min-height: 40px; }
+}
