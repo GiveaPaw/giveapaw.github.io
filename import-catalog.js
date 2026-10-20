@@ -12,13 +12,13 @@ export const BREEDS = [
     {
         slug: 'ollie', label: 'Ollie', units: 'm',
         solidName: 'ollie-solid.glb', solidFile: 'sample-models/chihuahua-1015-solid.glb',
-        solidPreview: 'chihuahua-1015-solid.glb', solidBytes: 1029811,
+        solidPreview: 'chihuahua-1015-solid.glb', solidBytes: 134836,
         note: 'Scaled 0.95 in Step 1 · socket sweeps',
         // Three proposal surfaces (10-13), each with its own socket and blend sweeps (surfaceSet picks the
         // model folder: high = sample-models/chi-socket & chi-final, low / standard = the -low / -standard sets).
         surfaces: [{
             name: 'ollie-attachment-surface-high.glb', file: 'sample-models/chihuahua-1015-surface.glb',
-            preview: 'chihuahua-1015-surface.glb', bytes: 236131,
+            preview: 'chihuahua-1015-surface.glb', bytes: 31924,
             label: 'Ollie · Socket surface (high)', category: 'socket', variation: 1, surfaceSet: 'high',
         }, {
             name: 'ollie-attachment-surface-standard.glb', file: 'sample-models/ollie-surface-standard.glb',

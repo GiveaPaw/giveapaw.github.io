@@ -8,6 +8,7 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     const handle = new THREE.Object3D();
     const points = [];
     const visibility = { surface: true, animal: true, capsule: true, attachment: true, points: true };
+    let solo = false;
     // The status line under the block was removed; messages now only go to the console on failure.
     const status = { textContent: '' };
     const toolbar = document.getElementById('attachment-overlay-controls');
@@ -93,13 +94,17 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         .then(([grid, one]) => { index = grid; indexOne = one; return setDesign(DEFAULT_DESIGN); })
         .catch(error => { console.error('Attachment models could not be loaded.', error); });
 
-    function styledClone(source, color, opacity = 1) {
+    // `behind` pushes a mesh a touch further away in the depth buffer, so a surface sharing the same
+    // skin (the attachment surface is cut from the scan) wins the tie instead of speckling.
+    function styledClone(source, color, opacity = 1, behind = false) {
         const clone = source.clone(true);
         clone.visible = true;
         clone.traverse(object => {
             if (!object.isMesh) return;
-            object.material = new THREE.MeshStandardMaterial({ color, roughness: 0.7,
-                transparent: opacity < 1, opacity, depthWrite: opacity === 1, side: THREE.DoubleSide });
+            object.material = new THREE.MeshStandardMaterial({ dithering: true, color, roughness: 0.7,
+                transparent: opacity < 1, opacity, depthWrite: opacity === 1, side: THREE.DoubleSide,
+                ...(behind === true ? { polygonOffset: true, polygonOffsetFactor: 4, polygonOffsetUnits: 8 }
+                    : behind === 'front' ? { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 } : {}) });
             object.userData.measureSurface = true;
         });
         return clone;
@@ -134,19 +139,21 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         });
     }
 
+    // "Solo": the one part on its own, nothing else, for looking at what a single input does to it.
     function syncVisibility() {
-        surface.visible = visibility.surface && !preview;
-        animal.visible = visibility.animal && !preview;
+        surface.visible = visibility.surface && !preview && !solo;
+        animal.visible = visibility.animal && !preview && !solo;
         points.forEach((point, index) => {
-            point.capsule.visible = visibility.capsule && point.capsuleVisible && (!preview || point.placed);
-            point.attachment.visible = visibility.attachment && point.attachmentVisible && (!preview || point.placed);
-            point.marker.visible = visibility.points && !preview;
-            point.arrow.visible = visibility.points && !preview && index === selected;
+            const otherInSolo = solo && index !== selected;
+            point.capsule.visible = !otherInSolo && visibility.capsule && point.capsuleVisible && (!preview || point.placed);
+            point.attachment.visible = !otherInSolo && visibility.attachment && point.attachmentVisible && (!preview || point.placed);
+            point.marker.visible = visibility.points && !preview && !solo;
+            point.arrow.visible = visibility.points && !preview && !solo && index === selected;
             point.marker.material.color.setHex(index === selected ? 0xfdb515 : 0x203951);
             point.marker.scale.setScalar(index === selected ? 1.3 : 1);
         });
         if (active) {
-            transform.enabled = editing && !!points.length && !picking && !isMeasuring() && visibility.points;
+            transform.enabled = editing && !!points.length && !picking && !isMeasuring() && visibility.points && !solo;
             transformHelper.visible = transform.enabled;
         }
     }
@@ -293,8 +300,10 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         sourceAnimal = animalSource;
         clearOwnedObjects(surface);
         clearOwnedObjects(animal);
-        surface.add(styledClone(surfaceSource, 0x8d98a7, 0.8));
-        animal.add(styledClone(animalSource, 0xb99c75, 0.15));
+        // The same teal the surface wears in every other step, pulled forward so it wins the skin
+        // it shares with the scan.
+        surface.add(styledClone(surfaceSource, 0x169c8c, 0.8, 'front'));
+        animal.add(styledClone(animalSource, 0x496b94, 1, true));
         surface.updateMatrixWorld(true);
         bounds = new THREE.Box3().setFromObject(surface);
         triangles = collectSurfaceTriangles(surface);
@@ -321,6 +330,11 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     }
 
     // Steps 5 and 6 show the placed attachments on the assembly without the surface, markers or tools.
+    function setSolo(value) {
+        solo = !!value;
+        syncVisibility();
+    }
+
     function setPreview(value) {
         preview = value;
         root.visible = active || preview;
@@ -403,7 +417,9 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         }
     });
 
-    return { root, ready, rebuild, setActive, setPreview, syncVisibility, setDesign, designExists,
+    return { root, ready, rebuild, setActive, setPreview, setSolo, syncVisibility, setDesign, designExists,
+        // The one part the solo view frames.
+        soloObject: () => points[selected]?.assembly || null,
         get design() { return design; },
         // Where the student put the points, in millimetres, for the comparison in Step 6.
         getPoints: () => points.map(point => ({

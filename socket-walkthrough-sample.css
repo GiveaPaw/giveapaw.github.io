@@ -990,3 +990,337 @@ button.workflow-var-help.is-on { border-color: #fdb515; background: #fdb515; col
 @media (max-width: 1180px) {
     #workflow-step-2a .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 40px 22px 22px; }
 }
+
+/* ---- Notes, shaped like the design review page's notes column ------------------------------ */
+.notes-sketch { position: absolute; z-index: 6; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.notes-sketch.is-live { pointer-events: auto; cursor: crosshair; }
+.workflow-canvas-wrap.is-sketching .view-cube-wrap { opacity: 0.35; }
+
+@media (min-width: 1181px) {
+    .workflow-app:not(.notes-hidden) {
+        grid-template-columns: minmax(300px, var(--workflow-rail-width)) 9px minmax(380px, 1fr) minmax(252px, 318px);
+    }
+}
+.workflow-app.notes-hidden .notes-rail { display: none; }
+.notes-rail { display: flex; min-width: 0; flex-direction: column; border-left: 1px solid #dfe5eb; background: #fbfcfd; }
+
+.notes-head {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) 26px 26px; align-items: center; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid #dfe5eb; background: #fff;
+}
+.notes-head strong { color: #173958; font: 700 0.86rem var(--font-heading); }
+.notes-step-tag { justify-self: start; padding: 2px 8px; border-radius: 999px; background: #eef2f6; color: #6a7a89; font: 700 0.64rem var(--font-heading); }
+.notes-head button {
+    display: grid; width: 26px; height: 26px; padding: 0; place-items: center;
+    border: 1px solid transparent; border-radius: 4px; background: transparent; color: #8a97a4; cursor: pointer;
+}
+.notes-head button svg { width: 15px; height: 15px; }
+.notes-head button:hover { border-color: #b6c0ca; background: #eaf1f7; color: #003262; }
+.notes-head button.active { border-color: #ff3fa4; background: #ff3fa4; color: #fff; }
+
+.notes-body { display: grid; align-content: start; gap: 10px; min-height: 0; overflow-y: auto; padding: 14px 16px 18px; }
+.notes-add { display: grid; gap: 4px; }
+.notes-add label { color: #6a7a89; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.notes-add textarea, .notes-anno-row textarea {
+    width: 100%; min-width: 0; padding: 7px 9px; border: 1px solid #b6c0ca; border-radius: 4px; background: #fff;
+    color: #1b2530; font: 0.82rem/1.4 var(--font-heading); resize: vertical;
+}
+.notes-add textarea { min-height: 84px; }
+.notes-add textarea:focus-visible, .notes-anno-row textarea:focus-visible { outline: 2px solid #fdb515; outline-offset: 1px; }
+.notes-add button {
+    justify-self: start; padding: 6px 12px; border: 1px solid #b6c0ca; border-radius: 4px;
+    background: #fff; color: #173958; font: 700 0.74rem var(--font-heading); cursor: pointer;
+}
+.notes-add button:hover { border-color: #003262; background: #eaf1f7; }
+
+.notes-anno-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; color: #173958; font-size: 0.8rem; font-weight: 700; }
+.notes-anno-head small { color: #6a7a89; font-weight: 400; }
+.notes-anno-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.notes-anno-empty { margin: 0; padding: 10px; border: 1px dashed #b6c0ca; border-radius: 6px; color: #6a7a89; font-size: 0.76rem; line-height: 1.45; text-align: center; }
+.notes-anno-row {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) 26px; gap: 6px 8px; align-items: center;
+    padding: 8px; border: 1px solid #dfe5eb; border-radius: 6px; background: #fff;
+}
+.notes-anno-row.is-here { border-color: #b6c0ca; box-shadow: 0 0 0 1px #eaf1f7; }
+.notes-anno-jump {
+    display: inline-flex; min-height: 26px; align-items: center; gap: 5px; padding: 2px 8px 2px 4px;
+    border: 1px solid #b6c0ca; border-radius: 14px; background: #fff; color: #173958;
+    font: 700 0.7rem var(--font-heading); cursor: pointer; white-space: nowrap;
+}
+.notes-anno-jump:hover { border-color: #003262; background: #eaf1f7; }
+.notes-anno-num { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: var(--num, #003262); color: #fff; font-size: 0.64rem; font-weight: 700; }
+.notes-anno-when { color: #8a97a4; font: 400 0.7rem var(--font-heading); text-align: right; }
+.notes-anno-row textarea { grid-column: 1 / -1; min-height: 40px; font-size: 0.78rem; }
+.notes-anno-del { display: grid; width: 26px; height: 26px; padding: 0; place-items: center; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #8a97a4; cursor: pointer; }
+.notes-anno-del:hover { border-color: #e3b5b2; background: #fdf0ef; color: #b3261e; }
+.notes-anno-del svg { width: 14px; height: 14px; }
+
+.notes-draw-panel {
+    position: absolute; z-index: 8; bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    border: 1px solid #c8d0d8; border-radius: 999px; background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 8px 20px rgba(25, 39, 53, 0.18);
+}
+.notes-draw-panel[hidden] { display: none; }
+.notes-swatches { display: flex; gap: 5px; }
+.notes-swatch { width: 18px; height: 18px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--swatch); cursor: pointer; }
+.notes-swatch.active { border-color: #1b2530; box-shadow: 0 0 0 2px #fff inset; }
+.notes-draw-panel > button:not(.notes-swatch) {
+    display: grid; min-width: 26px; height: 26px; padding: 0 9px; place-items: center;
+    border: 1px solid #c8d0d8; border-radius: 999px; background: #fff; color: #5c6670;
+    cursor: pointer; font: 700 0.7rem var(--font-heading);
+}
+.notes-draw-panel > button:not(.notes-swatch) svg { width: 14px; height: 14px; }
+.notes-draw-panel > button:hover { border-color: #003262; color: #003262; }
+
+.notes-sketch-chip {
+    position: absolute; z-index: 7; bottom: 14px; left: 50%; transform: translateX(-50%);
+    padding: 5px 11px; border: 1px solid #c8d0d8; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.94); color: #5c6670; cursor: pointer;
+    font: 600 0.68rem var(--font-heading); box-shadow: 0 6px 16px rgba(25, 39, 53, 0.14);
+}
+.notes-sketch-chip[hidden] { display: none; }
+.notes-sketch-chip:hover { border-color: #003262; color: #003262; }
+
+/* Two panes but no room for a fourth column: the notes float over the right of the view. */
+@media (min-width: 881px) and (max-width: 1180px) {
+    .notes-rail {
+        position: absolute; z-index: 7; top: 54px; right: 52px; bottom: 44px;
+        width: 252px; border: 1px solid #c8d0d8; border-radius: 8px;
+        background: rgba(255, 255, 255, 0.97); box-shadow: 0 10px 26px rgba(25, 39, 53, 0.18);
+    }
+    .workflow-viewer { position: relative; }
+}
+
+/* The attachment sweep switch has its own row, so the block title does not overflow. */
+.attachment-mode-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border-bottom: 1px solid #41444a; background: #2b2e33;
+}
+.attachment-mode-label { color: #aeb5bd; font: 700 0.64rem var(--font-heading); letter-spacing: 0.05em; text-transform: uppercase; }
+.attachment-mode-row .attachment-mode-seg { margin-left: 0; }
+
+/* ---- the help card under a block ---------------------------------------------------------- */
+.workflow-help-card {
+    margin-top: 10px; padding: 11px 13px 12px; border: 1px solid #d7dee6; border-radius: 8px;
+    background: #f6f9fc;
+}
+.workflow-help-card[hidden] { display: none; }
+.workflow-help-title { display: flex; align-items: center; gap: 7px; margin: 0 0 9px; color: #173958; font: 700 0.78rem var(--font-heading); }
+.workflow-help-title svg { width: 15px; height: 15px; color: #6a7a89; }
+.workflow-help-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.workflow-help-action {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
+    border: 1px solid #b6c0ca; border-radius: 6px; background: #fff; color: #173958;
+    font: 700 0.75rem var(--font-heading); cursor: pointer;
+}
+.workflow-help-action svg { width: 14px; height: 14px; }
+.workflow-help-action:hover { border-color: #003262; background: #eaf1f7; }
+.workflow-help-action.is-on { border-color: #1f9d55; background: #e8f6ee; color: #146c3a; }
+.workflow-help-action:focus-visible { outline: 2px solid #fdb515; outline-offset: 1px; }
+.workflow-help-note { margin: 9px 0 0; color: #41505e; font-size: 0.75rem; line-height: 1.5; }
+.workflow-help-note[hidden] { display: none; }
+
+/* Step 4b's title bar carries the mode switch, the ? and the status chip. */
+#attachment-block .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 44px 24px 30px; }
+@media (max-width: 1180px) {
+    #attachment-block .workflow-block-title { grid-template-columns: 22px auto minmax(0, 1fr) 40px 22px 26px; gap: 6px; }
+}
+
+/* ---- touch and small screens -------------------------------------------------------------- */
+/* The notes layer takes the gesture itself while drawing, or the page pans instead. */
+.notes-sketch.is-live { touch-action: none; }
+.workflow-var-help { width: 24px; height: 24px; }
+.workflow-home { display: inline-block; padding: 5px 0; }
+
+@media (pointer: coarse) {
+    .workflow-var-help { width: 30px; height: 30px; font-size: 0.78rem; }
+    .workflow-home { padding: 6px 0; }
+    .workflow-layer-toggle { min-height: 36px; }
+    .workflow-layer-alpha { min-height: 36px; padding: 5px 10px; }
+    .workflow-gizmo-toggle, .notes-head button { width: 32px; height: 32px; }
+    .notes-anno-del, .notes-anno-jump { min-height: 32px; }
+    .notes-swatch { width: 24px; height: 24px; }
+    .notes-draw-panel > button:not(.notes-swatch) { min-width: 34px; height: 34px; }
+    .workflow-help-action { padding: 10px 14px; }
+    .import-entry { min-height: 38px; }
+}
+@media (max-width: 880px) {
+    .workflow-var > strong, .workflow-var.is-mesh > strong, .workflow-var.is-implicit > strong { min-width: 0; }
+    .workflow-var { grid-template-columns: 20px minmax(96px, 1.6fr) auto minmax(0, 1fr) auto; }
+    /* The page is one column here, so the notes are a sheet at the bottom of the screen rather
+       than a box over the viewer: the view and its controls stay reachable above them. */
+    .notes-rail {
+        position: fixed; z-index: 30; inset: auto 0 0 0; width: 100%; height: min(62vh, 520px);
+        border: 1px solid #c8d0d8; border-bottom: 0; border-radius: 12px 12px 0 0;
+        background: #fff; box-shadow: 0 -8px 26px rgba(25, 39, 53, 0.22);
+    }
+    /* The pen bar has to float above that sheet, or Done cannot be reached. */
+    .notes-draw-panel { position: fixed; z-index: 40; bottom: 16px; }
+    .notes-sketch-chip { position: fixed; z-index: 29; bottom: 16px; }
+}
+
+/* ---- walking the student to the answer ----------------------------------------------------- */
+.plane-guide { margin-top: 10px; padding: 10px 12px; border: 1px solid #cfe0d6; border-radius: 7px; background: #f1f9f4; }
+.plane-guide[hidden] { display: none; }
+.plane-guide-step { display: flex; align-items: center; gap: 8px; margin: 0; color: #173958; font-size: 0.78rem; line-height: 1.45; }
+.plane-guide-step svg { width: 16px; height: 16px; flex: none; color: #1f9d55; }
+.plane-guide-step strong { font-weight: 700; }
+.plane-guide-step.is-done { color: #146c3a; }
+.plane-guide-dots { display: flex; gap: 5px; margin-top: 9px; }
+.plane-guide-dot {
+    padding: 2px 8px; border: 1px solid #cfd8e0; border-radius: 999px; background: #fff;
+    color: #8a97a4; font: 700 0.62rem var(--font-heading);
+}
+.plane-guide-dot.is-now { border-color: #fdb515; background: #fdb515; color: #1b2530; }
+.plane-guide-dot.is-done { border-color: #1f9d55; background: #e8f6ee; color: #146c3a; }
+
+/* The control the guide is asking about, marked in the block. */
+.workflow-plane-block .is-guided {
+    position: relative; border-radius: 5px;
+    outline: 2px solid #fdb515; outline-offset: 2px;
+    animation: gap-guide-pulse 1.5s ease-in-out infinite;
+}
+@keyframes gap-guide-pulse {
+    0%, 100% { outline-color: #fdb515; }
+    50% { outline-color: rgba(253, 181, 21, 0.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .workflow-plane-block .is-guided { animation: none; }
+}
+
+/* A value the sweep holds fixed: the same box as a typed value, without a slider beside it. */
+output.workflow-number.is-fixed {
+    display: block; padding: 5px 8px; border: 1px solid #4c5057; border-radius: 4px;
+    background: #202225; color: #aeb5bd; font: 600 0.78rem var(--font-heading); text-align: center;
+}
+.workflow-parameter-block .workflow-field-row:has(.is-fixed) { grid-template-columns: 20px minmax(95px, 1.4fr) minmax(30px, 1fr) 58px 22px; }
+.workflow-parameter-block .workflow-field-row .is-fixed { grid-column: 4; }
+
+/* Which way to move the slider the walk-through is asking about. */
+.workflow-plane-block .is-guided[data-guide-way] { padding-right: 26px; }
+.workflow-plane-block .is-guided[data-guide-way]::after {
+    position: absolute; top: 50%; right: 4px; margin-top: -9px;
+    display: grid; width: 18px; height: 18px; place-items: center;
+    border-radius: 50%; background: #fdb515; color: #1b2530;
+    font: 700 0.8rem var(--font-heading); line-height: 1; content: '\2192';
+    animation: gap-guide-nudge-right 1.1s ease-in-out infinite;
+}
+.workflow-plane-block .is-guided[data-guide-way="left"]::after {
+    right: auto; left: 4px; content: '\2190';
+    animation-name: gap-guide-nudge-left;
+}
+.workflow-plane-block .is-guided[data-guide-way="left"] { padding-right: 0; padding-left: 26px; }
+@keyframes gap-guide-nudge-right {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(4px); }
+}
+@keyframes gap-guide-nudge-left {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .workflow-plane-block .is-guided[data-guide-way]::after { animation: none; }
+}
+
+
+/* ---- the walk-through's cue, on its own line above the control it is asking about ----------- */
+.plane-guide-bar { height: 3px; background: #41444a; }
+.plane-guide-bar > span { display: block; height: 100%; background: #fdb515; transition: width 0.25s ease; }
+.plane-guide-cue {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
+    margin: 0; padding: 7px 14px 8px;
+    border-left: 3px solid #fdb515; background: rgba(253, 181, 21, 0.13);
+    color: #f1f3f4; font: 0.76rem/1.4 var(--font-heading);
+}
+.plane-guide-cue svg { width: 15px; height: 15px; flex: none; color: #fdb515; }
+.plane-guide-cue strong { font-weight: 700; }
+.plane-guide-cue.is-done { border-left-color: #54c5a1; background: rgba(84, 197, 161, 0.14); }
+.plane-guide-cue.is-done svg { color: #54c5a1; }
+.plane-guide-cue .plane-guide-dots { margin: 0 0 0 auto; }
+.plane-guide-cue .plane-guide-dot { border-color: #5b6066; background: #30343a; color: #aeb5bd; }
+.plane-guide-cue .plane-guide-dot.is-now { border-color: #fdb515; background: #fdb515; color: #1b2530; }
+.plane-guide-cue .plane-guide-dot.is-done { border-color: #54c5a1; background: #2b4b41; color: #d8f1e7; }
+
+/* While the walk-through runs: amber on a field that is still wrong, green once it is right. */
+.workflow-plane-block .is-guide-wrong,
+.workflow-plane-block .is-guide-right { position: relative; border-radius: 5px; }
+.workflow-plane-block .is-guide-wrong { background: rgba(253, 181, 21, 0.1); box-shadow: inset 3px 0 0 #fdb515; }
+.workflow-plane-block .is-guide-right { background: rgba(84, 197, 161, 0.12); box-shadow: inset 3px 0 0 #54c5a1; }
+.workflow-plane-block .is-guide-right::before {
+    position: absolute; top: 50%; right: 6px; margin-top: -8px;
+    display: grid; width: 16px; height: 16px; place-items: center;
+    border-radius: 50%; background: #54c5a1; color: #10231c;
+    font: 700 0.68rem var(--font-heading); line-height: 1; content: '\2713';
+}
+.workflow-plane-block .is-guide-right { padding-right: 26px; }
+/* The row being asked about keeps the stronger outline and its direction arrow on top of that. */
+.workflow-plane-block .is-guided { background: rgba(253, 181, 21, 0.16); }
+
+/* A view that is not the step's own: framed in amber, with one card and one way out. ------------
+   The corner is the only free one. The top strip carries the layer toggles and the view cube, and
+   the bottom left is where the split tags and the movement guide sit. */
+.viewer-mode-frame { position: absolute; z-index: 8; inset: 0; pointer-events: none; }
+.viewer-mode-frame[hidden] { display: none; }
+.viewer-mode-frame::after {
+    position: absolute; inset: 0; border: 3px solid #fdb515; border-radius: 7px; content: '';
+}
+.viewer-mode-card[hidden] { display: none; }
+.viewer-mode-card {
+    position: absolute; z-index: 9; right: 12px; bottom: 12px; width: min(250px, 60%);
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    padding: 11px 12px; border-radius: 9px; background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 10px 24px rgba(18, 35, 53, 0.22);
+    pointer-events: auto;
+}
+.viewer-mode-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px; background: #fdb515;
+    color: #2b2410; font: 700 0.66rem var(--font-heading);
+    letter-spacing: 0.03em; text-transform: uppercase;
+}
+.viewer-mode-chip svg { width: 13px; height: 13px; }
+.viewer-mode-text { margin: 0; color: #41505e; font: 600 0.74rem/1.4 var(--font-heading); }
+.viewer-mode-done {
+    display: inline-flex; align-items: center; gap: 6px;
+    /* Big enough for a thumb on every pointer, not only the ones the browser calls coarse. */
+    min-height: 40px; padding: 9px 18px; border: 0; border-radius: 8px;
+    background: #146c3a; color: #fff; font: 700 0.8rem var(--font-heading); cursor: pointer;
+}
+.viewer-mode-done svg { width: 15px; height: 15px; }
+.viewer-mode-done:hover { background: #0f5a30; }
+.viewer-mode-done:focus-visible { outline: 2px solid #fdb515; outline-offset: 2px; }
+.viewer-mode-card small { color: #8893a0; font: 600 0.66rem var(--font-heading); }
+
+/* On a small view the card takes the whole bottom edge rather than squeezing into the corner. */
+@media (max-width: 640px) {
+    .viewer-mode-card { right: 10px; bottom: 10px; left: 10px; width: auto; }
+}
+
+/* Open notes take over part of the view below 1181px, so the card steps aside rather than hiding
+   behind them. In the middle range they float on the right, so it moves left; on a phone they are
+   a sheet across the whole bottom, so it moves up under the layer toggles and shrinks to one row,
+   staying clear of the view cube in the corner. */
+@media (min-width: 881px) and (max-width: 1180px) {
+    .workflow-app:not(.notes-hidden) .viewer-mode-card { right: auto; left: 12px; }
+}
+@media (max-width: 880px) {
+    /* The sheet leaves a sliver of view too small for the card, so it floats above the sheet in one
+       compact row, the way the pen bar does, clear of that bar and of the drawing chip. */
+    .workflow-app:not(.notes-hidden) .viewer-mode-card {
+        position: fixed; z-index: 41; top: auto; right: 10px; bottom: 66px; left: 10px; width: auto;
+        flex-direction: row; align-items: center; gap: 9px; padding: 8px 10px;
+    }
+    .workflow-app:not(.notes-hidden) .viewer-mode-card small { display: none; }
+    .workflow-app:not(.notes-hidden) .viewer-mode-chip,
+    .workflow-app:not(.notes-hidden) .viewer-mode-done { flex: none; }
+    .workflow-app:not(.notes-hidden) .viewer-mode-text {
+        overflow: hidden; flex: 1 1 auto; min-width: 0; text-overflow: ellipsis; white-space: nowrap;
+    }
+}
+@media (pointer: coarse) { .viewer-mode-done { min-height: 44px; padding: 11px 20px; } }
+
+/* The notes switch carries its name, so it is not just another icon in the rail. */
+.viewer-tool-labelled { display: grid; height: auto; min-height: 44px; gap: 2px; padding: 6px 5px 5px; place-items: center; }
+.viewer-tool-labelled small { font: 700 0.55rem var(--font-heading); letter-spacing: 0.04em; line-height: 1; text-transform: uppercase; }
+.viewer-tool-labelled[aria-pressed="true"] small { color: inherit; }

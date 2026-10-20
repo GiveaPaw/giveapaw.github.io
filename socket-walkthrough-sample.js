@@ -6,9 +6,10 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=11';
+import { createAttachmentHoles } from './attachment-holes.js?v=15';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=6';
+import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=7';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -20,6 +21,63 @@ const overlayControlsEl = document.getElementById('workflow-overlay-controls');
 const interfaceOverlayControlsEl = document.getElementById('interface-overlay-controls');
 const viewerStepEl = document.getElementById('viewer-step');
 const viewerTitleEl = document.getElementById('viewer-title');
+
+// ---- views that are not the step's own ---------------------------------------------------------
+// The scale comparison, an answer plane, one attachment on its own: each replaces what the step
+// would normally show, and each used to be left a different way. They now share one look, so a
+// student who learns to leave one has learned to leave all of them: the viewer is framed in amber,
+// a card in the free corner names the mode, and Done (or Esc) puts the step back.
+const viewerModeFrame = document.getElementById('viewer-mode-frame');
+const viewerModeCard = document.getElementById('viewer-mode-card');
+const viewerModeName = document.getElementById('viewer-mode-name');
+const viewerModeText = document.getElementById('viewer-mode-text');
+const viewerModeDoneButton = document.getElementById('viewer-mode-done');
+const viewerModes = new Map();
+
+function setViewerMode(key, info) {
+    if (info) viewerModes.set(key, info);
+    else viewerModes.delete(key);
+    renderViewerMode();
+}
+
+// The viewer is its own stacking context and the notes sheet is fixed above it, so while that sheet
+// is up the card cannot be lifted over it from inside the viewer: it moves out to the page column,
+// where its z-index counts against the sheet, and goes back to the corner of the view afterwards.
+const viewerModeNarrow = matchMedia('(max-width: 880px)');
+const workflowAppEl = document.getElementById('workflow-app');
+const viewerModeHome = document.getElementById('workflow-stage');
+
+function placeViewerModeCard() {
+    const notesOpen = !workflowAppEl.classList.contains('notes-hidden');
+    const parent = viewerModeNarrow.matches && notesOpen ? workflowAppEl : viewerModeHome;
+    if (viewerModeCard.parentElement !== parent) parent.appendChild(viewerModeCard);
+}
+
+viewerModeNarrow.addEventListener('change', placeViewerModeCard);
+new MutationObserver(placeViewerModeCard).observe(workflowAppEl, { attributeFilter: ['class'] });
+
+function renderViewerMode() {
+    const [mode] = [...viewerModes.values()];
+    placeViewerModeCard();
+    viewerModeFrame.hidden = viewerModeCard.hidden = !mode;
+    if (!mode) return;
+    viewerModeName.textContent = mode.name;
+    viewerModeText.textContent = mode.text;
+    viewerModeDoneButton.title = `Leave ${mode.name.toLowerCase()} and go back to the step`;
+}
+
+function leaveViewerMode() {
+    const [mode] = [...viewerModes.values()];
+    if (mode) mode.done();
+}
+
+viewerModeDoneButton.addEventListener('click', leaveViewerMode);
+document.addEventListener('keydown', event => {
+    // Esc belongs to the pen while it is drawing; the mode takes it the rest of the time.
+    if (event.key !== 'Escape' || !viewerModes.size) return;
+    if (walkthroughNotes?.isDrawing?.()) return;
+    leaveViewerMode();
+});
 const resizerEl = document.getElementById('workflow-resizer');
 const measureButtonEl = document.getElementById('measure-tool');
 const measurePanelEl = document.getElementById('measure-panel');
@@ -78,21 +136,22 @@ const measurementRoot = new THREE.Group();
 scene.add(importRoot, planeRoot, interfaceRoot, measurementRoot);
 
 // Every Import Mesh node starts empty: the student browses to the file, as they would in nTop.
+// The colours here are the same four in PART_COLOR below, which every other stage reads from.
 const layers = {
     solidAnimal: {
-        label: 'Solid animal', color: '#496b94', group: new THREE.Group(), visible: true,
-        file: null, type: null, opacity: 0.28, baseUnit: 'm', importUnit: 'm', scalable: true,
+        role: 'solidAnimal', label: 'Solid animal', color: '#496b94', group: new THREE.Group(), visible: true,
+        file: null, type: null, opacity: 1, baseUnit: 'm', importUnit: 'm', scalable: true,
     },
     attachment: {
-        label: 'Attachment mesh', color: '#169c8c', group: new THREE.Group(), visible: true,
+        role: 'attachment', label: 'Attachment mesh', color: '#169c8c', group: new THREE.Group(), visible: true,
         file: null, type: null, opacity: 0.88, baseUnit: 'm', importUnit: 'm', scalable: true,
     },
     mechanical: {
-        label: 'Mechanical interface', color: '#df7544', group: new THREE.Group(), visible: false,
+        role: 'mechanical', label: 'Mechanical interface', color: '#df7544', group: new THREE.Group(), visible: false,
         file: null, type: null, opacity: 1, baseUnit: 'mm', importUnit: 'mm',
     },
     solidInterface: {
-        label: 'Solid interface', color: '#6750a4', group: new THREE.Group(), visible: false,
+        role: 'solidInterface', label: 'Solid interface', color: '#6750a4', group: new THREE.Group(), visible: false,
         file: null, type: null, opacity: 1, baseUnit: 'mm', importUnit: 'mm',
     },
 };
@@ -182,7 +241,7 @@ interfaceLayerTargets.socket = socketPreviewRoot;
 let positionMechanicalVisible = false;
 const interfaceLayerVisibility = Object.fromEntries(Object.keys(interfaceLayerTargets).map(key => [key, true]));
 // Step 2d keeps its own visibility so it can open on the mechanical interface alone.
-const orientationLayerVisibility = { animal: false, mechanical: true, solid: false, socket: false, target: false };
+const orientationLayerVisibility = { animal: true, mechanical: true, solid: false, socket: false, target: false };
 // Steps 5 and 6 show the blended assembly: animal, socket and both oriented interfaces.
 const blendLayerVisibility = { animal: true, mechanical: true, solid: true, socket: true, target: false };
 // Step 3 is a pelvic stage, but the lattice is easier to judge with the interface it meets, so it
@@ -315,19 +374,49 @@ function applyImportUnitScale(layer) {
     layer.group.updateMatrixWorld(true);
 }
 
+// The attachment surface is cut from the scan, so the two meshes sit on exactly the same skin and
+// the depth buffer cannot choose between them: that is the speckled mess. Pushing the solid animal
+// a touch further away in depth settles every one of those ties in the surface's favour.
+// The surface is a decimated cut of the scan, so it does not merely touch the skin, it weaves
+// through it; a small bias is not enough. The surface is pulled well forward and the animal pushed
+// back, which is enough to cover the decimation error.
+const BEHIND = { polygonOffset: true, polygonOffsetFactor: 4, polygonOffsetUnits: 8 };
+const IN_FRONT = { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 };
+
+// The attachment surface is a decimated cut of the scan, so it does not merely touch the skin, it
+// weaves through it by a few tenths of a millimetre. A depth bias cannot cover that, so the surface
+// is lifted off the skin along its own normals once, when it loads. Every later clone shares this
+// geometry, so one lift serves the whole walkthrough. Half a millimetre on a 180 mm dog.
+function liftOffTheSkin(geometry, millimetres) {
+    const position = geometry.attributes.position;
+    const normal = geometry.attributes.normal;
+    if (!position || !normal) return;
+    for (let i = 0; i < position.count; i++) {
+        position.setXYZ(i,
+            position.getX(i) + normal.getX(i) * millimetres,
+            position.getY(i) + normal.getY(i) * millimetres,
+            position.getZ(i) + normal.getZ(i) * millimetres);
+    }
+    position.needsUpdate = true;
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+}
+
 function prepareObject(object, layer) {
     normalizeMillimeterExport(object);
     object.traverse(child => {
         if (!child.isMesh) return;
         child.geometry.computeVertexNormals();
-        child.material = new THREE.MeshStandardMaterial({
+        if (layer.role === 'attachment') liftOffTheSkin(child.geometry, 0.5);
+        child.material = new THREE.MeshStandardMaterial({ dithering: true,
             color: layer.color,
             roughness: 0.72,
-            metalness: layer === layers.mechanical ? 0.15 : 0,
+            metalness: layer.role === 'mechanical' ? 0.15 : 0,
             transparent: layer.opacity < 1,
             opacity: layer.opacity,
             depthWrite: layer.opacity >= 1,
             side: THREE.DoubleSide,
+            ...(layer.role === 'solidAnimal' ? BEHIND : layer.role === 'attachment' ? IN_FRONT : {}),
         });
         child.castShadow = layer.opacity >= 0.8;
         child.receiveShadow = true;
@@ -369,8 +458,13 @@ async function replaceImportLayer(key, model) {
     if (select) select.value = layer.importUnit;
 }
 
-const bodyLayer = { color: '#b99c75', opacity: 0.2 };
-const attachLayer = { color: '#8d98a7', opacity: 1, bakedShading: true, forceTransparent: true, renderOrder: 10 };
+// One colour per part, used in every stage. The import layers above take theirs from here too.
+const PART_COLOR = {
+    solidAnimal: 0x496b94,   // the scan
+    attachment: 0x169c8c,    // the socket surface cut from it
+    mechanical: 0xdf7544,    // the mechanical interface
+    solidInterface: 0x6750a4, // the solid interface
+};
 
 function applyBakedShading(geometry, baseColor) {
     const normals = geometry.getAttribute('normal');
@@ -410,7 +504,7 @@ function preparePelvic(gltf, target, materialConfig) {
             ? new THREE.MeshBasicMaterial({ ...sharedOptions, vertexColors: true, toneMapped: false })
             : materialConfig.unlit
                 ? new THREE.MeshBasicMaterial({ ...sharedOptions, toneMapped: false })
-            : new THREE.MeshStandardMaterial({ ...sharedOptions, roughness: 0.82 });
+            : new THREE.MeshStandardMaterial({ dithering: true, ...sharedOptions, roughness: 0.82 });
         child.renderOrder = materialConfig.renderOrder || 0;
     });
     target.add(object);
@@ -458,7 +552,7 @@ function cloneImportForPelvic(key, target, materialConfig) {
     const clone = layers[key].group.clone(true);
     clone.traverse(child => {
         if (!child.isMesh) return;
-        child.material = new THREE.MeshStandardMaterial({
+        child.material = new THREE.MeshStandardMaterial({ dithering: true,
             color: materialConfig.color,
             roughness: materialConfig.roughness ?? 0.78,
             metalness: 0,
@@ -466,6 +560,7 @@ function cloneImportForPelvic(key, target, materialConfig) {
             opacity: materialConfig.opacity,
             depthWrite: materialConfig.opacity >= 0.72,
             side: THREE.DoubleSide,
+            ...(key === 'solidAnimal' ? BEHIND : key === 'attachment' ? IN_FRONT : {}),
         });
         child.castShadow = materialConfig.opacity >= 0.7;
         child.receiveShadow = true;
@@ -509,7 +604,7 @@ function prepareSocketPreviewObject(object) {
     object.traverse(child => {
         if (!child.isMesh) return;
         child.geometry.computeVertexNormals();
-        child.material = new THREE.MeshStandardMaterial({
+        child.material = new THREE.MeshStandardMaterial({ dithering: true,
             color: 0x4e8f91,
             roughness: 0.7,
             metalness: 0,
@@ -596,8 +691,8 @@ function rebuildPelvicScene() {
     pelvicAttach.clear();
     socketPreviewRoot.clear();
     clearPelvicOverlays();
-    cloneImportForPelvic('solidAnimal', pelvicBody, { color: 0xb99c75, opacity: 0.2, roughness: 0.82 });
-    cloneImportForPelvic('attachment', pelvicAttach, { color: 0x8d98a7, opacity: 0.78, roughness: 0.66 });
+    cloneImportForPelvic('solidAnimal', pelvicBody, { color: PART_COLOR.solidAnimal, opacity: 1, roughness: 0.82 });
+    cloneImportForPelvic('attachment', pelvicAttach, { color: PART_COLOR.attachment, opacity: 0.78, roughness: 0.66 });
     buildPlaneOverlays();
     buildSocketPreview();
     applyPelvicStageVisibility();
@@ -605,6 +700,7 @@ function rebuildPelvicScene() {
 }
 
 let activeStep = '1';
+let introShown = false;   // the movement guide opens once, after the scan is imported
 let importBounds = null;
 let pelvicBounds = null;
 const planeState = { pick: [1, 2, 1], normal: [0, -1, 0] };
@@ -734,12 +830,14 @@ resizerEl.addEventListener('keydown', event => {
 
 // The expert comparison can take over drawing the main view (e.g. "yours" and "the experts'" side by side).
 let renderOverride = null;
+let walkthroughNotes = null;   // set once the viewer is built; draws the notes layer each frame
 renderer.setAnimationLoop(() => {
     viewerControls.update();
     controls.update();
     if (renderOverride) renderOverride();
     else renderer.render(scene, camera);
     renderSplitPane();
+    walkthroughNotes?.tick();
 });
 
 function frameObject(root, direction = new THREE.Vector3(-1.4, -1.8, 0.9)) {
@@ -920,12 +1018,12 @@ let pelvicAnswerShown = false;
 
 const SPOT_WORD = ['minimum', 'centroid', 'maximum'];
 
-function buildPelvicAnswer() {
-    pelvicAnswerRoot.clear();
-    if (!pelvicBounds) return false;
-    const size = pelvicBounds.getSize(new THREE.Vector3());
+function buildAnswerPlane(group, bounds, answer) {
+    group.clear();
+    if (!bounds || bounds.isEmpty()) return false;
+    const size = bounds.getSize(new THREE.Vector3());
     const diag = size.length();
-    const data = planeData(pelvicBounds, SOLUTION.pelvicPlane, new THREE.Vector3(-1, 0, 0));
+    const data = planeData(bounds, answer, new THREE.Vector3(...answer.normal));
     const side = Math.max(size.x, size.y, size.z) * 1.24;
 
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(side, side), new THREE.MeshBasicMaterial({
@@ -958,16 +1056,64 @@ function buildPelvicAnswer() {
         part.renderOrder = 30;
     });
 
-    pelvicAnswerRoot.add(quad, outline, dot, arrow);
+    group.add(quad, outline, dot, arrow);
     return true;
+}
+
+const buildPelvicAnswer = () => buildAnswerPlane(pelvicAnswerRoot, pelvicBounds, SOLUTION.pelvicPlane);
+const buildInterfaceAnswer = () => buildAnswerPlane(interfaceAnswerRoot, interfaceBounds, SOLUTION.interfacePlane);
+
+// The same green answer, on the solid interface, for Step 2b.
+const interfaceAnswerRoot = new THREE.Group();
+interfaceAnswerRoot.visible = false;
+interfaceRoot.add(interfaceAnswerRoot);
+let interfaceAnswerShown = false;
+
+function syncInterfaceAnswer() {
+    const on = interfaceAnswerShown && activeStep === '2b' && !!interfaceBounds;
+    if (on && !interfaceAnswerRoot.children.length) buildInterfaceAnswer();
+    interfaceAnswerRoot.visible = on;
+    setViewerMode('interfaceAnswer', on ? {
+        name: 'Answer shown',
+        text: 'The answer plane is the green one. Yours is blue.',
+        done: () => interfacePlaneHelpButton.click(),
+    } : null);
+    syncPlaneMarks('interface');
+    syncPlaneGuideButtons();
+    updateInterfaceHelpNote();
+}
+
+function updateInterfaceHelpNote() {
+    if (!interfacePlaneHelpNote) return;
+    if (splitNarrow.matches && splitEnabled) {
+        interfacePlaneHelpNote.hidden = false;
+        interfacePlaneHelpNote.textContent = 'The side-by-side view needs a wider window.';
+        return;
+    }
+    const lines = [];
+    if (interfaceAnswerShown) {
+        lines.push(interfaceBounds
+            ? `The answer is in green: X ${SPOT_WORD[SOLUTION.interfacePlane.pick[0]]}, Y ${SPOT_WORD[SOLUTION.interfacePlane.pick[1]]}, Z ${SPOT_WORD[SOLUTION.interfacePlane.pick[2]]}, normal ${SOLUTION.interfacePlane.normal.join(', ')}. Yours is the blue one.`
+            : 'Import the meshes first, then this shows the answer in the viewer.');
+    }
+    if (splitEnabled && !splitNarrow.matches) {
+        lines.push('Left: the plane on the solid interface. Right: the interface sitting on Ollie, oriented by that plane. Move X, Y or Z and both follow.');
+    }
+    interfacePlaneHelpNote.hidden = !lines.length;
+    interfacePlaneHelpNote.textContent = lines.join(' ');
 }
 
 function syncPelvicAnswer() {
     const on = pelvicAnswerShown && activeStep === '2a' && !!pelvicBounds;
     if (on && !pelvicAnswerRoot.children.length) buildPelvicAnswer();
     pelvicAnswerRoot.visible = on;
-    pelvicAnswerHelpButton.setAttribute('aria-pressed', String(on));
-    pelvicAnswerHelpButton.classList.toggle('is-on', on);
+    setViewerMode('pelvicAnswer', on ? {
+        name: 'Answer shown',
+        text: 'The answer plane is the green one. Yours is blue.',
+        done: () => pelvicAnswerHelpButton.click(),
+    } : null);
+    syncPlaneMarks('pelvic');
+    syncPlaneGuideButtons();
     if (!pelvicAnswerShown) { pelvicAnswerNote.hidden = true; return; }
     pelvicAnswerNote.hidden = false;
     pelvicAnswerNote.textContent = pelvicBounds
@@ -975,12 +1121,174 @@ function syncPelvicAnswer() {
         : 'Import the meshes first, then this shows the answer in the viewer.';
 }
 
+
+// ---- Walking the student to the answer, one field at a time ------------------------------------
+// The same shape as the movement guide in the viewer: say the one thing to change, confirm it the
+// moment it is right, then move straight on to the next.
+const PLANE_GUIDE_HOME = { pelvic: '#workflow-step-2a', interface: '#workflow-step-2b' };
+let planeGuide = null;
+
+function planeGuideSteps(kind) {
+    const answer = kind === 'pelvic' ? SOLUTION.pelvicPlane : SOLUTION.interfacePlane;
+    const axisAttr = kind === 'pelvic' ? 'data-axis' : 'data-interface-axis';
+    const home = PLANE_GUIDE_HOME[kind];
+    const steps = [0, 1, 2].map(axis => ({
+        label: 'XYZ'[axis],
+        text: `Set ${'XYZ'[axis]} to ${SPOT_WORD[answer.pick[axis]]}.`,
+        target: () => document.querySelector(`${home} [${axisAttr}="${axis}"]`)?.closest('label'),
+        done: state => state.pick[axis] === answer.pick[axis],
+        // Which way the slider has to travel from where it is now.
+        way: state => (answer.pick[axis] > state.pick[axis] ? 'right' : answer.pick[axis] < state.pick[axis] ? 'left' : ''),
+    }));
+    steps.push({
+        label: 'Normal',
+        text: `Type the normal: ${answer.normal.join(', ')}.`,
+        target: () => document.querySelector(`${home} .workflow-normal-row`),
+        done: state => answer.normal.every((n, i) => Math.abs(Number(state.normal[i]) - n) < 1e-6),
+    });
+    return steps;
+}
+
+const planeGuideState = () => (planeGuide?.kind === 'pelvic' ? planeState : interfacePlaneState);
+const planeGuideBlock = kind => document.querySelector(`${PLANE_GUIDE_HOME[kind]} .workflow-plane-block`);
+
+function clearPlaneGuideHighlight() {
+    document.querySelectorAll('.is-guided').forEach(el => {
+        el.classList.remove('is-guided');
+        delete el.dataset.guideWay;
+    });
+    document.querySelectorAll('.plane-guide-cue, .plane-guide-bar').forEach(el => el.remove());
+}
+
+// Amber on a field that is wrong, green once it is right. This belongs to the ? on the block, so a
+// student who only wants to see where they stand gets it without starting the walk-through.
+function syncPlaneMarks(kind) {
+    const home = PLANE_GUIDE_HOME[kind];
+    document.querySelectorAll(`${home} .is-guide-wrong, ${home} .is-guide-right`)
+        .forEach(el => el.classList.remove('is-guide-wrong', 'is-guide-right'));
+    const showing = kind === 'pelvic' ? pelvicAnswerShown : interfaceAnswerShown;
+    if (!showing && planeGuide?.kind !== kind) return;
+    const state = kind === 'pelvic' ? planeState : interfacePlaneState;
+    planeGuideSteps(kind).forEach(step => {
+        const row = step.target();
+        if (row) row.classList.add(step.done(state) ? 'is-guide-right' : 'is-guide-wrong');
+    });
+}
+
+function stopPlaneGuide() {
+    if (!planeGuide) return;
+    planeGuide = null;
+    clearPlaneGuideHighlight();
+    syncPlaneGuideButtons();
+}
+
+function startPlaneGuide(kind) {
+    stopPlaneGuide();
+    planeGuide = { kind, steps: planeGuideSteps(kind), index: 0, cheering: false };
+    // Anything already right is skipped, so the guide starts on the first thing to change.
+    settlePlaneGuide();
+    renderPlaneGuide();
+    syncPlaneGuideButtons();
+}
+
+function renderPlaneGuide() {
+    if (!planeGuide) return;
+    const block = planeGuideBlock(planeGuide.kind);
+    if (!block) return;
+    const { steps, index, cheering } = planeGuide;
+    const finished = index >= steps.length;
+    const step = steps[index];
+    clearPlaneGuideHighlight();
+    syncPlaneMarks(planeGuide.kind);
+
+    // How far along, across the head of the block.
+    const bar = document.createElement('div');
+    bar.className = 'plane-guide-bar';
+    bar.innerHTML = `<span style="width:${Math.round((index / steps.length) * 100)}%"></span>`;
+    block.querySelector('.workflow-block-title').after(bar);
+
+    // The instruction goes above the row it is about, never over it.
+    const cue = document.createElement('p');
+    cue.className = 'plane-guide-cue' + (finished || cheering ? ' is-done' : '');
+    cue.innerHTML = finished
+        ? `<i data-lucide="circle-check" aria-hidden="true"></i><strong>That is the plane.</strong>`
+        : cheering
+            ? `<i data-lucide="circle-check" aria-hidden="true"></i><strong>${escapeForGuide(step.label)} is right.</strong>`
+            : `<i data-lucide="arrow-right" aria-hidden="true"></i><strong>${escapeForGuide(step.text)}</strong>`;
+
+    // The words always sit in the same place, above the sliders, so the eye knows where to find them.
+    const fields = block.querySelector('.workflow-plane-fields');
+    const firstRow = fields.querySelector('label.workflow-select-row') || fields.firstElementChild;
+    fields.insertBefore(cue, firstRow);
+    const target = finished ? null : step.target();
+    if (target && !cheering) {
+        target.classList.add('is-guided');
+        const way = step.way ? step.way(planeGuideState()) : '';
+        if (way) target.dataset.guideWay = way;
+    }
+    window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+}
+
+const escapeForGuide = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Point the cue at the first field that is not right yet, so it never asks for one that already is,
+// and comes back if an earlier field is undone.
+function settlePlaneGuide() {
+    if (!planeGuide) return;
+    const state = planeGuideState();
+    const firstWrong = planeGuide.steps.findIndex(step => !step.done(state));
+    planeGuide.index = firstWrong === -1 ? planeGuide.steps.length : firstWrong;
+}
+
+function checkPlaneGuide() {
+    if (!planeGuide || planeGuide.cheering) return;
+    const step = planeGuide.steps[planeGuide.index];
+    if (!step || !step.done(planeGuideState())) { settlePlaneGuide(); renderPlaneGuide(); return; }
+    planeGuide.cheering = true;
+    renderPlaneGuide();
+    setTimeout(() => {
+        if (!planeGuide) return;
+        planeGuide.cheering = false;
+        planeGuide.index += 1;
+        settlePlaneGuide();
+        renderPlaneGuide();
+    }, 650);
+}
+
+function syncPlaneGuideButtons() {
+    [['pelvic', pelvicAnswerButton], ['interface', interfaceAnswerButton]].forEach(([kind, button]) => {
+        if (!button) return;
+        const on = planeGuide?.kind === kind;
+        button.setAttribute('aria-pressed', String(on));
+        button.classList.toggle('is-on', on);
+        button.querySelector('span').textContent = on ? 'Stop walking me through' : 'Walk me through it';
+    });
+}
+
 const pelvicAnswerHelpButton = document.getElementById('pelvic-plane-help');
-const pelvicAnswerNote = document.getElementById('pelvic-plane-help-note');
+// The cards say it with the viewer and the walk-through now, not with a line of text.
+const pelvicAnswerNote = { hidden: true, textContent: '' };
+const pelvicHelpCard = document.getElementById('pelvic-help-card');
+const pelvicAnswerButton = document.getElementById('pelvic-answer-btn');
+
+function toggleHelpCard(button, card) {
+    const open = card.hidden;
+    card.hidden = !open;
+    button.setAttribute('aria-pressed', String(open));
+    button.classList.toggle('is-on', open);
+    if (open) requestAnimationFrame(() => card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+}
+
+// Pressing ? puts the answer plane in the viewer at once, and opens the card under the block.
 pelvicAnswerHelpButton.addEventListener('click', () => {
-    pelvicAnswerShown = !pelvicAnswerShown;
-    if (pelvicAnswerShown) buildPelvicAnswer();
+    const opening = pelvicHelpCard.hidden;
+    toggleHelpCard(pelvicAnswerHelpButton, pelvicHelpCard);
+    pelvicAnswerShown = opening;
+    if (opening) buildPelvicAnswer(); else stopPlaneGuide();
     syncPelvicAnswer();
+});
+pelvicAnswerButton.addEventListener('click', () => {
+    if (planeGuide?.kind === 'pelvic') stopPlaneGuide(); else startPlaneGuide('pelvic');
 });
 
 function buildPlaneOverlays() {
@@ -1049,6 +1357,8 @@ function updatePlane() {
     planeOutline.quaternion.copy(planeMesh.quaternion);
     normalArrow.setDirection(normal);
     planeMesh.visible = planeOutline.visible = normalArrow.visible = valid;
+    syncPlaneMarks('pelvic');
+    if (planeGuide?.kind === 'pelvic') checkPlaneGuide();
 }
 
 function coordFromBounds(bounds, axis, choice) {
@@ -1104,6 +1414,7 @@ function buildInterfaceScene() {
     interfaceSolid.add(cloneForInterface(layers.solidInterface));
     interfaceRoot.updateMatrixWorld(true);
     interfaceBounds = new THREE.Box3().setFromObject(interfaceReferenceMechanical);
+    interfaceAnswerRoot.clear();
     interfaceAnimalBounds = new THREE.Box3().setFromObject(interfaceAnimal);
     solidInterfaceBounds = new THREE.Box3().setFromObject(interfaceSolid);
     const size = interfaceBounds.getSize(new THREE.Vector3());
@@ -1245,6 +1556,8 @@ function updateInterfacePlane() {
     interfacePlaneOutline.quaternion.copy(interfacePlaneMesh.quaternion);
     interfaceNormalArrow.setDirection(data.normal);
     interfacePlaneMesh.visible = interfacePlaneOutline.visible = interfaceNormalArrow.visible = data.valid;
+    syncPlaneMarks('interface');
+    if (planeGuide?.kind === 'interface') checkPlaneGuide();
     if (interfacePositionFollowsPlane) {
         setInterfacePositionFromQuery(data.point);
     } else {
@@ -1334,14 +1647,10 @@ const SEE_THROUGH = 0.3;
 const ALPHA_LAYERS = { pelvic: ['attach', 'body', 'socket'], interface: ['reference', 'animal', 'mechanical', 'socket'] };
 const layerAlphaChoice = {};   // 'pelvic:body' -> the alpha the student asked for
 
+// Everything starts solid. The switch beside each layer in the viewer is how a layer is made
+// see-through, and that choice then sticks across steps.
 function defaultLayerAlpha(scope, key, stage) {
-    if (scope === 'pelvic') {
-        if (key === 'attach') return stage === '3' ? 0.14 : 0.78;
-        if (key === 'body') return 0.2;
-        return 1;
-    }
-    // Step 2 reads better with the dog solid; the blend steps need to see the socket inside it.
-    if (key === 'animal') return BLEND_STEPS.includes(stage) ? 0.28 : 1;
+    if (scope === 'pelvic' && key === 'attach') return stage === '3' ? 0.14 : 0.78;
     return 1;
 }
 
@@ -1720,6 +2029,15 @@ async function loadImportSelection(role, entry) {
         // The interfaces are a few centimetres across and sit at the world origin, a long way from the
         // scan, so framing the whole assembly would lose them. Go to the mesh that was just imported.
         if (activeStep === '1') requestAnimationFrame(() => frameObject(layer.group));
+        // There is nothing to turn around until a mesh is in, so the movement guide waits for the scan.
+        // Not on requestAnimationFrame: a window that is not painting (another tab in front, a
+        // phone with the page in the background) never runs those callbacks, and the guide would
+        // simply never appear. force, because someone who dismissed it on an earlier visit should
+        // still get it when the scan finally shows up; introShown keeps it to once a visit.
+        if (role === 'solidAnimal' && !introShown) {
+            introShown = true;
+            setTimeout(() => viewerControls.startIntro({ force: true }), 450);
+        }
         loaderEl.hidden = true;
     } catch (error) {
         importSelection[role] = previous;
@@ -1762,7 +2080,7 @@ async function stageImport(role, entry) {
         normalizeMillimeterExport(object);
         object.traverse(child => {
             if (!child.isMesh) return;
-            child.material = new THREE.MeshStandardMaterial({
+            child.material = new THREE.MeshStandardMaterial({ dithering: true,
                 color: 0xff3fa4, transparent: true, opacity: 0.55, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide,
             });
             child.userData.measureSurface = false;
@@ -1779,13 +2097,12 @@ function renderImportExplorer(explorer) {
     const role = explorer.dataset.importExplorer;
     const current = importExplorerFolders[role];
     const entries = folderEntries(current);
-    const staged = importStage?.role === role ? importStage.entry : null;
     explorer.innerHTML = `
         <div class="import-crumbs">${current.path.map((name, index) => `${index ? '<i data-lucide="chevron-right" aria-hidden="true"></i>' : ''}<button type="button" data-crumb="${current.path.slice(0, index + 1).join('|')}">${name}</button>`).join('')}</div>
         <div class="import-entries" role="listbox" aria-label="${IMPORT_ROLES[role].short} files">${entries.map((entry, index) => entry.kind === 'folder'
             ? `<button type="button" class="import-entry folder" data-index="${index}"><i data-lucide="folder" aria-hidden="true"></i><strong>${entry.name}</strong><small>${entry.children.length} items</small></button>`
-            : `<button type="button" class="import-entry ${entry.role === role ? '' : 'dim'} ${importSelection[role] === entry ? 'loaded' : ''} ${staged === entry ? 'staged' : ''}" data-index="${index}" role="option" aria-selected="${staged === entry}" title="${entry.role === role ? entry.label : 'This is a ' + IMPORT_ROLES[entry.role].short.toLowerCase() + ' mesh'}"><i data-lucide="box" aria-hidden="true"></i><strong>${entry.name}</strong><small>${formatBytes(entry.bytes)}</small></button>`).join('')}</div>
-        ${staged ? `<div class="import-stage-bar"><span title="${staged.pathLabel}">${staged.label} · ${staged.ext} · ${formatBytes(staged.bytes)}</span><button type="button" class="import-load" data-stage-load ${staged.role === role ? '' : 'disabled'}>Load</button><button type="button" data-stage-cancel aria-label="Cancel preview">&times;</button></div>` : ''}`;
+            : `<button type="button" class="import-entry ${entry.role === role ? '' : 'dim'} ${importSelection[role] === entry ? 'loaded' : ''}" data-index="${index}" role="option" aria-selected="${importSelection[role] === entry}" title="${entry.role === role ? 'Import ' + entry.label : 'This is a ' + IMPORT_ROLES[entry.role].short.toLowerCase() + ' mesh'}"><i data-lucide="box" aria-hidden="true"></i><strong>${entry.name}</strong><small>${formatBytes(entry.bytes)}</small></button>`).join('')}</div>
+        `;
     explorer.querySelectorAll('[data-crumb]').forEach(button => button.addEventListener('click', () => {
         importExplorerFolders[role] = resolveImportPath(button.dataset.crumb.split('|'));
         renderImportExplorer(explorer);
@@ -1798,15 +2115,11 @@ function renderImportExplorer(explorer) {
                 renderImportExplorer(explorer);
                 return;
             }
-            if (importStage?.entry === entry) return;
-            stageImport(role, entry);
-        });
-        row.addEventListener('dblclick', () => {
-            if (entry.kind === 'file' && entry.role === role) loadImportSelection(role, entry);
+            // Clicking a file imports it; the other roles' meshes are greyed out and do nothing.
+            if (entry.role !== role || importSelection[role] === entry) return;
+            loadImportSelection(role, entry).then(() => toggleImportExplorer(role, false));
         });
     });
-    explorer.querySelector('[data-stage-load]')?.addEventListener('click', () => loadImportSelection(role, staged));
-    explorer.querySelector('[data-stage-cancel]')?.addEventListener('click', clearImportStage);
     window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
 }
 
@@ -1853,7 +2166,8 @@ syncImportPathLabels();
 // ---- Step 1 scale factor ----------------------------------------------------------------------
 const scaleFactorInput = document.getElementById('scale-factor');
 const scaleFactorSlider = document.getElementById('scale-factor-slider');
-const scaleNoteEl = document.getElementById('scale-note');
+// The note under the block was removed; what the explainer is showing is said in the viewer title.
+const scaleNoteEl = { hidden: true, textContent: '' };
 const scaleHelpButton = document.getElementById('scale-help');
 
 // The ? beside Scale Factor: the scan as imported, as a ghost, with the scaled scan solid inside it.
@@ -1868,7 +2182,7 @@ let scaleDemoPivot = null;
 function styleScaleDemo(object, color, opacity) {
     object.traverse(child => {
         if (!child.isMesh) return;
-        child.material = new THREE.MeshStandardMaterial({
+        child.material = new THREE.MeshStandardMaterial({ dithering: true,
             color, roughness: 0.78, metalness: 0,
             transparent: opacity < 1, opacity,
             depthWrite: opacity >= 1, side: THREE.DoubleSide,
@@ -1897,7 +2211,7 @@ function buildScaleDemo() {
     const inner = layer.group.clone(true);
     inner.scale.setScalar(unit);
     inner.position.set(-centre.x, -centre.y, -centre.z);
-    styleScaleDemo(inner, 0x496b94, 1);
+    styleScaleDemo(inner, PART_COLOR.solidAnimal, 1);
     const pivot = new THREE.Group();
     pivot.position.copy(centre);
     pivot.add(inner);
@@ -1933,10 +2247,28 @@ function setScaleDemo(on) {
     }
     scaleHelpButton.setAttribute('aria-pressed', String(scaleDemoOn));
     scaleHelpButton.classList.toggle('is-on', scaleDemoOn);
+    scaleHelpButton.title = scaleDemoOn ? 'Hide the scale factor comparison' : 'Show the scan at 1.0 against the scaled scan';
+    syncScaleDemoMode();
     importRoot.visible = !scaleDemoOn && activeStep === '1';
     importGhost.visible = !scaleDemoOn && activeStep === '1' && importGhost.children.length > 0;
-    viewerTitleEl.textContent = scaleDemoOn ? 'Scale factor, 1.0 against ' + scaleFactor.toFixed(2) : 'Imported mesh assembly';
+    // Nothing from the interface steps belongs in this view.
+    if (scaleDemoOn) {
+        positionTransform.enabled = false;
+        positionTransformHelper.visible = false;
+    }
+    viewerTitleEl.textContent = !scaleDemoOn ? 'Imported mesh assembly'
+        : ready ? `Scale factor: ghost at 1.00, solid at ${scaleFactor.toFixed(2)}, scaled about its centroid`
+        : 'Import Ollie\u2019s scan first to see what the scale factor does';
     requestAnimationFrame(() => frameObject(scaleDemoOn ? scaleDemoRoot : importRoot));
+}
+
+// The ? alone is easy to miss, so the framed view says what it is showing and how to leave it.
+function syncScaleDemoMode() {
+    setViewerMode('scale', scaleDemoOn ? {
+        name: 'Compare mode',
+        text: `The scan as imported (ghost) against the same scan at ${scaleFactor.toFixed(2)}.`,
+        done: () => setScaleDemo(false),
+    } : null);
 }
 
 scaleHelpButton.addEventListener('click', () => setScaleDemo(!scaleDemoOn));
@@ -1955,7 +2287,8 @@ function setScaleFactor(value, reframe = true) {
     if (scaleDemoPivot) scaleDemoPivot.scale.setScalar(scaleFactor);
     syncScaleNote();
     if (scaleDemoOn) {
-        viewerTitleEl.textContent = 'Scale factor, 1.0 against ' + scaleFactor.toFixed(2);
+        viewerTitleEl.textContent = `Scale factor: ghost at 1.00, solid at ${scaleFactor.toFixed(2)}, scaled about its centroid`;
+        syncScaleDemoMode();
         return;
     }
     if (!reframe) return;
@@ -2120,6 +2453,10 @@ function showStep(step, shouldScroll = false) {
     document.querySelectorAll('.workflow-progress-step').forEach(button => button.classList.toggle('active', button.dataset.goStep.charAt(0) === major));
     renderLegend();
     syncPelvicAnswer();
+    syncInterfaceAnswer();
+    if (planeGuide && activeStep !== (planeGuide.kind === 'pelvic' ? '2a' : '2b')) stopPlaneGuide();
+    syncAttachmentSolo();
+    walkthroughNotes?.setStep();
     syncSplitLayout();
     requestAnimationFrame(frameActiveStep);
     if (shouldScroll) {
@@ -2362,14 +2699,6 @@ document.querySelectorAll('[data-grid-plane]').forEach(input => {
         document.querySelector('#grid-menu > summary').classList.toggle('active', anyVisible);
     });
 });
-document.getElementById('toggle-view-cube').addEventListener('click', event => {
-    const visible = !event.currentTarget.classList.contains('active');
-    viewerControls.setCubeVisible(visible);
-    splitView?.setCubeVisible(visible);
-    event.currentTarget.classList.toggle('active', visible);
-    event.currentTarget.setAttribute('aria-pressed', String(visible));
-    event.currentTarget.setAttribute('aria-label', (visible ? 'Hide' : 'Show') + ' view cube');
-});
 
 function viewRootForStep() {
     if (isAttachmentStep(activeStep)) return attachmentHoles.root;
@@ -2462,7 +2791,7 @@ function ensureSplitRenderer() {
         axisColors: NTOP_AXIS_COLORS,
         pickMeshes: splitPickMeshes,
     });
-    splitView.setCubeVisible(document.getElementById('toggle-view-cube').classList.contains('active'));
+    splitView.setCubeVisible(true);   // the view cube is always on; its toggle was removed
     bindMeasureClicks(splitCanvas, 'split');
     new ResizeObserver(() => {
         resizeSplitPane();
@@ -2541,21 +2870,14 @@ function renderSplitPane() {
 // The ? on the Interface Plane block: the plane on the left, the interface it orients on Ollie on
 // the right, with the same X / Y / Z controls driving both.
 const interfacePlaneHelpButton = document.getElementById('interface-plane-help');
-const interfacePlaneHelpNote = document.getElementById('interface-plane-help-note');
+const interfacePlaneHelpNote = { hidden: true, textContent: '' };
 
 function syncInterfacePlaneHelp() {
     const on = splitEnabled && !splitNarrow.matches;
-    interfacePlaneHelpButton.setAttribute('aria-pressed', String(on));
-    interfacePlaneHelpButton.classList.toggle('is-on', on);
-    if (splitNarrow.matches) {
-        interfacePlaneHelpNote.hidden = false;
-        interfacePlaneHelpNote.textContent = 'The side-by-side view needs a wider window.';
-        return;
-    }
-    interfacePlaneHelpNote.hidden = !on;
-    interfacePlaneHelpNote.textContent = on
-        ? 'Left: the plane on the solid interface. Right: the interface sitting on Ollie, oriented by that plane. Move X, Y or Z and both follow.'
-        : '';
+    interfacePairButton?.setAttribute('aria-pressed', String(on));
+    interfacePairButton?.classList.toggle('is-on', on);
+    if (interfacePairButton) interfacePairButton.querySelector('span').textContent = on ? 'Close the side by side' : 'Side by side';
+    updateInterfaceHelpNote();
 }
 
 function setInterfacePlanePair(on) {
@@ -2571,7 +2893,20 @@ function setInterfacePlanePair(on) {
     }
 }
 
-interfacePlaneHelpButton.addEventListener('click', () => setInterfacePlanePair(!splitEnabled));
+const interfaceHelpCard = document.getElementById('interface-help-card');
+const interfaceAnswerButton = document.getElementById('interface-answer-btn');
+const interfacePairButton = document.getElementById('interface-pair-btn');
+interfacePlaneHelpButton.addEventListener('click', () => {
+    const opening = interfaceHelpCard.hidden;
+    toggleHelpCard(interfacePlaneHelpButton, interfaceHelpCard);
+    interfaceAnswerShown = opening;
+    if (opening) buildInterfaceAnswer(); else stopPlaneGuide();
+    syncInterfaceAnswer();
+});
+interfacePairButton.addEventListener('click', () => setInterfacePlanePair(!splitEnabled));
+interfaceAnswerButton.addEventListener('click', () => {
+    if (planeGuide?.kind === 'interface') stopPlaneGuide(); else startPlaneGuide('interface');
+});
 
 splitToggleEl.addEventListener('click', () => {
     splitEnabled = !splitEnabled;
@@ -2626,13 +2961,12 @@ const viewerControls = createViewerControls({
     // gesture, and it shrinks into the "How to move" button at the bottom left of the view.
     dismissible: true,
     closeOnLastGesture: true,
-    collapseTarget: () => { const b = document.getElementById('move-help'); return b && b.offsetParent ? b : null; },
+    collapseTarget: () => document.getElementById('viewer-help'),
     axisColors: NTOP_AXIS_COLORS,
     pickMeshes: navigationPickMeshes,
     isGizmoHovered: () => !!positionTransform.axis,
     frameView: fitViews,
 });
-document.getElementById('move-help').addEventListener('click', () => viewerControls.startIntro({ force: true }));
 
 const attachmentHoles = createAttachmentHoles({ scene, camera, canvas,
     transform: positionTransform, transformHelper: positionTransformHelper,
@@ -2852,8 +3186,6 @@ attachmentHoles.ready.then(() => {
     syncImportPathLabels();
     loaderEl.hidden = true;
     showStep('1');
-    // showStep frames the model on the next animation frame; the intro starts from that view.
-    requestAnimationFrame(() => requestAnimationFrame(() => viewerControls.startIntro()));
 }).catch(error => {
     loaderEl.classList.add('error');
     loaderEl.querySelector('p').textContent = 'A model could not be loaded. Refresh the page to try again.';
@@ -3018,7 +3350,58 @@ function effectiveInterfacePosition() {
     return [0, 1, 2].map(axis => interfacePositionState.getComponent(axis) * 1000 + orientationState.adjust[axis]);
 }
 
+// Notes and drawings on the viewer, kept in this browser.
+walkthroughNotes = createWalkthroughNotes({
+    THREE, camera, controls, stage,
+    currentStep: () => activeStep,
+    goToStep: step => showStep(step, true),
+    onDrawingChange: drawing => { if (drawing && measureMode) setMeasureMode(false); },
+});
+
+// Step 4b's ?: the attachment and its capsule on their own, big, with nothing else in the way,
+// so one input at a time can be watched. The sweep switches to the one-at-a-time set, which is the
+// one that moves a single input in 1 mm steps.
+const attachmentHelpButton = document.getElementById('attachment-help');
+const attachmentHelpCard = document.getElementById('attachment-help-card');
+const attachmentSoloButton = document.getElementById('attachment-solo-btn');
+const attachmentHelpNote = document.getElementById('attachment-help-note');
+let attachmentSolo = false;
+
+function syncAttachmentSolo() {
+    if (!attachmentSoloButton) return;
+    const on = attachmentSolo && activeStep === '4b';
+    attachmentHoles.setSolo(on);
+    attachmentSoloButton.setAttribute('aria-pressed', String(on));
+    attachmentSoloButton.classList.toggle('is-on', on);
+    attachmentSoloButton.querySelector('span').textContent = on ? 'Back to the whole socket' : 'Show the part on its own';
+    setViewerMode('attachmentSolo', on ? {
+        name: 'One part only',
+        text: 'The attachment and its capsule on their own, with the socket out of the way.',
+        done: () => { attachmentSolo = false; syncAttachmentSolo(); },
+    } : null);
+    attachmentHelpNote.hidden = !attachmentSolo;
+    attachmentHelpNote.textContent = attachmentSolo
+        ? 'The attachment (teal) and its capsule (orange) on their own. Move one slider and watch what it changes; the sweep is the one-at-a-time set, so the other inputs stay put.'
+        : '';
+    if (on) {
+        const object = attachmentHoles.soloObject();
+        if (object) requestAnimationFrame(() => frameObject(object));
+    } else if (activeStep === '4b') {
+        requestAnimationFrame(() => frameObject(attachmentHoles.root));
+    }
+}
+
+attachmentHelpButton.addEventListener('click', () => toggleHelpCard(attachmentHelpButton, attachmentHelpCard));
+attachmentSoloButton.addEventListener('click', () => {
+    attachmentSolo = !attachmentSolo;
+    // The one-at-a-time sweep is the one that moves a single input, so that is what this opens on.
+    if (attachmentSolo) document.querySelector('[data-attach-mode="one"]:not(.active)')?.click();
+    syncAttachmentSolo();
+});
+
 window.gapWalkthrough = {
+    notes: walkthroughNotes,
+    attachmentSolo: () => attachmentSolo,
     solution: SOLUTION,
     // For scripted tests: import a catalog file by role and name, as the explorer would.
     importFile: (role, name) => { const entry = filesForRole(role).find(e => e.name === name); if (!entry) throw new Error(`No ${role} file named ${name}`); return loadImportSelection(role, entry); },
