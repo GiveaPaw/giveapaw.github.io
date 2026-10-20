@@ -831,22 +831,6 @@ blockquote footer {
     opacity: 1;
 }
 
-.patient-badge {
-    position: absolute;
-    top: 0.5rem;
-    left: 0.5rem;
-    z-index: 1;
-    background: var(--color-primary);
-    color: #003262;
-    font-family: var(--font-heading);
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 0.2rem 0.5rem;
-    border-radius: 3px;
-    box-shadow: 0 1px 4px rgba(1, 1, 51, 0.25);
-}
 
 /* ---- Design playground teaser ---- */
 .playground {
