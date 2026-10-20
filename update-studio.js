@@ -669,6 +669,9 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
         const viewer = createViewer(media, { up: 'z', background: 0xf3f5f8 });
         if (inline) { viewer.controls.enableZoom = false; view.addEventListener('pointerdown', () => { viewer.controls.enableZoom = true; }, { once: true }); }
         let loaded = false, focusLater = null, api = null;
+        // The camera, unrounded: looking straight down (along "up"), the way the model is turned lives in a
+        // tiny sideways offset that rounding to 0.1 mm threw away, so such notes came back turned.
+        const exactView = () => ({ position: viewer.camera.position.toArray().map(v => +v.toFixed(6)), target: viewer.controls.target.toArray().map(v => +v.toFixed(6)) });
         const ov = overlay(view, (w, h) => ({ x: 0, y: 0, w, h }), 'view', mid, () => api);
         message(view, 'Loading the 3D model…');
         viewer.setModel('main', src).then(() => {
@@ -699,11 +702,12 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
             visible: near,
             setTool(t) {
                 viewer.controls.enabled = t !== 'draw';
-                viewer.setPickMode(t === 'pin' ? hit => { pending = { kind: 'pin', pos: hit.pos, normal: hit.normal, view: viewer.getView() }; tool = ''; refreshTools(); syncPins(); renderNotes(); } : null);
+                viewer.setPickMode(t === 'pin' ? hit => { pending = { kind: 'pin', pos: hit.pos, normal: hit.normal, view: exactView() }; tool = ''; refreshTools(); syncPins(); renderNotes(); } : null);
                 ov.setActive(t === 'draw');
             },
             focus(k) { if (!loaded) { focusLater = k; return; } if (k.view) viewer.flyTo(k.view); syncPins(); },
-            view: () => viewer.getView(),
+            view: () => exactView(),
+            quat: () => viewer.camera.quaternion.toArray().map(v => +v.toFixed(4)),
             fromV1: items => ov.fromV1(items),
             redraw: () => { syncPins(); ov.redraw(); },
             dispose: () => { ov.dispose(); viewer.dispose(); },
@@ -827,7 +831,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
                 <div class="us-mark-meta">${where}${icon ? `<span>${icon}</span>` : ''}${k.decision ? '<span class="us-badge us-badge-gold">Decision</span>' : ''}${k.team ? '<span class="us-badge">Team only</span>' : ''}<span class="us-by">${esc(host.nameOf ? host.nameOf(k.uid, k.author) : first(k.author))}</span></div>
                 ${k.note ? `<p>${linkify(k.note)}</p>` : `<p class="us-muted">${k.kind === 'sketch' ? 'Drawing' : 'Pin'}${m.kind === 'model' && k.view ? ' — click the number to see it from its angle' : ''}</p>`}
                 ${pairHTML(m, k)}
-                ${editing && host.canChange(k) ? `<div class="us-mark-actions">${k.kind === 'sketch' ? `<button type="button" data-us="edit-drawing" data-id="${esc(k.id)}">Edit drawing</button>` : ''}<button type="button" data-us="edit-mark" data-id="${esc(k.id)}">${k.kind === 'sketch' ? 'Edit note' : 'Edit'}</button>${canPair(m) ? `<button type="button" data-us="pair" data-id="${esc(k.id)}">${k.pair ? 'Change pair' : 'Pair…'}</button>` : ''}${k.pair ? `<button type="button" data-us="unpair" data-id="${esc(k.id)}">Unpair</button>` : ''}<button type="button" data-us="delete-mark" data-id="${esc(k.id)}">Delete</button></div>` : ''}
+                ${editing && host.canChange(k) ? `<div class="us-mark-actions">${k.kind === 'sketch' ? `<button type="button" data-us="edit-drawing" data-id="${esc(k.id)}">Edit drawing</button>` : ''}<button type="button" data-us="edit-mark" data-id="${esc(k.id)}">${k.kind === 'sketch' ? 'Edit note' : 'Edit'}</button>${m.kind === 'model' && k.view ? `<button type="button" data-us="reangle" data-id="${esc(k.id)}" title="Turn the model until it lines up with the drawing, then click to keep this angle">Save current angle</button>` : ''}${canPair(m) ? `<button type="button" data-us="pair" data-id="${esc(k.id)}">${k.pair ? 'Change pair' : 'Pair…'}</button>` : ''}${k.pair ? `<button type="button" data-us="unpair" data-id="${esc(k.id)}">Unpair</button>` : ''}<button type="button" data-us="delete-mark" data-id="${esc(k.id)}">Delete</button></div>` : ''}
             </div></li>`;
     }
 
@@ -1041,6 +1045,12 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
             if (act === 'close') close();
             else if (act === 'fullscreen') { if (document.fullscreenElement) await document.exitFullscreen(); else await root.requestFullscreen?.(); shellButtons(); }
             else if (act === 'edit') { editing = !editing; if (editing) preloadDrive().catch(() => {}); tool = ''; pending = null; drawing = null; editingText = false; shell(); }
+            else if (act === 'reangle') {
+                const m = curMedia();
+                const k = marksOf(m).find(x => x.id === b.dataset.id);
+                const view = stage?.view?.();
+                if (k && view) { const { id, n, team, ...rest } = k; await host.set(markPath(m, k), { ...rest, view, edited: Date.now() }); selected = k.id; flash('Angle saved: this note now opens from here'); }
+            }
             else if (act === 'pair') { const k = marksOf(curMedia()).find(x => x.id === b.dataset.id); if (k) pairDialog(k); }
             else if (act === 'unpair') {
                 const m = curMedia();
@@ -1312,7 +1322,7 @@ export function openStudio(host, { updateId, mediaId = '', markId = '', edit = f
     shell();
     if (edit && host.canEdit()) { editing = true; preloadDrive().catch(() => {}); shell(); }
     // For tests and debugging: what is on screen.
-    root._us = { state: () => ({ panes: [...panes], current, activeTab, linked, views: Object.fromEntries([...stages].map(([id, s]) => [id, s.view?.() || null])) }) };
+    root._us = { state: () => ({ panes: [...panes], current, activeTab, linked, views: Object.fromEntries([...stages].map(([id, s]) => [id, s.view?.() || null])), quats: Object.fromEntries([...stages].map(([id, s]) => [id, s.quat?.() || null])) }) };
     if (startTab) openTab(startTab);         // a link to a tab: #update/<u>/tab_<tab>
     else if (markId && current) select(markId);   // a link to one note: #update/<u>/<media>/<note>
     if (!inline) $('.us-back', root)?.focus();

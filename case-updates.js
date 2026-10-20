@@ -182,7 +182,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
             renderFeedItem: u => updateHTML(u, { preview: true }),
             renderCardSnippet: u => cardSnippet(u),
             openPreview: async (u, mediaKey, onDone) => {
-                const st = await import('./update-studio.js?v=7');
+                const st = await import('./update-studio.js?v=8');
                 st.openStudio({ ...host, getUpdate: () => u, canEdit: () => false, canChange: () => false, teamMarks: () => null, onClose: onDone }, { updateId: u.id, mediaId: mediaKey });
             },
             openStudio: (uid, mid, edit) => openUpdate(uid, mid, edit),
@@ -207,7 +207,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
         const id = slot.dataset.id;
         if (inlines.has(id)) return Promise.resolve(inlines.get(id));
         if (!mounting.has(id)) {
-            mounting.set(id, import('./update-studio.js?v=7').then(mod => {
+            mounting.set(id, import('./update-studio.js?v=8').then(mod => {
                 mounting.delete(id);
                 const live = document.querySelector(`.cu-inline[data-id="${CSS.escape(id)}"]`);
                 const u = data.updates?.[id];
@@ -257,7 +257,7 @@ export async function initUpdates({ H, panels, show }, manifest) {
 
     async function openUpdate(id, mediaId = '', edit = false, markId = '') {
         if (!data.updates?.[id]) return;
-        const mod = await import('./update-studio.js?v=7');
+        const mod = await import('./update-studio.js?v=8');
         studio = mod.openStudio(host, { updateId: id, mediaId, markId, edit });
         history.replaceState(null, '', `#update/${id}${mediaId ? '/' + mediaId : ''}`);
     }
