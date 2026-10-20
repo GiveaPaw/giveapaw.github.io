@@ -1400,6 +1400,15 @@ function cloneForInterface(layer) {
     return clone;
 }
 
+// Attaching TransformControls makes it visible, so anything that rebuilds the interface scene
+// would put the position gizmo back whatever step is open and whatever the viewer is showing.
+// This is the only place that decides whether it belongs, and every attach is followed by it.
+function syncPositionGizmo() {
+    const belongs = activeStep === '2c' && interfaceLayerVisible('target') && !scaleDemoOn;
+    positionTransform.enabled = belongs;
+    positionTransformHelper.visible = belongs;
+}
+
 function buildInterfaceScene() {
     splitFramed = false;
     positionTransform.detach();
@@ -1463,6 +1472,7 @@ function buildInterfaceScene() {
     surfaceTriangles = collectSurfaceTriangles(interfaceAnimal);
     solidInterfaceTriangles = collectSurfaceTriangles(interfaceSolid);
     updateInterfacePlane();
+    syncPositionGizmo();
 }
 
 function collectSurfaceTriangles(root) {
@@ -1790,8 +1800,7 @@ function applyInterfaceStageVisibility() {
     ['animal', 'mechanical', 'solid', 'target', 'socket'].forEach(key => {
         document.querySelectorAll('button[data-interface-layer="' + key + '"]').forEach(button => setVisibilityButton(button, interfaceLayerVisible(key)));
     });
-    positionTransform.enabled = activeStep === '2c' && interfaceLayerVisible('target');
-    positionTransformHelper.visible = positionTransform.enabled;
+    syncPositionGizmo();
     interfaceOverlayControlsEl.dataset.stage = activeStep;
     applyLayerAlphas('interface', activeStep);
 }
@@ -2251,11 +2260,7 @@ function setScaleDemo(on) {
     syncScaleDemoMode();
     importRoot.visible = !scaleDemoOn && activeStep === '1';
     importGhost.visible = !scaleDemoOn && activeStep === '1' && importGhost.children.length > 0;
-    // Nothing from the interface steps belongs in this view.
-    if (scaleDemoOn) {
-        positionTransform.enabled = false;
-        positionTransformHelper.visible = false;
-    }
+    syncPositionGizmo();   // nothing from the interface steps belongs in this view
     viewerTitleEl.textContent = !scaleDemoOn ? 'Imported mesh assembly'
         : ready ? `Scale factor: ghost at 1.00, solid at ${scaleFactor.toFixed(2)}, scaled about its centroid`
         : 'Import Ollie\u2019s scan first to see what the scale factor does';
@@ -2285,6 +2290,7 @@ function setScaleFactor(value, reframe = true) {
     }
     clearMeasurement();
     if (scaleDemoPivot) scaleDemoPivot.scale.setScalar(scaleFactor);
+    syncPositionGizmo();
     syncScaleNote();
     if (scaleDemoOn) {
         viewerTitleEl.textContent = `Scale factor: ghost at 1.00, solid at ${scaleFactor.toFixed(2)}, scaled about its centroid`;
