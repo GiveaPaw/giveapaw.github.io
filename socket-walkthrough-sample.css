@@ -1371,3 +1371,26 @@ output.workflow-number.is-fixed {
     .practice-actions { width: 100%; margin-left: 0; }
     .practice-check, .practice-next { flex: 1 1 0; justify-content: center; min-height: 40px; }
 }
+
+/* ---- Interface Cap 10-17: the Tripod/Wheelchair input ---------------------------------------- */
+/* It is the block's first input and it reads like the other rows, with a menu instead of a slider. */
+.workflow-type-row {
+    display: grid; min-height: 34px; align-items: center; gap: 8px;
+    grid-template-columns: 20px 118px minmax(0, 1fr);
+}
+.workflow-type-row > svg { width: 15px; height: 15px; color: #8c949d; }
+.workflow-type-row > span { color: #c8cdd3; font-size: 0.78rem; }
+.workflow-type-row select {
+    min-height: 32px; padding: 5px 8px;
+    border: 1px solid #4a4f56; border-radius: 4px; background: #2b2e33;
+    color: #f1f3f4; font: 600 0.78rem var(--font-heading); cursor: pointer;
+}
+.workflow-type-row select:focus-visible { outline: 2px solid #fdb515; outline-offset: 1px; }
+@media (max-width: 640px) {
+    .workflow-type-row { grid-template-columns: 20px 1fr; }
+    .workflow-type-row select { grid-column: 1 / -1; min-height: 40px; }
+}
+
+/* The longest label in CB - Attachment is two pixels wider than the old column. */
+#attachment-block .workflow-param-row,
+#attachment-block .workflow-field-row { grid-template-columns: 20px minmax(132px, 1.4fr) minmax(30px, 1fr) 58px 22px; }

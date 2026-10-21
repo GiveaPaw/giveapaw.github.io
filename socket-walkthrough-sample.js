@@ -1836,6 +1836,18 @@ function syncInterfacePositionInputs() {
     });
 }
 
+// Interface Cap 10-17 added a Tripod/Wheelchair input. The walkthrough is Ollie's prosthetic, so
+// it opens on Tripod, which is the behaviour every recorded answer was taken under.
+let interfaceType = 'tripod';
+let lastInterfaceAxes = null;   // what the angles turned about last time, for tests
+const interfaceTypeSelect = document.getElementById('interface-type');
+if (interfaceTypeSelect) {
+    interfaceTypeSelect.addEventListener('change', () => {
+        interfaceType = interfaceTypeSelect.value;
+        updateInterfaceOrientation();
+    });
+}
+
 function updateInterfaceOrientation() {
     if (!interfaceBounds || !orientedAssembly.children.length) return;
     const interfacePlane = planeData(interfaceBounds, interfacePlaneState, new THREE.Vector3(0, -1, 0));
@@ -1854,14 +1866,28 @@ function updateInterfaceOrientation() {
         .multiply(basisQuaternion(sourceX, sourceY, interfacePlane.normal).invert());
 
     const toRadians = THREE.MathUtils.degToRad;
-    const lateral = new THREE.Quaternion().setFromAxisAngle(targetY, toRadians(orientationState.lateral));
-    const medial = new THREE.Quaternion().setFromAxisAngle(targetNormal, toRadians(orientationState.medial));
+    // Lateral turns about the same axis either way. Wheelchair changes the other two: medial turns
+    // about the lateral axis crossed with the surface normal at the interface position, and the
+    // interface rotation turns about that normal itself rather than about the solid interface's
+    // own gradient.
+    const wheelchair = interfaceType === 'wheelchair';
+    const lateralAxis = targetY;
+    const medialAxis = wheelchair
+        ? lateralAxis.clone().cross(targetNormal).normalize()
+        : targetNormal;
+    const lateral = new THREE.Quaternion().setFromAxisAngle(lateralAxis, toRadians(orientationState.lateral));
+    const medial = new THREE.Quaternion().setFromAxisAngle(medialAxis, toRadians(orientationState.medial));
     const preSpinQuaternion = medial.multiply(lateral).multiply(base).normalize();
 
-    // A mesh surface normal is the discrete equivalent of the solid-interface field gradient.
-    const sourceGradient = closestSurfacePoint(interfacePlane.point, solidInterfaceTriangles, solidInterfaceBounds).normal;
-    const orientedGradient = sourceGradient.applyQuaternion(preSpinQuaternion).normalize();
-    const interfaceSpin = new THREE.Quaternion().setFromAxisAngle(orientedGradient, toRadians(orientationState.rotation));
+    // Tripod spins about the solid interface's own field gradient, carried through the turns above;
+    // a mesh surface normal is the discrete equivalent of that gradient.
+    const spinAxis = wheelchair ? targetNormal : (() => {
+        const sourceGradient = closestSurfacePoint(interfacePlane.point, solidInterfaceTriangles, solidInterfaceBounds).normal;
+        return sourceGradient.applyQuaternion(preSpinQuaternion).normalize();
+    })();
+    const interfaceSpin = new THREE.Quaternion().setFromAxisAngle(spinAxis, toRadians(orientationState.rotation));
+    lastInterfaceAxes = { type: interfaceType, lateral: lateralAxis.toArray(), medial: medialAxis.toArray(),
+                          spin: spinAxis.toArray(), normal: targetNormal.toArray() };
     const finalQuaternion = interfaceSpin.multiply(preSpinQuaternion).normalize();
     const adjustedTarget = interfacePositionState.clone().add(new THREE.Vector3(...orientationState.adjust).multiplyScalar(0.001));
 
@@ -3237,7 +3263,13 @@ const attachmentHoles = createAttachmentHoles({ scene, camera, canvas,
 });
 
 // ---- Step 4b: the attachment sweep (10-15) ---------------------------------------------------------
-// Four swept inputs; screw head height (5), nozzle (0.6) and hole depth (12) were fixed in the sweep.
+// The block is CB - Attachment v1.0.2 now: Attachment Diameter, Shank Diameter, Grip Length, Head
+// Diameter, Head Height, Nozzle Diameter. The sweep came from the block before it, which had Normal
+// Wall Distance and Hole Cut Depth instead of Grip Length, so three of the new inputs have models
+// behind them and the rest are typed values.
+//
+// normalWallDistance has no input any more but it is still in every generated filename, so it stays
+// here pinned at the value the sweep fixed it to.
 const attachmentValues = { attachDiameter: [0, 4, 8, 12, 16], normalWallDistance: [0, 4, 8, 12], screwHeadDiameter: [0, 4, 8, 12], screwShaftDiameter: [0, 4, 8, 12] };
 const attachmentDesign = { attachDiameter: 4, normalWallDistance: 4, screwHeadDiameter: 8, screwShaftDiameter: 4 };
 const attachmentBlockEl = document.getElementById('attachment-block');
@@ -3272,7 +3304,7 @@ const attachmentOneValues = {
     hole: Array.from({ length: 50 }, (_, i) => i + 1),
 };
 const attachmentOneDefaults = { attach: 16, wall: 8, head: 8, height: 5, shaft: 4, nozzle: 0.6, hole: 20 };
-const attachmentOneLabels = { attach: 'attach diameter', wall: 'normal wall distance', head: 'screw head diameter', height: 'screw head height', shaft: 'screw shaft diameter', nozzle: 'nozzle diameter', hole: 'hole cut depth' };
+const attachmentOneLabels = { attach: 'attachment diameter', head: 'head diameter', height: 'head height', shaft: 'shank diameter', nozzle: 'nozzle diameter' };
 const attachmentOneDesign = { param: 'attach', value: 16 };
 let attachmentMode = 'grid';
 function setAttachmentOneControl(key, value) {
@@ -3286,7 +3318,7 @@ function setAttachmentOneControl(key, value) {
 const currentAttachmentDesign = () => attachmentMode === 'one' ? { mode: 'one', ...attachmentOneDesign } : attachmentDesign;
 const attachmentDesignLabel = () => attachmentMode === 'one'
     ? `${attachmentOneLabels[attachmentOneDesign.param]} ${attachmentOneDesign.value}`
-    : `attach ${attachmentDesign.attachDiameter} / wall ${attachmentDesign.normalWallDistance} / head ${attachmentDesign.screwHeadDiameter} / shaft ${attachmentDesign.screwShaftDiameter}`;
+    : `attachment ${attachmentDesign.attachDiameter} / shank ${attachmentDesign.screwShaftDiameter} / head ${attachmentDesign.screwHeadDiameter}`;
 document.querySelectorAll('[data-attach-mode]').forEach(button => button.addEventListener('click', () => {
     attachmentMode = button.dataset.attachMode;
     document.querySelectorAll('[data-attach-mode]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); });
@@ -3700,6 +3732,8 @@ window.gapWalkthrough = {
     parameterValues,
     design: designValues,
     attachment: attachmentDesign,
+    interfaceAxes: () => lastInterfaceAxes && { ...lastInterfaceAxes },
+    interfaceType: () => interfaceType,
     attachmentOne: () => ({ mode: attachmentMode, ...attachmentOneDesign }),
     blend: blendState,
     defaults: { ...socketParameterDefaults },
