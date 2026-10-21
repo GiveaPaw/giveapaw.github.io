@@ -1379,7 +1379,8 @@ output.workflow-number.is-fixed {
     grid-template-columns: 20px 118px minmax(0, 1fr);
 }
 .workflow-type-row > svg { width: 15px; height: 15px; color: #8c949d; }
-.workflow-type-row > span { color: #c8cdd3; font-size: 0.78rem; }
+/* The same weight and colour as the slider rows beside it. */
+.workflow-type-row > span { color: #f1f3f4; font: 600 0.77rem var(--font-heading); }
 .workflow-type-row select {
     min-height: 32px; padding: 5px 8px;
     border: 1px solid #4a4f56; border-radius: 4px; background: #2b2e33;

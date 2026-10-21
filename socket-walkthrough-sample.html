@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=43">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=63">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=64">
     <link rel="stylesheet" href="walkthrough-grading.css?v=11">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -479,12 +479,11 @@
                                     <i class="workflow-implicit-cube" data-lucide="box"></i>
                                 </span>
                                 <strong>Socket</strong>
-                                <span>CB - Socket Lattice bdry</span>
+                                <span>CB - Socket Lattice</span>
                                 <button class="workflow-control-mode-toggle" type="button" id="socket-control-mode" aria-label="Use typed values" aria-pressed="true" title="Switch to typed values (snaps to the nearest generated socket)"><span class="workflow-mode-switch" aria-hidden="true"><span></span></span></button>
                                 <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
                             </div>
                             <div class="workflow-parameter-fields">
-                                <div class="workflow-source-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attach Surface</span><output class="workflow-chip is-mesh">Scaled Attachment Surface Mesh</output></div>
                                 <label class="workflow-param-row" data-sweep-group="thickness">
                                     <span class="ntop-scalar" aria-hidden="true">0.1</span><span>Min Lattice Thickness</span>
                                     <input type="range" min="0" max="20" value="6" step="1" data-socket-param="minThickness" aria-label="Minimum lattice thickness model">
@@ -505,8 +504,12 @@
                                     <input type="range" min="0" max="31" value="18" step="1" data-socket-param="pointDensity" aria-label="Lattice point density model">
                                     <input type="number" step="any" class="workflow-number" data-param-output="pointDensity" value="35"><small></small>
                                 </label>
+                                <label class="workflow-type-row"><i data-lucide="list" aria-hidden="true"></i><span>Spatial Weight Type</span><select data-socket-choice="spatialWeightType" aria-label="Spatial weight type"><option value="2-curves">2 Curves</option><option value="point-curve" selected>Point &amp; Curve</option></select></label>
+                                <label class="workflow-type-row"><i data-lucide="list" aria-hidden="true"></i><span>Continuity</span><select data-socket-choice="continuity" aria-label="Continuity"><option value="g0" selected>Geometric (G0)</option><option value="g1">Tangent (G1)</option><option value="g2">Curvature (G2)</option></select></label>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Interface Position</span><output class="workflow-chip is-plain">Interface Position</output></div>
+                                <div class="workflow-source-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attach Surface</span><output class="workflow-chip is-mesh">Scaled Attachment Surface Mesh</output></div>
                             </div>
+                            <p class="workflow-sweep-note" id="socket-choice-note" hidden></p>
                             <p class="workflow-slot-note"><span data-slot-status>Loading nTop-generated parameter models</span></p>
                             <p class="workflow-sweep-note">Min and max thickness are swept together (weighting 0.6, 35 points); weighting and point density are swept together (thickness 6 to 12 mm). Moving one pair puts the other back at those values.</p>
                         </div>
@@ -789,7 +792,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=98"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=99"></script>
     <script type="module" src="walkthrough-grading.js?v=10"></script>
 </body>
 </html>

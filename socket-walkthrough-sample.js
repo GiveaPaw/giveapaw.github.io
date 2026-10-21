@@ -526,6 +526,33 @@ const SWEEP_GROUPS = { thickness: ['minThickness', 'maxThickness'], density: ['s
 const sweepGroupOf = key => Object.keys(SWEEP_GROUPS).find(group => SWEEP_GROUPS[group].includes(key));
 // The value the student last chose on each Step 3 slider and which ones they changed. Read by the expert grading panel.
 const socketParameterChoices = { ...socketParameterDefaults };
+
+// CB - Socket Lattice v1.0.11 added two menus. The sweeps on the site were all generated at Point &
+// Curve with Geometric (G0), so the preview stays on those while the student explores the rest; the
+// choice is still recorded, ready for the models that answer to it.
+const socketChoiceDefaults = { spatialWeightType: 'point-curve', continuity: 'g0' };
+const socketChoiceState = { ...socketChoiceDefaults };
+const SOCKET_CHOICE_LABEL = {
+    spatialWeightType: { '2-curves': '2 Curves', 'point-curve': 'Point & Curve' },
+    continuity: { g0: 'Geometric (G0)', g1: 'Tangent (G1)', g2: 'Curvature (G2)' },
+};
+
+function syncSocketChoiceNote() {
+    const note = document.getElementById('socket-choice-note');
+    if (!note) return;
+    const off = Object.keys(socketChoiceState).filter(key => socketChoiceState[key] !== socketChoiceDefaults[key]);
+    note.hidden = !off.length;
+    if (!off.length) return;
+    const named = off.map(key => SOCKET_CHOICE_LABEL[key][socketChoiceState[key]]).join(' and ');
+    note.textContent = `The socket on screen is still the generated sweep, which was run at Point & Curve with Geometric (G0). ${named} is recorded, but no mesh for it is on the site yet.`;
+}
+
+document.querySelectorAll('[data-socket-choice]').forEach(select => {
+    select.addEventListener('change', () => {
+        socketChoiceState[select.dataset.socketChoice] = select.value;
+        syncSocketChoiceNote();
+    });
+});
 const socketParameterTouched = new Set();
 const socketParameterModelMeta = {
     minThickness: { label: 'min lattice thickness', unit: ' mm' },
@@ -1866,10 +1893,9 @@ function updateInterfaceOrientation() {
         .multiply(basisQuaternion(sourceX, sourceY, interfacePlane.normal).invert());
 
     const toRadians = THREE.MathUtils.degToRad;
-    // Lateral turns about the same axis either way. Wheelchair changes the other two: medial turns
-    // about the lateral axis crossed with the surface normal at the interface position, and the
-    // interface rotation turns about that normal itself rather than about the solid interface's
-    // own gradient.
+    // Lateral and the interface rotation turn about the same axes either way. Wheelchair changes
+    // only the medial axis: it turns about the lateral axis crossed with the surface normal at the
+    // interface position, rather than about that normal itself.
     const wheelchair = interfaceType === 'wheelchair';
     const lateralAxis = targetY;
     const medialAxis = wheelchair
@@ -1879,12 +1905,10 @@ function updateInterfaceOrientation() {
     const medial = new THREE.Quaternion().setFromAxisAngle(medialAxis, toRadians(orientationState.medial));
     const preSpinQuaternion = medial.multiply(lateral).multiply(base).normalize();
 
-    // Tripod spins about the solid interface's own field gradient, carried through the turns above;
-    // a mesh surface normal is the discrete equivalent of that gradient.
-    const spinAxis = wheelchair ? targetNormal : (() => {
-        const sourceGradient = closestSurfacePoint(interfacePlane.point, solidInterfaceTriangles, solidInterfaceBounds).normal;
-        return sourceGradient.applyQuaternion(preSpinQuaternion).normalize();
-    })();
+    // Both types spin about the solid interface's own field gradient, carried through the turns
+    // above; a mesh surface normal is the discrete equivalent of that gradient.
+    const sourceGradient = closestSurfacePoint(interfacePlane.point, solidInterfaceTriangles, solidInterfaceBounds).normal;
+    const spinAxis = sourceGradient.applyQuaternion(preSpinQuaternion).normalize();
     const interfaceSpin = new THREE.Quaternion().setFromAxisAngle(spinAxis, toRadians(orientationState.rotation));
     lastInterfaceAxes = { type: interfaceType, lateral: lateralAxis.toArray(), medial: medialAxis.toArray(),
                           spin: spinAxis.toArray(), normal: targetNormal.toArray() };
@@ -3719,6 +3743,7 @@ window.gapWalkthrough = {
         pelvicPlane: practice.on ? { ...practice.saved.pelvic } : { pick: [...planeState.pick], normal: [...planeState.normal] },
         interfacePlane: practice.on ? { ...practice.saved.interface } : { pick: [...interfacePlaneState.pick], normal: [...interfacePlaneState.normal] },
         ...socketParameterChoices,
+        ...socketChoiceState,
         lateral: orientationState.lateral,
         medial: orientationState.medial,
         rotation: orientationState.rotation,
