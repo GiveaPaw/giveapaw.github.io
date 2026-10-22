@@ -1,0 +1,80 @@
+/* Mesh check & repair page (mesh-check.html). Page chrome comes from convert.css, colours from model-convert.css. */
+.mk-panel { display: grid; grid-template-columns: minmax(320px, 440px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.mk-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mk-options { display: grid; gap: 6px; }
+.mk-options h3 { margin-bottom: 4px; }
+.mk-opt { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; }
+.mk-opt input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--mc-navy); }
+.mk-opt-select { justify-content: space-between; }
+.mk-opt-select select { padding: 4px 8px; border: 1px solid var(--mc-line); border-radius: 7px; font: inherit; font-size: 0.8rem; color: inherit; background: #fff; }
+.mk-options .mc-btn { justify-self: start; margin-top: 4px; }
+.mk-progress { padding: 14px; border: 1px solid var(--mc-line-soft); border-radius: 10px; background: #fff; }
+.mk-bar-track { height: 8px; border-radius: 999px; background: var(--mc-bg); overflow: hidden; }
+.mk-bar { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--mc-navy), var(--mc-teal)); transition: width 0.2s; }
+.mk-progress p { margin: 8px 0 0; font-size: 0.84rem; color: var(--mc-muted); }
+.mk-report { display: grid; gap: 10px; }
+.mk-verdict { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid; font-size: 0.9rem; }
+.mk-verdict svg { width: 26px; height: 26px; flex: none; }
+.mk-verdict strong { display: block; font-size: 1rem; }
+.mk-verdict span { color: var(--mc-muted); font-size: 0.84rem; }
+.mk-verdict.mk-clean { background: #eefaf3; border-color: #a9dfc0; color: #146c43; }
+.mk-verdict.mk-fixed { background: #eef5fb; border-color: #a9c8e3; color: var(--mc-navy); }
+.mk-verdict.mk-needs { background: #fff4ec; border-color: #f2c29f; color: #9a3b0c; }
+.mk-facts { margin: 0; font-size: 0.8rem; color: var(--mc-muted); }
+.mk-numbers { width: 100%; border-collapse: collapse; font-size: 0.82rem; background: #fff; border: 1px solid var(--mc-line-soft); border-radius: 10px; overflow: hidden; }
+.mk-numbers th, .mk-numbers td { padding: 5px 10px; text-align: right; border-bottom: 1px solid var(--mc-line-soft); }
+.mk-numbers tbody th { text-align: left; font-weight: 600; color: var(--mc-text); }
+.mk-numbers thead th { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--mc-muted); background: var(--mc-bg); }
+.mk-numbers tr:last-child td, .mk-numbers tr:last-child th { border-bottom: 0; }
+.mk-numbers td.mk-changed { font-weight: 700; color: var(--mc-navy); }
+.mk-tick { width: 24px; font-weight: 700; }
+.mk-tick.good { color: #16a34a; }
+.mk-tick.bad { color: #d97706; }
+.mk-findings { display: grid; gap: 6px; }
+.mk-finding { border: 1px solid var(--mc-line-soft); border-left-width: 4px; border-radius: 10px; background: #fff; padding: 0 12px; }
+.mk-finding summary { display: flex; align-items: center; gap: 8px; padding: 9px 0; cursor: pointer; list-style: none; font-size: 0.86rem; }
+.mk-finding summary::-webkit-details-marker { display: none; }
+.mk-finding .mk-status { display: inline-flex; align-items: center; gap: 4px; flex: none; min-width: 78px; padding: 2px 7px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.mk-finding .mk-status svg { width: 12px; height: 12px; }
+.mk-finding .mk-title { font-weight: 600; flex: 1; }
+.mk-finding .mk-count { padding: 1px 7px; border-radius: 999px; background: var(--mc-bg); font-size: 0.74rem; color: var(--mc-muted); }
+.mk-finding.mk-ok { border-left-color: #86d3a3; }
+.mk-finding.mk-ok .mk-status { background: #eefaf3; color: #146c43; }
+.mk-finding.mk-fixed { border-left-color: var(--mc-navy); }
+.mk-finding.mk-fixed .mk-status { background: #eef5fb; color: var(--mc-navy); }
+.mk-finding.mk-warn { border-left-color: #f0b65a; }
+.mk-finding.mk-warn .mk-status { background: #fff6dc; color: #8a5a00; }
+.mk-finding.mk-fail { border-left-color: #e05d3a; }
+.mk-finding.mk-fail .mk-status { background: #fff0ec; color: #a13415; }
+.mk-finding.mk-skipped { border-left-color: var(--mc-line); }
+.mk-finding.mk-skipped .mk-status { background: var(--mc-bg); color: var(--mc-muted); }
+.mk-finding p { margin: 0 0 8px; font-size: 0.82rem; line-height: 1.45; }
+.mk-finding .mk-summary { font-weight: 600; color: var(--mc-text); }
+.mk-finding .mk-what, .mk-finding .mk-ntop { color: #4a5a69; }
+.mk-show { display: inline-flex; align-items: center; gap: 5px; flex: none; font-size: 0.74rem; color: var(--mc-muted); cursor: pointer; }
+.mk-show input { accent-color: var(--mc-navy); }
+.mk-swatch { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.15); }
+.mk-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border: 1px solid var(--mc-line-soft); border-radius: 10px; background: #fff; }
+.mk-actions small { flex-basis: 100%; color: var(--mc-muted); font-size: 0.76rem; }
+.mk-error { display: flex; gap: 8px; padding: 12px 14px; border-radius: 10px; background: #fff0ec; color: #a13415; font-size: 0.86rem; }
+.mk-error svg { width: 18px; height: 18px; flex: none; }
+.mk-view { display: grid; gap: 8px; position: sticky; top: 12px; }
+.mk-view-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.mk-seg { display: inline-flex; border: 1px solid var(--mc-line); border-radius: 8px; overflow: hidden; background: #fff; }
+.mk-seg button { padding: 6px 14px; border: 0; background: none; font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--mc-muted); cursor: pointer; }
+.mk-seg button + button { border-left: 1px solid var(--mc-line); }
+.mk-seg button.active { background: var(--mc-navy); color: #fff; }
+.mk-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--mc-muted); }
+.mk-stage { position: relative; min-height: min(68vh, 720px); border: 1px solid var(--mc-line-soft); border-radius: 12px; overflow: hidden; background: #eef2f5; }
+.mk-stage canvas { display: block; }
+.mk-view-hint { margin: 0; font-size: 0.76rem; color: var(--mc-muted); }
+.mk-intro { margin: -4px 0 12px; font-size: 0.86rem; color: var(--mc-text); }
+.mk-ref article { padding: 10px 12px; border: 1px solid var(--mc-line-soft); border-radius: 10px; background: var(--mc-bg); }
+@media (max-width: 900px) {
+    .mk-panel { grid-template-columns: 1fr; }
+    .mk-view { position: static; order: -1; }
+    .mk-stage { min-height: 48vh; }
+}
+
+/* "Show in 3D" sits under the finding's title (not inside the clickable summary). */
+.mk-showrow { margin: 0.35rem 0 0; }

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Converter - Give a Paw</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="Turn an STL, OBJ, 3MF or GLB into a small web-ready GLB for a presentation, the design review page or PowerPoint. Runs in your browser; nothing is uploaded.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="model-convert.css?v=2">
+    <link rel="stylesheet" href="convert.css?v=1">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <header class="cv-top">
+        <div class="cv-top-title">
+            <a class="cv-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw"></a>
+            <div>
+                <span class="cv-eyebrow">Give a Paw · Tools</span>
+                <h1>3D model converter</h1>
+            </div>
+        </div>
+        <p class="cv-lead">Turn an STL, OBJ, 3MF or GLB into a small GLB you can drop into a presentation, the design review page or PowerPoint. Everything happens in your browser; nothing is uploaded. Mesh not importing into nTop? Run it through the <a href="mesh-check.html">mesh check &amp; repair</a> tool first.</p>
+    </header>
+
+    <main class="cv-main">
+        <section class="cv-drop" id="cv-drop" tabindex="0" aria-label="Choose a model file">
+            <i data-lucide="file-box" aria-hidden="true"></i>
+            <h2>Drop a model here</h2>
+            <p>STL, OBJ, 3MF or GLB. nTop exports and SolidWorks STLs come in as they are; files from Blender need "Y is up".</p>
+            <div class="cv-drop-actions">
+                <button type="button" class="mc-btn mc-primary" id="cv-choose"><i data-lucide="folder-open" aria-hidden="true"></i> Choose a file</button>
+                <button type="button" class="mc-btn" id="cv-sample" title="Ollie's socket from the site, to see how the converter works"><i data-lucide="sparkles" aria-hidden="true"></i> Try a sample</button>
+            </div>
+            <input type="file" id="cv-file" accept=".stl,.obj,.3mf,.glb,.gltf" hidden>
+        </section>
+
+        <section class="cv-work" id="cv-work" hidden>
+            <div class="cv-work-head">
+                <h2 id="cv-work-title">Convert</h2>
+                <button type="button" class="mc-btn" id="cv-restart"><i data-lucide="rotate-ccw" aria-hidden="true"></i> Start over with another file</button>
+            </div>
+            <div id="cv-panel"></div>
+        </section>
+
+        <section class="cv-help">
+            <h2>Using the file</h2>
+            <div class="cv-help-grid">
+                <article>
+                    <h3><i data-lucide="presentation" aria-hidden="true"></i> PowerPoint</h3>
+                    <p>Use <strong>Download GLB</strong> (the plain file; PowerPoint cannot read the compressed one). Insert → 3D Models → This Device, pick the GLB. It turns on the slide and plays a slow spin if you add the Turntable animation. Keep to the Presentation setting; PowerPoint struggles past a few hundred thousand triangles.</p>
+                </article>
+                <article>
+                    <h3><i data-lucide="clipboard-list" aria-hidden="true"></i> Design review page</h3>
+                    <p>On any review, <strong>Add files</strong> at the top loads either GLB for your own session. To put it in a presentation for good, hand the <strong>website</strong> file (and the deck file from here, if you made one) to whoever runs the editor; the editor's media gallery copies it into the site.</p>
+                </article>
+                <article>
+                    <h3><i data-lucide="globe" aria-hidden="true"></i> Any web page</h3>
+                    <p>Both files are standard glTF binaries; the website one adds Draco compression, which <code>&lt;model-viewer&gt;</code>, three.js and Babylon all decode. The site's viewers expect Z up in millimetres, which is what this writes.</p>
+                </article>
+            </div>
+            <p class="cv-fine" data-local-only hidden>Converting a whole nTop sweep into a slider? Use <a href="sweep-studio.html">Sweep Studio</a> instead; it plans the sweep, converts every file and writes the slider for you.</p>
+            <p class="cv-fine">Presentation keeps about 150,000 triangles, the setting every model on this site uses; Full keeps all of them. Use <strong>Compare quality levels</strong> to see both on your own model before deciding. Conversion runs in your browser with three.js, meshoptimizer and gltf-transform; large files take a few seconds and some memory.</p>
+        </section>
+    </main>
+
+    <div class="cv-toast" id="cv-toast" role="status" hidden></div>
+
+    <script type="module" src="convert.js?v=2"></script>
+</body>
+</html>
