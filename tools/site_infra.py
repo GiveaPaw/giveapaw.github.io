@@ -37,21 +37,17 @@ NAV_GROUPS = [
         ("materials.html", "Materials"),
         ("3d-printing.html", "3D Printing"),
     ]),
+    # Standalone browser tools (their own page layout, no sidebar; not in META, so the pass skips them).
+    ("Tools", [
+        ("mesh-check.html", "Mesh Check &amp; Repair"),
+        ("convert.html", "Model Converter"),
+        ("surface-interpolator.html", "Surface Interpolator"),
+        ("review-builder.html", "Review Builder"),
+    ]),
     ("Learn &amp; Try", [
         ("anatomy-quiz.html", "Canine Anatomy Quiz"),
-    ]),
-    ("Human Anatomy", [
-        ("human-anatomy-quiz.html", "Full Skeleton"),
-        ("head-anatomy-quiz.html", "Head &amp; Neck"),
-        ("chest-anatomy-quiz.html", "Chest &amp; Lungs"),
-        ("heart-anatomy-quiz.html", "Heart"),
-        ("organs-anatomy-quiz.html", "Abdominal Organs"),
-        ("arm-anatomy-quiz.html", "Shoulder &amp; Arm"),
-        ("hand-anatomy-quiz.html", "Hand &amp; Forearm"),
-        ("spine-anatomy-quiz.html", "Spine &amp; Pelvis"),
-        ("knee-anatomy-quiz.html", "Knee"),
-        ("foot-anatomy-quiz.html", "Foot &amp; Ankle"),
-        ("ear-anatomy-quiz.html", "Ear"),
+        ("human-anatomy.html", "Human Anatomy"),
+        ("anatomy-learning-lab.html", "Anatomy Learning Lab"),
     ]),
     ("About", [
         ("meet-the-team.html", "Meet the Team"),
@@ -60,13 +56,33 @@ NAV_GROUPS = [
 ]
 
 
+# The human anatomy region quizzes are reached from human-anatomy.html and
+# the region bar at the top of each quiz, not listed one by one in the menu.
+# Keep in step with anatomy-regions.js (the hub page's cards).
+HUMAN_REGIONS = [
+    ("Whole body", [("human-anatomy-quiz.html", "Full Skeleton")]),
+    ("Head", [("head-anatomy-quiz.html", "Head &amp; Neck"), ("ear-anatomy-quiz.html", "Ear")]),
+    ("Trunk", [("chest-anatomy-quiz.html", "Chest &amp; Lungs"), ("heart-anatomy-quiz.html", "Heart"),
+               ("organs-anatomy-quiz.html", "Abdominal Organs"), ("spine-anatomy-quiz.html", "Spine &amp; Pelvis")]),
+    ("Limbs", [("arm-anatomy-quiz.html", "Shoulder &amp; Arm"), ("hand-anatomy-quiz.html", "Hand &amp; Forearm"),
+               ("knee-anatomy-quiz.html", "Knee"), ("foot-anatomy-quiz.html", "Foot &amp; Ankle")]),
+]
+HUMAN_HUB = "human-anatomy.html"
+HUMAN_PAGES = [link for _, links in HUMAN_REGIONS for link in links]
+
+
+def nav_section(page):
+    """The menu entry a page belongs to: region quizzes light up Human Anatomy."""
+    return HUMAN_HUB if page in dict(HUMAN_PAGES) else page
+
+
 def build_nav(current):
     out = ['<nav class="sidebar-nav">']
     for title, links in NAV_GROUPS:
         out.append('            <p class="sidebar-nav-title">%s</p>' % title)
         out.append('            <ul>')
         for href, label in links:
-            cls = ' class="active"' if href == current else ''
+            cls = ' class="active"' if href == nav_section(current) else ''
             out.append('                <li%s><a href="%s">%s</a></li>'
                        % (cls, href, label))
         out.append('            </ul>')
@@ -78,18 +94,23 @@ def build_nav(current):
 # One reading order: Home, then every nav page in nav order. Pages with a
 # <footer> get the links generated; hand edits are overwritten.
 READING_ORDER = [("index.html", "Home")] + [
-    link for _, links in NAV_GROUPS for link in links]
+    link for title, links in NAV_GROUPS if title != "Tools" for link in links]   # the tools have no footer
 
 
 def build_footer_nav(current):
-    hrefs = [h for h, _ in READING_ORDER]
+    order = READING_ORDER
+    if current in dict(HUMAN_PAGES):
+        # hub, then the regions head to toe, then back to the hub
+        order = [(HUMAN_HUB, "All Human Anatomy")] + HUMAN_PAGES + [(HUMAN_HUB, "All Human Anatomy")]
+    hrefs = [h for h, _ in order]
     if current not in hrefs or current == "index.html":
         return None
     i = hrefs.index(current)
+    READING = order
     out = ['<div class="footer-navigation">']
     for j, kind, label in ((i - 1, "prev", "Previous"), (i + 1, "next", "Next")):
-        if 0 <= j < len(READING_ORDER):
-            href, title = READING_ORDER[j]
+        if 0 <= j < len(READING):
+            href, title = READING[j]
             out += [
                 '                    <a href="%s" class="footer-%s">' % (href, kind),
                 '                        <div class="footer-%s-label">%s</div>' % (kind, label),
@@ -214,6 +235,31 @@ RELATED = {
     ])],
 }
 
+RB_START = "<!-- regionbar:start -->"
+RB_END = "<!-- regionbar:end -->"
+
+
+def build_region_bar(page):
+    opts = []
+    for group, links in HUMAN_REGIONS:
+        opts.append('                            <optgroup label="%s">' % group)
+        for href, label in links:
+            sel = ' selected' if href == page else ''
+            opts.append('                                <option value="%s"%s>%s</option>' % (href, sel, label))
+        opts.append('                            </optgroup>')
+    return '\n'.join([
+        '                    ' + RB_START,
+        '                    <div class="region-bar">',
+        '                        <a href="%s">&lsaquo; All human anatomy</a>' % HUMAN_HUB,
+        '                        <label>Region',
+        '                        <select aria-label="Go to another region" onchange="location.href = this.value">',
+    ] + opts + [
+        '                        </select></label>',
+        '                    </div>',
+        '                    ' + RB_END,
+    ]) + '\n'
+
+
 REL_START = "<!-- related:start -->"
 REL_END = "<!-- related:end -->"
 
@@ -284,6 +330,9 @@ META = {
     "socket-walkthrough-sample.html": (
         "Socket Workflow Walkthrough",
         "Build Ollie's socket yourself, step by step as in nTop: import and scale the scan, place the pelvic and interface planes, lattice the socket, add attachment points, blend, and export, then compare your answers with the team's."),
+    "ntop-blocks.html": (
+        "How the nTop Blocks Work",
+        "A maintainer's reference for the Give a Paw nTop socket notebook: every custom block with its inputs, outputs, the blocks inside it in order, and its shape as an implicit field."),
     "implicit-viewer.html": (
         "Implicit Field Viewer",
         "Render nTop socket designs as signed distance fields in your browser: live wall offset, section cuts, a distance-field view, and in-shader lattices. No pre-baked mesh sweeps."),
@@ -338,6 +387,12 @@ META = {
     "spine-anatomy-quiz.html": (
         "Spine &amp; Pelvis Anatomy Quiz",
         "Quiz yourself on the human spine and pelvis in four modes: multiple choice, find-and-click, typed answers, and matching, on OpenStax textbook illustrations. Build a custom quiz and share it as a link."),
+    "human-anatomy.html": (
+        "Human Anatomy Quizzes",
+        "Pick a human anatomy quiz by body region: skeleton, head and neck, ear, chest, heart, abdominal organs, spine, arm, hand, knee and foot."),
+    "anatomy-learning-lab.html": (
+        "Anatomy Learning Lab",
+        "Five research-backed ways to study anatomy, as interactive demos on the site's dog, human and ear outlines: spaced review, drawing from memory, confidence checks, dog vs human comparison and step-by-step learning."),
     "anatomy-labelling.html": (
         "Anatomy Labelling Hub",
         "Progress checklist for labelling the human anatomy quiz sets in the shape editor."),
@@ -416,6 +471,15 @@ def process(path):
                           text, count=1, flags=re.M)
         if n:
             notes.append("related")
+
+    # 2d. region bar on the human anatomy region quizzes
+    text = re.sub(r'[ \t]*' + re.escape(RB_START) + r'.*?' + re.escape(RB_END) + r'[ \t]*\n', '',
+                  text, count=1, flags=re.S)
+    if page in dict(HUMAN_PAGES):
+        text, n = re.subn(r'^[ \t]*<h1>', lambda m: build_region_bar(page) + m.group(0),
+                          text, count=1, flags=re.M)
+        if n:
+            notes.append("region-bar")
 
     # 3. head metadata (replace prior block, else insert after <title>)
     if META_START in text:
