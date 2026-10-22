@@ -387,6 +387,35 @@ const IN_FRONT = { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUn
 // weaves through it by a few tenths of a millimetre. A depth bias cannot cover that, so the surface
 // is lifted off the skin along its own normals once, when it loads. Every later clone shares this
 // geometry, so one lift serves the whole walkthrough. Half a millimetre on a 180 mm dog.
+// Drawn late, after the plane and its outline, so only the overlays come after it; they do not
+// depth test anyway. SURFACE_ORDER - 1 is where the depth buffer is cleared.
+const SURFACE_ORDER = 25;
+
+// A mesh that draws nothing and clears the depth buffer when its turn comes. three.js has no
+// per-object way to say "ignore that one object", so this marks a point in the render order
+// instead: everything already drawn stops occluding, everything after it carries on normally.
+function depthClearer(renderOrder) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+    const clearer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+        colorWrite: false, depthWrite: false, depthTest: false,
+    }));
+    clearer.frustumCulled = false;
+    clearer.renderOrder = renderOrder;
+    clearer.onBeforeRender = renderer => renderer.clearDepth();
+    return clearer;
+}
+
+// Put a surface over whatever has been drawn so far, keeping its own shading.
+function showOverTheBody(group, renderOrder = SURFACE_ORDER) {
+    group.traverse(child => { if (child.isMesh) child.renderOrder = renderOrder; });
+    if (!group.children.some(child => child.userData.depthClearer)) {
+        const clearer = depthClearer(renderOrder - 1);
+        clearer.userData.depthClearer = true;
+        group.add(clearer);
+    }
+}
+
 function liftOffTheSkin(geometry, millimetres) {
     const position = geometry.attributes.position;
     const normal = geometry.attributes.normal;
@@ -720,6 +749,7 @@ function rebuildPelvicScene() {
     clearPelvicOverlays();
     cloneImportForPelvic('solidAnimal', pelvicBody, { color: PART_COLOR.solidAnimal, opacity: 1, roughness: 0.82 });
     cloneImportForPelvic('attachment', pelvicAttach, { color: PART_COLOR.attachment, opacity: 0.78, roughness: 0.66 });
+    showOverTheBody(pelvicAttach);
     buildPlaneOverlays();
     buildSocketPreview();
     applyPelvicStageVisibility();
@@ -1344,7 +1374,7 @@ function buildAnswerPlane(group, bounds, answer) {
 const buildPelvicAnswer = () => buildAnswerPlane(pelvicAnswerRoot, pelvicBounds, planeAnswer('pelvic'));
 const buildInterfaceAnswer = () => buildAnswerPlane(interfaceAnswerRoot, interfaceBounds, planeAnswer('interface'));
 
-// The same green answer, on the solid interface, for Step 2b.
+// The same green answer, on the mechanical interface, for Step 2b.
 const interfaceAnswerRoot = new THREE.Group();
 interfaceAnswerRoot.visible = false;
 interfaceRoot.add(interfaceAnswerRoot);
@@ -1378,7 +1408,7 @@ function updateInterfaceHelpNote() {
             : 'Import the meshes first, then this shows the answer in the viewer.');
     }
     if (splitEnabled && !splitNarrow.matches) {
-        lines.push('Left: the plane on the solid interface. Right: the interface sitting on Ollie, oriented by that plane. Move X, Y or Z and both follow.');
+        lines.push('Left: the plane on the mechanical interface. Right: the interface sitting on the animal, oriented by that plane. Move X, Y or Z and both follow.');
     }
     interfacePlaneHelpNote.hidden = !lines.length;
     interfacePlaneHelpNote.textContent = lines.join(' ');
@@ -1699,7 +1729,9 @@ function buildInterfaceScene() {
     orientedAssembly.quaternion.identity();
     orientedAssembly.updateMatrixWorld(true);
     interfaceAnimal.add(cloneForInterface(layers.solidAnimal));
-    interfaceReferenceMechanical.add(cloneForInterface(layers.solidInterface)); // Step 2b picks its plane on the solid interface
+    // Step 2b shows the mechanical interface. Both interfaces share a bounding box in every pair on
+    // the site, so which one is on screen does not move the plane or change its answer.
+    interfaceReferenceMechanical.add(cloneForInterface(layers.mechanical));
     interfaceMechanical.add(cloneForInterface(layers.mechanical));
     interfaceSolid.add(cloneForInterface(layers.solidInterface));
     interfaceRoot.updateMatrixWorld(true);
@@ -2344,6 +2376,7 @@ async function loadImportSelection(role, entry) {
         if (activeStep === '1') requestAnimationFrame(() => frameObject(layer.group));
         // A different case can mean a different blend sweep, with its own steps.
         if (role === 'solidAnimal' || role === 'attachment') syncBlendSliderRanges();
+        if (role === 'attachment') showOverTheBody(layer.group);
         // There is nothing to turn around until a mesh is in, so the movement guide waits for the scan.
         // Not on requestAnimationFrame: a window that is not painting (another tab in front, a
         // phone with the page in the background) never runs those callbacks, and the guide would
