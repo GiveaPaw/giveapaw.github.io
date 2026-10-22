@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Builder - Give a Paw</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="Compose a guided design review from videos and 3D models in Google Drive, then share one link.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="review-builder.css?v=2">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+    <header class="rb-top">
+        <div class="rb-top-title">
+            <a class="rb-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw"></a>
+            <div>
+                <span class="rb-eyebrow">Give a Paw</span>
+                <h1>Review builder</h1>
+            </div>
+        </div>
+        <div class="rb-top-actions">
+            <button type="button" id="rb-google" class="rb-btn" title="Sign in with Google to pick files from Drive and save there"><i data-lucide="log-in" aria-hidden="true"></i> <span>Sign in with Google</span></button>
+            <button type="button" id="rb-open" class="rb-btn"><i data-lucide="folder-open" aria-hidden="true"></i> Open</button>
+            <button type="button" id="rb-preview" class="rb-btn"><i data-lucide="eye" aria-hidden="true"></i> Preview</button>
+            <button type="button" id="rb-download" class="rb-btn"><i data-lucide="download" aria-hidden="true"></i> Download JSON</button>
+            <button type="button" id="rb-save" class="rb-btn rb-primary"><i data-lucide="cloud-upload" aria-hidden="true"></i> Save to Drive</button>
+        </div>
+    </header>
+
+    <main class="rb-app">
+        <aside class="rb-side">
+            <section class="rb-panel" id="rb-setup">
+                <h2>Google Drive</h2>
+                <p class="rb-setup-line" data-setup="config"></p>
+                <p class="rb-setup-line" data-setup="auth"></p>
+                <p class="rb-muted">Drive lets you pick videos and meshes without uploading them to the website, and saves the finished review as a file the link points at. Without Drive you can still paste URLs and download the JSON.</p>
+            </section>
+
+            <section class="rb-panel">
+                <h2>Review details</h2>
+                <label>Title<input type="text" data-field="title" placeholder="Socket design review"></label>
+                <label>Subtitle<input type="text" data-field="subtitle" placeholder="Give a Paw × Bionic Pets"></label>
+                <label>Introduction<textarea data-field="intro" rows="4" placeholder="What you want from the reviewer, in two or three sentences."></textarea></label>
+                <label>Reviewer name (pre-filled)<input type="text" data-field="reviewerDefault" placeholder="Derrick Campana"></label>
+                <label>Return email (optional)<input type="email" data-field="returnEmail" placeholder="you@example.com"></label>
+                <label>Review id<input type="text" data-field="id" readonly title="Notes are stored against this id. It is set from the title on first save."></label>
+            </section>
+
+            <section class="rb-panel" id="rb-share" hidden>
+                <h2>Share</h2>
+                <p class="rb-muted">Send this link to the reviewer. Their notes come back to you as a link they copy from the page.</p>
+                <div class="rb-share-row"><input type="text" id="rb-share-link" readonly><button type="button" id="rb-copy-link" class="rb-btn" title="Copy link"><i data-lucide="copy" aria-hidden="true"></i></button></div>
+                <label class="rb-check"><input type="checkbox" id="rb-make-public" checked> Share the review file and every Drive file it uses as "anyone with the link can view"</label>
+                <p class="rb-muted" id="rb-save-status"></p>
+            </section>
+        </aside>
+
+        <section class="rb-main">
+            <div class="rb-items-head">
+                <h2>Questions <small id="rb-count"></small></h2>
+                <div class="rb-add">
+                    <span>Add</span>
+                    <button type="button" class="rb-btn" data-add="video"><i data-lucide="video" aria-hidden="true"></i> Video</button>
+                    <button type="button" class="rb-btn" data-add="sweep"><i data-lucide="sliders-horizontal" aria-hidden="true"></i> Model sweep</button>
+                    <button type="button" class="rb-btn" data-add="assembly"><i data-lucide="box" aria-hidden="true"></i> 3D assembly</button>
+                </div>
+            </div>
+            <ol class="rb-items" id="rb-items"></ol>
+            <p class="rb-empty" id="rb-empty">No questions yet. Add a video, a model sweep (one slider, one file per value), or a 3D assembly (several meshes in one frame).</p>
+        </section>
+    </main>
+
+    <div class="rb-toast" id="rb-toast" role="status" hidden></div>
+
+    <dialog class="rb-dialog" id="rb-open-dialog" aria-labelledby="rb-open-title">
+        <form method="dialog" class="rb-dialog-head"><h2 id="rb-open-title">Open a review</h2><button type="submit" aria-label="Close">&times;</button></form>
+        <div class="rb-open-section">
+            <h3>Saved in Google Drive</h3>
+            <ul class="rb-open-list" id="rb-open-list"><li class="rb-muted">Sign in to list saved reviews.</li></ul>
+        </div>
+        <div class="rb-open-section">
+            <h3>From a file or link</h3>
+            <div class="rb-open-row">
+                <button type="button" class="rb-btn" id="rb-open-file"><i data-lucide="file-json" aria-hidden="true"></i> Load .json file</button>
+                <input type="file" id="rb-json-file" accept=".json,application/json" hidden>
+                <input type="url" id="rb-open-url" placeholder="https://… or a path like reviews/derrick.json">
+                <button type="button" class="rb-btn" id="rb-open-url-btn">Import</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog class="rb-dialog" id="rb-urls-dialog" aria-labelledby="rb-urls-title">
+        <form method="dialog" class="rb-dialog-head"><h2 id="rb-urls-title">Add files by link</h2><button type="submit" aria-label="Close">&times;</button></form>
+        <p class="rb-muted">One per line. Site paths (<code>ntop-chi-pointcount-100.glb</code>), full URLs, Google Drive share links, or <code>drive:&lt;fileId&gt;</code>. The number in each name becomes its slider value.</p>
+        <textarea id="rb-urls-text" rows="8" spellcheck="false"></textarea>
+        <div class="rb-dialog-actions"><button type="button" class="rb-btn rb-primary" id="rb-urls-add">Add</button></div>
+    </dialog>
+
+    <script type="module" src="review-builder.js?v=1"></script>
+</body>
+</html>

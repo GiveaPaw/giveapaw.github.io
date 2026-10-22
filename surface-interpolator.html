@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surface Interpolator - Give a Paw</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="Load a solid animal and two or more attachment surfaces painted on it, scrub between them, and download as many in-between surfaces as you want as STL files. Runs in your browser; nothing is uploaded.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="model-convert.css?v=2">
+    <link rel="stylesheet" href="convert.css?v=1">
+    <link rel="stylesheet" href="surface-interpolator.css?v=2">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <header class="cv-top">
+        <div class="cv-top-title">
+            <a class="cv-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw"></a>
+            <div>
+                <span class="cv-eyebrow">Give a Paw · Tools</span>
+                <h1>Surface interpolator</h1>
+            </div>
+        </div>
+        <p class="cv-lead">Paint two or more attachment surfaces on the same solid animal in Meshmixer, load them here in order, and get any number of in-between surfaces as STL files ready for nTop. Everything happens in your browser; nothing is uploaded.</p>
+    </header>
+
+    <main class="cv-main">
+        <div id="si-root"></div>
+
+        <section class="cv-help">
+            <h2>How it works</h2>
+            <div class="cv-help-grid">
+                <article>
+                    <h3><i data-lucide="pen-tool" aria-hidden="true"></i> What to paint</h3>
+                    <p>Each surface should be a selection of the solid's own triangles, exported from Meshmixer or similar. Change one thing between neighbours (how far the edge reaches, how big the leg hole is, how far over the back it goes); the in-betweens move that edge in even steps. Changing two things at once still works, but both move together.</p>
+                </article>
+                <article>
+                    <h3><i data-lucide="git-commit-horizontal" aria-hidden="true"></i> How many surfaces</h3>
+                    <p>Two is enough. Add a third or fourth where the shape should pass through a specific stage. With N surfaces and S steps between each pair you get N + (N − 1) × S files; the surfaces you painted come back as themselves.</p>
+                </article>
+                <article>
+                    <h3><i data-lucide="cpu" aria-hidden="true"></i> What happens inside</h3>
+                    <p>For every surface the page measures, for each vertex of the solid, how far it is from the surface's edge along the body (negative inside). Blending two of those distance maps and cutting the solid where the blend crosses zero gives the in-between, with a clean edge that follows the body. The same method, in Python, made the Ollie and Chihuahua sweeps.</p>
+                </article>
+                <article>
+                    <h3><i data-lucide="file-output" aria-hidden="true"></i> The files</h3>
+                    <p>Binary STL in the solid's own units and orientation, named <code>surface_01.stl</code> onward in order, plus a <code>manifest.csv</code> that says which pair and position each file came from. They go straight into an nTop sweep as the attachment surface path.</p>
+                </article>
+            </div>
+            <p class="cv-fine">Big solids (150,000 vertices and more) take a few seconds per surface to prepare. Everything stays on your computer. Need the surface checked for holes or slivers first? Use <a href="mesh-check.html">Mesh check &amp; repair</a>.</p>
+        </section>
+    </main>
+
+    <script type="module" src="surface-interpolator.js?v=3"></script>
+</body>
+</html>

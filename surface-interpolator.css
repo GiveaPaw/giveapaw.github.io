@@ -1,0 +1,39 @@
+/* Surface interpolator: two drop zones side by side, then a viewer with a control column. Also used by the panel inside the editor. */
+#si-root { display: grid; gap: 18px; }
+.si-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+.si-steps > * { min-width: 0; }
+.si-drop { padding: 28px 18px; }
+.si-drop h2 { font-size: 1.05rem; }
+.si-drop.done { border-style: solid; border-color: var(--mc-teal); }
+.si-loaded { font-size: 0.84rem; color: var(--mc-text); }
+.si-list { width: 100%; max-width: 560px; min-width: 0; box-sizing: border-box; margin: 8px 0 0; padding: 0 0 0 22px; text-align: left; font-size: 0.84rem; }
+.si-list li { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.si-list li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.si-list li .meta { color: var(--mc-muted); font-size: 0.78rem; text-align: right; }
+.si-list li .meta.bad { color: #c0392b; font-weight: 600; }
+.si-list button { padding: 2px 6px; border: 1px solid var(--mc-line); border-radius: 6px; background: #fff; color: var(--mc-navy); font: inherit; font-size: 0.78rem; cursor: pointer; line-height: 1.2; }
+.si-list button:disabled { opacity: 0.35; cursor: default; }
+.si-panel { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 14px; color: var(--mc-text); }
+.si-side { display: grid; gap: 12px; align-content: start; }
+.si-stage { position: relative; min-height: min(70vh, 720px); border: 1px solid var(--mc-line-soft); border-radius: 10px; background: #e6eaf0; overflow: hidden; }
+.si-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.si-stage canvas:active { cursor: grabbing; }
+.si-busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(230, 234, 240, 0.8); color: var(--mc-navy); font-weight: 600; font-size: 0.9rem; }
+.si-readout { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.si-readout output { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--mc-navy); }
+.si-readout span { font-size: 0.8rem; color: var(--mc-muted); text-align: right; }
+.si-slider { width: 100%; margin: 8px 0 0; accent-color: var(--mc-gold); }
+.si-ticks { position: relative; height: 30px; }
+.si-ticks button { position: absolute; top: 0; left: calc(8px + (100% - 16px) * var(--p)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 0 2px; background: none; border: 0; cursor: pointer; font: inherit; font-size: 0.72rem; line-height: 1.2; color: var(--mc-muted); white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+.si-ticks button::before { content: ""; width: 2px; height: 8px; background: var(--mc-navy); border-radius: 1px; }
+.si-ticks button:hover { color: var(--mc-text); }
+.si-ticks button.start { transform: none; align-items: flex-start; left: 6px; }
+.si-ticks button.end { transform: translateX(-100%); align-items: flex-end; left: calc(100% - 6px); }
+.si-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.mc-btn[aria-pressed="true"] { background: var(--mc-navy); color: #fff; border-color: var(--mc-navy); }
+.mc-btn.mc-gold { background: var(--mc-gold); border-color: var(--mc-gold); color: #1b2530; }
+.mc-btn.mc-primary { background: var(--mc-navy); border-color: var(--mc-navy); color: #fff; }
+@media (max-width: 860px) {
+    .si-panel { grid-template-columns: minmax(0, 1fr); }
+    .si-stage { min-height: 60vw; }
+}

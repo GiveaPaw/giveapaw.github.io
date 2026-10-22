@@ -1,0 +1,133 @@
+:root {
+    --font-heading: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    --navy: #003262;
+    --navy-ink: #173958;
+    --gold: #fdb515;
+    --bg: #f2f5f7;
+    --line: #cbd2d9;
+    --line-soft: #dfe5eb;
+    --text: #22384d;
+    --muted: #566676;
+    --ok: #35a860;
+    --warn: #b3261e;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { min-height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); color: var(--text); font: 14px/1.45 var(--font-heading); }
+button { font-family: inherit; }
+button, input, select, textarea { font-size: inherit; }
+svg { width: 16px; height: 16px; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+[hidden] { display: none !important; }
+code { padding: 1px 5px; border-radius: 3px; background: #e9eef2; font: 0.8rem var(--font-mono); }
+
+.rb-top { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; padding: 8px 18px; border-bottom: 1px solid var(--line); background: #fff; box-shadow: 0 2px 10px rgba(24, 43, 62, 0.06); }
+.rb-top-title { display: flex; align-items: center; gap: 12px; }
+.rb-brand img { display: block; width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+.rb-eyebrow { display: block; color: var(--muted); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.rb-top h1 { margin: 0; color: var(--navy); font-size: 1.05rem; line-height: 1.2; }
+.rb-top-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.rb-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 11px; border: 1px solid #b6c0ca; border-radius: 4px; background: #fff; color: var(--navy-ink); font: 700 0.74rem var(--font-heading); cursor: pointer; white-space: nowrap; }
+.rb-btn:hover { border-color: var(--navy); background: #eaf1f7; }
+.rb-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.rb-btn.rb-primary { border-color: var(--navy); background: var(--navy); color: #fff; }
+.rb-btn.rb-primary:hover { background: #0b4a86; }
+.rb-btn.rb-danger { color: var(--warn); border-color: #e3b5b2; }
+.rb-btn.rb-danger:hover { background: #fdf0ef; border-color: var(--warn); }
+.rb-btn.rb-signed { border-color: var(--ok); color: #0f6f2c; background: #e5f8ea; }
+.rb-btn.rb-icon { width: 30px; height: 30px; min-height: 0; padding: 0; justify-content: center; }
+
+.rb-app { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 18px; max-width: 1400px; width: 100%; margin: 0 auto; padding: 18px; }
+.rb-side { display: grid; gap: 14px; align-content: start; }
+.rb-panel { padding: 14px 16px 16px; border: 1px solid var(--line); border-radius: 10px; background: #fff; box-shadow: 0 6px 16px rgba(24, 43, 62, 0.06); }
+.rb-panel h2 { margin: 0 0 10px; color: var(--navy); font-size: 0.95rem; }
+.rb-panel label, .rb-item label { display: grid; gap: 4px; margin-bottom: 10px; color: var(--muted); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.rb-panel input, .rb-panel textarea, .rb-item input, .rb-item textarea, .rb-item select, .rb-dialog input, .rb-dialog textarea {
+    width: 100%; min-width: 0; padding: 7px 9px; border: 1px solid #b6c0ca; border-radius: 4px; background: #fff; color: var(--text); font: 0.84rem/1.4 var(--font-heading); resize: vertical;
+}
+.rb-panel input[readonly] { background: #f3f5f7; color: var(--muted); font-family: var(--font-mono); font-size: 0.76rem; }
+.rb-muted { margin: 6px 0 0; color: var(--muted); font-size: 0.76rem; line-height: 1.45; }
+.rb-setup-line { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 0.8rem; }
+.rb-setup-line::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #c3ccd5; flex: 0 0 10px; }
+.rb-setup-line.ok::before { background: var(--ok); }
+.rb-setup-line.warn::before { background: var(--gold); }
+.rb-setup-line a { color: var(--navy); }
+.rb-share-row { display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 6px; margin: 8px 0; }
+.rb-share-row input { font: 0.74rem var(--font-mono); }
+.rb-check { display: flex !important; align-items: flex-start; gap: 8px; margin: 8px 0 0 !important; color: var(--text) !important; font-size: 0.78rem !important; font-weight: 400 !important; letter-spacing: 0 !important; text-transform: none !important; }
+.rb-check input { width: auto; margin-top: 3px; }
+
+.rb-main { min-width: 0; }
+.rb-items-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.rb-items-head h2 { margin: 0; color: var(--navy); font-size: 1.05rem; }
+.rb-items-head h2 small { margin-left: 6px; color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+.rb-add { display: flex; align-items: center; gap: 6px; }
+.rb-add > span { margin-right: 4px; color: var(--muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.rb-items { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.rb-empty { padding: 28px; border: 1px dashed #b6c0ca; border-radius: 10px; color: var(--muted); font-size: 0.86rem; text-align: center; }
+
+.rb-item { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #fff; box-shadow: 0 6px 16px rgba(24, 43, 62, 0.06); }
+.rb-item.invalid { border-color: #e3b5b2; }
+.rb-item-head { display: grid; grid-template-columns: 30px auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); background: #fbfcfd; }
+.rb-item-num { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 0.78rem; font-weight: 700; }
+.rb-kind { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border-radius: 3px; background: #fff1c8; color: #745000; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.rb-kind svg { width: 12px; height: 12px; }
+.rb-item-head strong { min-width: 0; overflow: hidden; color: var(--navy-ink); font-size: 0.9rem; text-overflow: ellipsis; white-space: nowrap; }
+.rb-item-tools { display: flex; gap: 6px; }
+.rb-item-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 18px; padding: 14px 14px 6px; }
+.rb-item-body .rb-full { grid-column: 1 / -1; }
+.rb-item-body label textarea { min-height: 58px; }
+.rb-source { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+.rb-source input { font: 0.78rem var(--font-mono); }
+.rb-source-name { display: block; margin-top: 4px; color: var(--muted); font-size: 0.72rem; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.rb-files { grid-column: 1 / -1; margin: 0 0 12px; border: 1px solid var(--line-soft); border-radius: 6px; overflow: hidden; }
+.rb-files-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); background: #fbfcfd; }
+.rb-files-head strong { color: var(--navy-ink); font-size: 0.8rem; }
+.rb-files-head .rb-files-actions { display: flex; gap: 6px; margin-left: auto; }
+.rb-files table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.rb-files th, .rb-files td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: middle; }
+.rb-files th { color: var(--muted); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.rb-files td.rb-value input { width: 90px; padding: 4px 6px; font: 0.8rem var(--font-mono); }
+.rb-files td.rb-name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-files td.rb-src { max-width: 220px; overflow: hidden; color: var(--muted); font: 0.7rem var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.rb-files td.rb-color input[type="color"] { width: 36px; height: 28px; padding: 0 2px; }
+.rb-files td.rb-opacity input { width: 70px; padding: 4px 6px; }
+.rb-files td.rb-vis input { width: auto; }
+.rb-files td.rb-del { width: 36px; text-align: right; }
+.rb-files .rb-files-empty { padding: 12px; color: var(--muted); font-size: 0.78rem; text-align: center; }
+.rb-inline { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
+.rb-drive-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 10px; background: #e3f1fd; color: #0b5aa6; font-size: 0.66rem; font-weight: 700; }
+
+.rb-toast { position: fixed; z-index: 60; bottom: 20px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); padding: 9px 14px; border-radius: 6px; background: #17263a; color: #fff; font-size: 0.8rem; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); }
+.rb-toast.error { background: #7a1a13; }
+
+.rb-dialog { width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 20px; border: 1px solid #9fabb6; border-radius: 10px; background: #fff; box-shadow: 0 24px 60px rgba(12, 30, 60, 0.35); color: var(--text); }
+.rb-dialog::backdrop { background: rgba(14, 27, 42, 0.5); }
+.rb-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
+.rb-dialog-head h2 { margin: 0; color: var(--navy); font-size: 1.1rem; }
+.rb-dialog-head button { width: 32px; height: 32px; padding: 0; border: 1px solid #b6c0ca; border-radius: 4px; background: #fff; color: #506172; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+.rb-dialog textarea { font: 0.78rem/1.5 var(--font-mono); }
+.rb-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.rb-open-section { margin-top: 14px; }
+.rb-open-section h3 { margin: 0 0 8px; color: var(--navy-ink); font-size: 0.82rem; }
+.rb-open-list { display: grid; gap: 6px; max-height: 260px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.rb-open-list button { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 6px; background: #fff; text-align: left; cursor: pointer; }
+.rb-open-list button:hover { border-color: var(--navy); background: #eaf1f7; }
+.rb-open-list button strong { overflow: hidden; color: var(--navy-ink); font-size: 0.82rem; text-overflow: ellipsis; white-space: nowrap; }
+.rb-open-list button small { color: var(--muted); font-size: 0.7rem; }
+.rb-open-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+
+@media (max-width: 980px) {
+    .rb-app { grid-template-columns: minmax(0, 1fr); }
+    .rb-item-body { grid-template-columns: minmax(0, 1fr); }
+    .rb-inline { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+    .rb-app { padding: 12px; }
+    .rb-open-row { grid-template-columns: minmax(0, 1fr); }
+    .rb-item-head { grid-template-columns: 30px minmax(0, 1fr); }
+    .rb-item-head strong { grid-column: 1 / -1; }
+    .rb-item-tools { grid-column: 1 / -1; }
+}
