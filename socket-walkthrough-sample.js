@@ -9,7 +9,7 @@ import { withModelFallback, modelUrl } from './model-base.js?v=2';
 import { createAttachmentHoles } from './attachment-holes.js?v=15';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=9';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=10';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');

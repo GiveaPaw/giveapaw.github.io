@@ -1,4 +1,4 @@
-"""Bring the 10-21 Chihuahua wheelchair case onto the site: surface, both interfaces, blend sockets.
+"""Bring the 10-21 Chihuahua wheelchair case onto the site: scan, surface, both interfaces, blend sockets.
 
 The surface, the interfaces and the 274 blend sockets all share one frame, the 0.95-scaled nTop frame
 the sockets were generated in, so they are stored exactly as exported rather than unscaled the
@@ -27,6 +27,8 @@ from convert_ollie_v3_sweeps import SITE, draco  # noqa: E402
 SRC = r'C:\Users\mrchi\OneDrive\Desktop\Animals\Chihuahua'
 SOCKET_SRC = os.path.join(SRC, 'glb', 'BlendWCSockets')
 SOCKET_OUT = os.path.join(SITE, 'sample-models', 'chi-wc-blend')
+SOLID_SRC = r'C:\Users\mrchi\Downloads\ScaledChihuahuaSolid.obj'
+SOLID_FACES = 150000
 PREVIEW_FACES = 12000
 GREY = [185, 194, 204, 255]
 
@@ -62,8 +64,8 @@ def meshes():
     interfaces = os.path.join(SITE, 'sample-models', 'interfaces')
     os.makedirs(interfaces, exist_ok=True)
 
-    # Both OBJs in the drop are the same file, and it is the surface: an open shell, 591 boundary
-    # edges and 518 cm2, where a solid of this scan is watertight with none. The solid is still to come.
+    # The first drop carried the surface twice, so each of these is checked for what it actually is
+    # rather than trusted by its name: the surface is an open shell, the solid is watertight.
     surface = os.path.join(SRC, 'ScaledSurfaceChihuahua_0.95Scale.obj')
     mesh = trimesh.load(surface, force='mesh')
     if mesh.is_watertight:
@@ -71,6 +73,19 @@ def meshes():
     out = os.path.join(SITE, 'sample-models', 'chi-wc-surface.glb')
     write_glb(mesh, out, os.path.join(previews, 'chi-wc-surface.glb'))
     print(f'chi-wc-surface.glb: {len(mesh.faces)} faces, {os.path.getsize(out) / 1e6:.2f} MB')
+
+    # The scan comes out of nTop at about 295,000 triangles, well past what the site serves, so it
+    # is cut to the 150,000 the other sweeps are held to. Geometry is otherwise left alone.
+    solid = os.path.join(SOLID_SRC)
+    mesh = trimesh.load(solid, force='mesh')
+    if not mesh.is_watertight:
+        raise SystemExit('That file is not watertight, so it is not the solid: check the drop.')
+    before = len(mesh.faces)
+    if before > SOLID_FACES:
+        mesh = mesh.simplify_quadric_decimation(face_count=SOLID_FACES)
+    out = os.path.join(SITE, 'sample-models', 'chi-wc-solid.glb')
+    write_glb(mesh, out, os.path.join(previews, 'chi-wc-solid.glb'))
+    print(f'chi-wc-solid.glb: {before} faces cut to {len(mesh.faces)}, {os.path.getsize(out) / 1e6:.2f} MB')
 
     # The interfaces are served as the STL a student would import, with a GLB only for the preview.
     for src_name, stem in (('Interface Mech_10-21_Small_Interface.stl', 'wheelchair-mechanical'),

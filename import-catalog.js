@@ -37,8 +37,9 @@ export const BREEDS = [
         // Its attachment surface has not been exported yet, so the case cannot be completed in the
         // browser until it arrives.
         slug: 'chi-wc', label: 'Chihuahua (wheelchair)', units: 'm',
-        // Its solid animal has not been exported yet: the drop carried the surface twice. Until
-        // it arrives this case cannot be completed in the browser, so the surface stands alone.
+        solidName: 'chihuahua-wc-solid.glb', solidFile: 'sample-models/chi-wc-solid.glb',
+        solidPreview: 'chi-wc-solid.glb', solidBytes: 347892,
+        note: 'Wheelchair case 10-21 · blend sockets',
         blendSet: 'wheelchair',
         surfaces: [{
             name: 'chihuahua-wc-attachment-surface.glb', file: 'sample-models/chi-wc-surface.glb',
