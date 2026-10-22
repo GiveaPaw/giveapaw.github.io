@@ -9,7 +9,7 @@ import { withModelFallback, modelUrl } from './model-base.js?v=2';
 import { createAttachmentHoles } from './attachment-holes.js?v=15';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=7';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=9';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -2342,6 +2342,8 @@ async function loadImportSelection(role, entry) {
         // The interfaces are a few centimetres across and sit at the world origin, a long way from the
         // scan, so framing the whole assembly would lose them. Go to the mesh that was just imported.
         if (activeStep === '1') requestAnimationFrame(() => frameObject(layer.group));
+        // A different case can mean a different blend sweep, with its own steps.
+        if (role === 'solidAnimal' || role === 'attachment') syncBlendSliderRanges();
         // There is nothing to turn around until a mesh is in, so the movement guide waits for the scan.
         // Not on requestAnimationFrame: a window that is not painting (another tab in front, a
         // phone with the page in the background) never runs those callbacks, and the guide would
@@ -3398,6 +3400,27 @@ const blendValues = {
     connectorRadius: Array.from({ length: 16 }, (_, index) => index),
 };
 const blendDefaults = { minBlend: 0, maxBlend: 20, connectorRadius: 5 };
+
+// The wheelchair case brought its own blend sweep (tools/convert_chi_wheelchair.py): a 0..50 by 5
+// grid of min against max at connector blend 5, and connector blend 0..30 at min 10 / max 50, each
+// in a four-connector and a six-connector version. Which one is shown follows the number of
+// attachment points the student placed, because that is what feeds Attachments in the block.
+const WHEELCHAIR_BLEND = {
+    dir: 'sample-models/chi-wc-blend',
+    values: {
+        minBlend: Array.from({ length: 11 }, (_, index) => index * 5),
+        maxBlend: Array.from({ length: 11 }, (_, index) => index * 5),
+        connectorRadius: [0, 2, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+    },
+    defaults: { minBlend: 10, maxBlend: 50, connectorRadius: 5 },
+};
+const isWheelchairBlend = () => importSelection.solidAnimal?.blendSet === 'wheelchair'
+    || importSelection.attachment?.blendSet === 'wheelchair';
+const blendSetValues = () => (isWheelchairBlend() ? WHEELCHAIR_BLEND.values : blendValues);
+const blendSetDefaults = () => (isWheelchairBlend() ? WHEELCHAIR_BLEND.defaults : blendDefaults);
+// Four or six connectors, from the points placed in Step 4a; anything above four reads as six.
+const blendConnectorCount = () => (attachmentHoles.getPoints().length > 4 ? 6 : 4);
+
 const blendState = { ...blendDefaults };
 const BLEND_GROUPS = { blend: ['minBlend', 'maxBlend'], connector: ['connectorRadius'] };
 const blendGroupOf = key => Object.keys(BLEND_GROUPS).find(group => BLEND_GROUPS[group].includes(key));
@@ -3407,6 +3430,10 @@ const finalModelPromises = new Map();
 let finalModelRequest = 0;
 function finalSocketFile(state, group) {
     const pad = value => String(value).padStart(2, '0');
+    if (isWheelchairBlend()) {
+        return `${WHEELCHAIR_BLEND.dir}/c${blendConnectorCount()}`
+            + `-lo${pad(state.minBlend)}-hi${pad(state.maxBlend)}-cb${pad(state.connectorRadius)}.glb`;
+    }
     const dir = `sample-models/chi-final${surfaceSetSuffix()}`;
     if (group === 'connector') return `${dir}/c${pad(state.connectorRadius)}.glb`;
     return `${dir}/b${pad(state.minBlend)}-${pad(state.maxBlend)}.glb`;
@@ -3421,7 +3448,7 @@ function finalModelPromise(file) {
 }
 function setBlendControl(key, value) {
     const input = document.querySelector('[data-blend-param="' + key + '"]');
-    const index = blendValues[key].indexOf(value);
+    const index = blendSetValues()[key].indexOf(value);
     if (!input || index < 0) return;
     input.value = String(index);
     blendState[key] = value;
@@ -3437,7 +3464,7 @@ async function loadFinalSocket(key, value) {
     const request = ++finalModelRequest;
     if (!hasSocketModelLibrary()) { finalSocketRoot.clear(); currentFinalFile = null; blendStatus('Source models only. Blended sockets are not generated for this selection yet.'); return; }
     const group = blendGroupOf(key);
-    const state = { ...blendDefaults, [key]: value };
+    const state = { ...blendSetDefaults(), [key]: value };
     BLEND_GROUPS[group].forEach(k => { state[k] = k === key ? value : blendState[k]; });
     const file = finalSocketFile(state, group);
     blendStatus(`Loading nTop blended socket · ${key === 'connectorRadius' ? 'connector radius' : key === 'minBlend' ? 'min blend' : 'max blend'} ${value} mm`);
@@ -3447,12 +3474,12 @@ async function loadFinalSocket(key, value) {
         finalSocketRoot.clear();
         finalSocketRoot.add(object);
         currentFinalFile = file;
-        Object.entries(blendDefaults).forEach(([k, v]) => { if (blendGroupOf(k) !== group) setBlendControl(k, v); });
+        Object.entries(blendSetDefaults()).forEach(([k, v]) => { if (blendGroupOf(k) !== group) setBlendControl(k, v); });
         BLEND_GROUPS[group].forEach(k => setBlendControl(k, state[k]));
         activeBlendParameter = key;
         blendStatus('');
         applyInterfaceStageVisibility();
-        const values = blendValues[key];
+        const values = blendSetValues()[key];
         const index = values.indexOf(value);
         [index - 1, index + 1].forEach(next => {
             if (next < 0 || next >= values.length) return;
@@ -3466,6 +3493,18 @@ async function loadFinalSocket(key, value) {
         console.error(error);
     }
 }
+// Each set has its own number of steps, so the sliders are re-ranged whenever the case changes.
+function syncBlendSliderRanges() {
+    const values = blendSetValues();
+    const defaults = blendSetDefaults();
+    document.querySelectorAll('[data-blend-param]').forEach(input => {
+        const key = input.dataset.blendParam;
+        input.max = String(values[key].length - 1);
+        const current = values[key].indexOf(blendState[key]);
+        setBlendControl(key, current < 0 ? defaults[key] : blendState[key]);
+    });
+}
+
 const blendControlsEl = document.getElementById('blend-block');
 const blendModeButton = document.getElementById('blend-control-mode');
 blendModeButton.addEventListener('click', () => {
@@ -3479,7 +3518,7 @@ document.querySelectorAll('[data-blend-param]').forEach(input => {
     setBlendControl(input.dataset.blendParam, blendState[input.dataset.blendParam]);
     input.addEventListener('input', () => {
         const key = input.dataset.blendParam;
-        const value = blendValues[key][+input.value];
+        const value = blendSetValues()[key][+input.value];
         setBlendControl(key, value);
         // Only Min <= Max was generated: dragging one blend past the other drags the other along.
         if (key === 'minBlend' && value > blendState.maxBlend) setBlendControl('maxBlend', value);
@@ -3523,7 +3562,7 @@ for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['atta
             const value = Number(field.value);
             if (field.value === '' || !Number.isFinite(value)) { slider.dispatchEvent(new Event('input')); return; }
             if (outputAttr === 'param-output' || outputAttr === 'attach-output' || outputAttr === 'attach1-output' || outputAttr === 'blend-output') {
-                const values = outputAttr === 'param-output' ? parameterValues[key] : outputAttr === 'attach-output' ? attachmentValues[key] : outputAttr === 'attach1-output' ? attachmentOneValues[key] : blendValues[key];
+                const values = outputAttr === 'param-output' ? parameterValues[key] : outputAttr === 'attach-output' ? attachmentValues[key] : outputAttr === 'attach1-output' ? attachmentOneValues[key] : blendSetValues()[key];
                 slider.value = values.reduce((best, v, i) => Math.abs(v-value) < Math.abs(values[best]-value) ? i : best, 0);
             } else slider.value = Math.round(Math.max(+slider.min, Math.min(+slider.max, value)));
             slider.dispatchEvent(new Event('input'));

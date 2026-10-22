@@ -30,6 +30,22 @@ export const BREEDS = [
             label: 'Ollie · Socket surface (low)', category: 'socket', variation: 3, surfaceSet: 'low',
         }],
     },
+    {
+        // The 10-21 wheelchair case. Its scan, its two interfaces and its 274 blend sockets were all
+        // generated together in the 0.95-scaled nTop frame, so this case is stored in that frame and
+        // keeps to itself: the 10-15 sweeps above do not fit it and its sockets do not fit them.
+        // Its attachment surface has not been exported yet, so the case cannot be completed in the
+        // browser until it arrives.
+        slug: 'chi-wc', label: 'Chihuahua (wheelchair)', units: 'm',
+        // Its solid animal has not been exported yet: the drop carried the surface twice. Until
+        // it arrives this case cannot be completed in the browser, so the surface stands alone.
+        blendSet: 'wheelchair',
+        surfaces: [{
+            name: 'chihuahua-wc-attachment-surface.glb', file: 'sample-models/chi-wc-surface.glb',
+            preview: 'chi-wc-surface.glb', bytes: 143176,
+            label: 'Chihuahua wheelchair · Socket surface', category: 'socket', variation: 1, surfaceSet: 'high',
+        }],
+    },
 ];
 
 export const CATEGORIES = { farback: 'Far back', forward: 'Forward', leghole: 'Leg hole', toolow: 'Too low' };
@@ -52,19 +68,21 @@ function file(name, role, bytes, preview, realFile, extra = {}) {
 
 export const FS = folder('Give a Paw', [
     folder('Animals', BREEDS.map(breed => folder(breed.label, [
-        file(breed.solidName, 'solidAnimal', breed.solidBytes, breed.solidPreview, breed.solidFile,
-            { label: breed.label + ' scan', note: breed.note, breed: breed.slug, units: breed.units }),
+        ...(breed.solidFile ? [file(breed.solidName, 'solidAnimal', breed.solidBytes, breed.solidPreview, breed.solidFile,
+            { label: breed.label + ' scan', note: breed.note, breed: breed.slug, units: breed.units, blendSet: breed.blendSet })] : []),
         ...breed.surfaces.map(surface => file(
             surface.name, 'attachment', surface.bytes, surface.preview, surface.file,
-            { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, surfaceSet: surface.surfaceSet, units: breed.units },
+            { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, surfaceSet: surface.surfaceSet, units: breed.units, blendSet: breed.blendSet },
         )),
     ]))),
     folder('Interfaces', [
         folder('Mechanical', [
+            file('wheelchair-mechanical-interface.stl', 'mechanical', 116284, 'wheelchair-mechanical.glb', 'sample-models/interfaces/wheelchair-mechanical.stl', { label: 'Wheelchair Mechanical Interface', sizeClass: 'wheelchair' }),
             file('small-mechanical-interface.stl', 'mechanical', 87584, 'small-mechanical.glb', 'sample-models/interfaces/small-mechanical.stl', { label: 'Small Mechanical Interface', sizeClass: 'small' }),
             file('large-mechanical-interface.glb', 'mechanical', 37832, 'large-mechanical.glb', 'billie-mechanical-interface.glb', { label: 'Large Mechanical Interface', sizeClass: 'large' }),
         ]),
         folder('Solid', [
+            file('wheelchair-solid-interface.stl', 'solidInterface', 684, 'wheelchair-solid.glb', 'sample-models/interfaces/wheelchair-solid.stl', { label: 'Wheelchair Solid Interface', sizeClass: 'wheelchair' }),
             file('small-solid-interface.stl', 'solidInterface', 23784, 'small-solid.glb', 'sample-models/interfaces/small-solid.stl', { label: 'Small Solid Interface', sizeClass: 'small' }),
             file('large-solid-interface.stl', 'solidInterface', 14884, 'large-solid.glb', 'billie-solid-interface.stl', { label: 'Large Solid Interface', sizeClass: 'large' }),
         ]),
