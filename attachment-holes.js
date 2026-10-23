@@ -100,7 +100,13 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     // opaque clearer would fire before the grid and wipe the animal from behind it too.
     const SURFACE_ORDER = 25;
     function showSurfaceOverAnimal() {
-        surface.traverse(child => { if (child.isMesh) child.renderOrder = SURFACE_ORDER; });
+        surface.traverse(child => {
+            if (!child.isMesh) return;
+            child.renderOrder = SURFACE_ORDER;
+            // See the note in socket-walkthrough-sample.js: with the depth buffer cleared, a
+            // see-through surface that does not write depth cannot sort its own faces.
+            if (child.material) child.material.depthWrite = true;
+        });
         if (surface.children.some(child => child.userData.depthClearer)) return;
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));

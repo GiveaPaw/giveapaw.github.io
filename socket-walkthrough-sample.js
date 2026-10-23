@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=16';
+import { createAttachmentHoles } from './attachment-holes.js?v=17';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
 import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=10';
@@ -451,7 +451,16 @@ function depthClearer(renderOrder) {
 
 // Put a surface over whatever has been drawn so far, keeping its own shading.
 function showOverTheBody(group, renderOrder = SURFACE_ORDER) {
-    group.traverse(child => { if (child.isMesh) child.renderOrder = renderOrder; });
+    group.traverse(child => {
+        if (!child.isMesh) return;
+        child.renderOrder = renderOrder;
+        // It has to write depth even though it is see-through. Once the buffer is cleared there is
+        // nothing left to sort these triangles against each other, and a surface that curves right
+        // round, as the wheelchair cut does, draws its near and far faces in whatever order they
+        // happen to come in: the speckled mess. The flatter cuts barely show it, which is why this
+        // only looked broken on one case.
+        if (child.material) child.material.depthWrite = true;
+    });
     if (!group.children.some(child => child.userData.depthClearer)) {
         const clearer = depthClearer(renderOrder - 1);
         clearer.userData.depthClearer = true;
@@ -488,7 +497,11 @@ function prepareObject(object, layer) {
             opacity: layer.opacity,
             depthWrite: layer.opacity >= 1,
             side: THREE.DoubleSide,
-            ...(layer.role === 'solidAnimal' ? BEHIND : layer.role === 'attachment' ? IN_FRONT : {}),
+            // The solid interface is the mechanical one's solid, so the two share faces wherever they
+            // are both shown. Settling that tie behind the mechanical part keeps the detailed one
+            // readable instead of the pair speckling against each other.
+            ...(layer.role === 'solidAnimal' || layer.role === 'solidInterface' ? BEHIND
+                : layer.role === 'attachment' ? IN_FRONT : {}),
         });
         child.castShadow = layer.opacity >= 0.8;
         child.receiveShadow = true;
@@ -841,8 +854,8 @@ const planeState = { pick: [1, 2, 1], normal: [0, -1, 0] };
 // Ollie's answers. Both planes start scrambled away from these, every time the page loads, so the
 // student always has to find them; the comparison in Step 6 measures against them.
 const SOLUTION = {
-    pelvicPlane: { pick: [2, 1, 1], normal: [-1, 0, 0] },
-    interfacePlane: { pick: [1, 1, 0], normal: [0, 0, 1] },
+    pelvicPlane: { pick: [1, 2, 1], normal: [0, -1, 0] },
+    interfacePlane: { pick: [1, 1, 2], normal: [0, 0, -1] },
     interfacePosition: [-161.21, 146.38, 138.71],
     orientation: { lateral: -70, medial: -61, rotation: -180 },
     socket: { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 32 },
@@ -1994,6 +2007,9 @@ function updateInterfaceOrientation() {
         pelvicPlane.normal,
         -interfacePositionState.clone().sub(pelvicPlane.point).dot(pelvicPlane.normal),
     );
+    // Where the interface position lands on the pelvic plane, as a direction from the plane's own
+    // point. It lies in the plane, and the wheelchair type turns lateral about it.
+    const towardProjected = projectedTarget.clone().sub(pelvicPlane.point).normalize();
     const targetX = tangentDirection(projectedTarget.sub(pelvicPlane.point), targetNormal);
     const targetY = targetNormal.clone().cross(targetX).normalize();
     const sourceX = tangentDirection(pelvicPlane.normal, interfacePlane.normal);
@@ -2002,25 +2018,33 @@ function updateInterfaceOrientation() {
         .multiply(basisQuaternion(sourceX, sourceY, interfacePlane.normal).invert());
 
     const toRadians = THREE.MathUtils.degToRad;
-    // Lateral and the interface rotation turn about the same axes either way. Wheelchair changes
-    // only the medial axis: it turns about the lateral axis crossed with the surface normal at the
-    // interface position, rather than about that normal itself.
+    // The interface rotation turns about the solid interface's own field gradient in both types; a
+    // mesh surface normal is the discrete equivalent of that gradient.
+    const sourceGradient = closestSurfacePoint(interfacePlane.point, solidInterfaceTriangles, solidInterfaceBounds).normal;
     const wheelchair = interfaceType === 'wheelchair';
-    const lateralAxis = targetY;
+
+    // Tripod: lateral about the in-plane axis across the body, medial about the surface normal.
+    // Wheelchair: lateral about the interface position projected onto the pelvic plane, and medial
+    // about that crossed with the rotation axis.
+    //
+    // The rotation axis used for that cross product is the gradient carried through the base
+    // orientation only. Carrying it through lateral and medial as well, which is what the final
+    // spin axis uses, would need the medial axis before it could be worked out: medial would depend
+    // on itself. Taking it from the base settles it and leaves the spin itself unchanged.
+    const lateralAxis = wheelchair ? towardProjected : targetY;
+    const baseRotationAxis = sourceGradient.clone().applyQuaternion(base).normalize();
     const medialAxis = wheelchair
-        ? lateralAxis.clone().cross(targetNormal).normalize()
+        ? baseRotationAxis.clone().cross(lateralAxis).normalize()
         : targetNormal;
     const lateral = new THREE.Quaternion().setFromAxisAngle(lateralAxis, toRadians(orientationState.lateral));
     const medial = new THREE.Quaternion().setFromAxisAngle(medialAxis, toRadians(orientationState.medial));
     const preSpinQuaternion = medial.multiply(lateral).multiply(base).normalize();
 
-    // Both types spin about the solid interface's own field gradient, carried through the turns
-    // above; a mesh surface normal is the discrete equivalent of that gradient.
-    const sourceGradient = closestSurfacePoint(interfacePlane.point, solidInterfaceTriangles, solidInterfaceBounds).normal;
-    const spinAxis = sourceGradient.applyQuaternion(preSpinQuaternion).normalize();
+    const spinAxis = sourceGradient.clone().applyQuaternion(preSpinQuaternion).normalize();
     const interfaceSpin = new THREE.Quaternion().setFromAxisAngle(spinAxis, toRadians(orientationState.rotation));
     lastInterfaceAxes = { type: interfaceType, lateral: lateralAxis.toArray(), medial: medialAxis.toArray(),
-                          spin: spinAxis.toArray(), normal: targetNormal.toArray() };
+                          spin: spinAxis.toArray(), normal: targetNormal.toArray(),
+                          projected: towardProjected.toArray(), rotation: baseRotationAxis.toArray() };
     const finalQuaternion = interfaceSpin.multiply(preSpinQuaternion).normalize();
     const adjustedTarget = interfacePositionState.clone().add(new THREE.Vector3(...orientationState.adjust).multiplyScalar(0.001));
 
