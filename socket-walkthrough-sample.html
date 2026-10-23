@@ -508,17 +508,17 @@
                                 </label>
                                 <label class="workflow-param-row" data-sweep-group="density">
                                     <span class="ntop-scalar" aria-hidden="true">123</span><span>Lattice Point Density</span>
-                                    <input type="range" min="0" max="31" value="18" step="1" data-socket-param="pointDensity" aria-label="Lattice point density model">
-                                    <input type="number" step="any" class="workflow-number" data-param-output="pointDensity" value="35"><small></small>
+                                    <input type="range" min="0" max="21" value="7" step="1" data-socket-param="pointDensity" aria-label="Lattice point density model">
+                                    <input type="number" step="any" class="workflow-number" data-param-output="pointDensity" value="32"><small></small>
                                 </label>
-                                <label class="workflow-type-row"><i data-lucide="list" aria-hidden="true"></i><span>Spatial Weight Type</span><select data-socket-choice="spatialWeightType" aria-label="Spatial weight type"><option value="2-curves">2 Curves</option><option value="point-curve" selected>Point &amp; Curve</option></select></label>
+                                <label class="workflow-type-row"><i data-lucide="list" aria-hidden="true"></i><span>Spatial Weight Type</span><select data-socket-choice="spatialWeightType" aria-label="Spatial weight type"><option value="2-curves" selected>2 Curves</option><option value="point-curve">Point &amp; Curve</option></select></label>
                                 <label class="workflow-type-row"><i data-lucide="list" aria-hidden="true"></i><span>Continuity</span><select data-socket-choice="continuity" aria-label="Continuity"><option value="g0" selected>Geometric (G0)</option><option value="g1">Tangent (G1)</option><option value="g2">Curvature (G2)</option></select></label>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Interface Position</span><output class="workflow-chip is-plain">Interface Position</output></div>
                                 <div class="workflow-source-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attach Surface</span><output class="workflow-chip is-mesh">Scaled Attachment Surface Mesh</output></div>
                             </div>
                             <p class="workflow-sweep-note" id="socket-choice-note" hidden></p>
                             <p class="workflow-slot-note"><span data-slot-status>Loading nTop-generated parameter models</span></p>
-                            <p class="workflow-sweep-note">Min and max thickness are swept together (weighting 0.6, 35 points); weighting and point density are swept together (thickness 6 to 12 mm). Moving one pair puts the other back at those values.</p>
+                            <p class="workflow-sweep-note">Min and max thickness are swept together, Min up to Max (weighting 0.6, 32 points); weighting and point density are swept together (thickness 6 to 12 mm). Moving one pair puts the other back at those values. Spatial Weight Type switches between the two generated sets (the wheelchair case has Point &amp; Curve only).</p>
                         </div>
                         <div class="workflow-step-actions">
                             <button type="button" class="workflow-back" data-go-step="2d"><i data-lucide="arrow-up" aria-hidden="true"></i> Position interface</button>
@@ -602,9 +602,9 @@
                                 <span class="workflow-valid"><i data-lucide="circle-check" aria-hidden="true"></i> Ready</span>
                             </div>
                             <div class="workflow-parameter-fields">
-                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Min Blend</span><input type="range" min="0" max="24" value="0" step="1" data-blend-param="minBlend" aria-label="Minimum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="minBlend" value="0"><small>mm</small></label>
-                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Max Blend</span><input type="range" min="0" max="24" value="4" step="1" data-blend-param="maxBlend" aria-label="Maximum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="maxBlend" value="20"><small>mm</small></label>
-                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Connector Blend</span><input type="range" min="0" max="15" value="5" step="1" data-blend-param="connectorRadius" aria-label="Connector blend radius model"><input type="number" step="any" class="workflow-number" data-blend-output="connectorRadius" value="5"><small>mm</small></label>
+                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Min Blend</span><input type="range" min="0" max="12" value="1" step="1" data-blend-param="minBlend" aria-label="Minimum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="minBlend" value="5"><small>mm</small></label>
+                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Max Blend</span><input type="range" min="0" max="12" value="9" step="1" data-blend-param="maxBlend" aria-label="Maximum blend model"><input type="number" step="any" class="workflow-number" data-blend-output="maxBlend" value="45"><small>mm</small></label>
+                                <label class="workflow-param-row"><span class="ntop-scalar" aria-hidden="true">0.1</span><span>Connector Blend</span><input type="range" min="0" max="30" value="8" step="1" data-blend-param="connectorRadius" aria-label="Connector blend radius model"><input type="number" step="any" class="workflow-number" data-blend-output="connectorRadius" value="8"><small>mm</small></label>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Max Blend Point</span><output class="workflow-chip is-plain">Max Blend Point</output></div>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Min Blend Point</span><output class="workflow-chip is-plain">Min Blend Point</output></div>
                                 <details class="workflow-mesh-list is-implicit">
@@ -617,7 +617,7 @@
                                 <div class="workflow-source-row workflow-source-row-toggle"><span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span><span>Socket</span><output class="workflow-chip">Socket</output><button class="workflow-visibility-toggle active" type="button" data-interface-layer="socket" aria-label="Hide socket lattice" title="Show or hide the blended socket"><span class="workflow-visibility-dot" aria-hidden="true"></span></button></div>
                             </div>
                             <p class="workflow-slot-note"><span data-blend-status>Loading the blended socket</span></p>
-                            <p class="workflow-sweep-note">Min and Max Blend are swept together (connector radius 5); the connector radius is swept on its own (blend 0 to 20). Moving one puts the other back at those values. The model is nTop&rsquo;s final socket: the lattice blended into the interface.</p>
+                            <p class="workflow-sweep-note">Min and Max Blend are swept together, Min up to Max (connector blend 8); the connector blend is swept on its own (blend 5 to 45). Moving one puts the other back at those values. There is a four-connector and a six-connector version of each, following the attachment points from Step 4a. The model is nTop&rsquo;s final socket: the lattice blended into the interface.</p>
                         </div>
                         <div class="workflow-step-actions"><button type="button" class="workflow-back" data-go-step="4b"><i data-lucide="arrow-up" aria-hidden="true"></i> Hole parameters</button><button type="button" class="workflow-next" data-go-step="6">Export <i data-lucide="arrow-down" aria-hidden="true"></i></button></div>
                     </section>
@@ -799,7 +799,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=103"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=105"></script>
     <script type="module" src="walkthrough-grading.js?v=10"></script>
 </body>
 </html>

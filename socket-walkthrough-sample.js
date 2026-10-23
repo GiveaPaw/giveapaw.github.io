@@ -182,9 +182,8 @@ const importSelection = {
 const IMPORT_ROLE_KEYS = ['solidAnimal', 'attachment', 'mechanical', 'solidInterface'];
 const importedCount = () => IMPORT_ROLE_KEYS.filter(role => importSelection[role]).length;
 const importsReady = () => importedCount() === IMPORT_ROLE_KEYS.length;
-// Which attachment surface was imported decides where the sockets come from: the high surface keeps the
-// original 10-15 sets (chi-socket, chi-final), the low and standard surfaces have their own (-low, -standard).
-const surfaceSetSuffix = () => { const set = importSelection.attachment?.surfaceSet; return set && set !== 'high' ? `-${set}` : ''; };
+// Which case was imported decides where the sockets come from (socketSetDir, blendSetDir): Ollie's 10-22
+// sets were generated on the Low surface; the wheelchair case has its own.
 
 const pelvicBody = new THREE.Group();
 const pelvicAttach = new THREE.Group();
@@ -214,7 +213,7 @@ const orientedAssembly = new THREE.Group();
 const interfaceMechanical = new THREE.Group();
 const interfaceSolid = new THREE.Group();
 const interfaceOverlayRoot = new THREE.Group();
-const finalSocketRoot = new THREE.Group(); // Step 5's blended socket (sample-models/chi-final)
+const finalSocketRoot = new THREE.Group(); // Step 5's blended socket (see blendSetDir)
 finalSocketRoot.name = 'final-socket';
 orientedAssembly.add(interfaceMechanical, interfaceSolid);
 interfaceRoot.add(interfaceAnimal, interfaceReferenceMechanical, orientedAssembly, interfaceOverlayRoot, finalSocketRoot);
@@ -367,6 +366,35 @@ const UNIT_TO_METERS = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 };
 // Step 1 "Scale Factor": the nTop Imports block scales the animal scan (not the interfaces) by it.
 let scaleFactor = 0.95; // the 10-13 notebook's value; the 10-15 socket sweeps were run at it
 
+// Step 1 only. The interfaces are modelled about the origin, which sits inside the animal, so on
+// their own they would be hidden inside it the moment they were switched on. They are stood in a row
+// beside the animal instead, on the same ground, in the order they appear in the block.
+function layoutImportPreview() {
+    const animal = layers.solidAnimal;
+    ['mechanical', 'solidInterface'].forEach(key => layers[key].group.position.set(0, 0, 0));
+    if (!animal.group.children.length) return;
+    animal.group.updateMatrixWorld(true);
+    const animalBox = new THREE.Box3().setFromObject(animal.group);
+    if (animalBox.isEmpty()) return;
+    const gap = Math.max(animalBox.getSize(new THREE.Vector3()).x * 0.08, 0.02);
+    let x = animalBox.max.x + gap;
+    ['mechanical', 'solidInterface'].forEach(key => {
+        const group = layers[key].group;
+        if (!group.children.length) return;
+        group.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(group);
+        if (box.isEmpty()) return;
+        const size = box.getSize(new THREE.Vector3());
+        group.position.set(
+            x - box.min.x,
+            animalBox.getCenter(new THREE.Vector3()).y - box.getCenter(new THREE.Vector3()).y,
+            animalBox.min.z - box.min.z,            // standing on the same ground as the animal
+        );
+        x += size.x + gap;
+        group.updateMatrixWorld(true);
+    });
+}
+
 function applyImportUnitScale(layer) {
     const base = UNIT_TO_METERS[layer.baseUnit] || 1;
     const selected = UNIT_TO_METERS[layer.importUnit] || base;
@@ -397,8 +425,12 @@ const SURFACE_ORDER = 25;
 function depthClearer(renderOrder) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+    // transparent on purpose. three.js draws every opaque object before any transparent one, so an
+    // opaque clearer would fire at the end of the opaque pass and wipe the body's depth before the
+    // grid and the plane are drawn: they would then show straight through the animal. In the
+    // transparent pass it fires after them and before the surface, which is the only gap wanted.
     const clearer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        colorWrite: false, depthWrite: false, depthTest: false,
+        colorWrite: false, depthWrite: false, depthTest: false, transparent: true, opacity: 0,
     }));
     clearer.frustumCulled = false;
     clearer.renderOrder = renderOrder;
@@ -539,49 +571,76 @@ function preparePelvic(gltf, target, materialConfig) {
     target.add(object);
 }
 
-// Step 3 sockets come from two nTop sweeps on the 10-15 Chihuahua (tools/convert_chi_socket_sweeps.py):
-// the thickness pair (min x max, 0..20 mm each) at weighting 0.6 / 35 points, and the density pair
-// (weighting 0..1 x point density 1..60) at thickness 6 / 12. Moving a slider in one pair puts the other
-// pair back at those baseline values, because that is the only combination that was generated.
-const socketParameterState = { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 35 };
+// Step 3 sockets come from the 10-22 nTop sweeps (tools/convert_1022_sweeps.py), one set per case and
+// Spatial Weight Type: the thickness pair (Min <= Max, 0..20 mm each) at weighting 0.6 / 32 points, and
+// the density pair (weighting 0..1 x point density 1, 5..100) at thickness 6 / 12. Moving a slider in one
+// pair puts the other pair back at those baseline values, because that is the only combination that was
+// generated. 32 is the notebook's own density, so it is on the slider even though the density sweep
+// steps by 5: at weighting 0.6 it is the thickness sweep's 6 / 12 socket, elsewhere it falls to 30.
+const socketParameterState = { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 32 };
 const parameterValues = {
     minThickness: Array.from({ length: 21 }, (_, index) => index),
     maxThickness: Array.from({ length: 21 }, (_, index) => index),
     spatialWeighting: Array.from({ length: 11 }, (_, index) => index / 10),
-    pointDensity: [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 35, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60],
+    pointDensity: [1, 5, 10, 15, 20, 25, 30, 32, ...Array.from({ length: 14 }, (_, index) => 35 + index * 5)],
 };
-const socketParameterDefaults = { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 35 };
+const socketParameterDefaults = { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 32 };
 const SWEEP_GROUPS = { thickness: ['minThickness', 'maxThickness'], density: ['spatialWeighting', 'pointDensity'] };
 const sweepGroupOf = key => Object.keys(SWEEP_GROUPS).find(group => SWEEP_GROUPS[group].includes(key));
 // The value the student last chose on each Step 3 slider and which ones they changed. Read by the expert grading panel.
 const socketParameterChoices = { ...socketParameterDefaults };
 
-// CB - Socket Lattice v1.0.11 added two menus. The sweeps on the site were all generated at Point &
-// Curve with Geometric (G0), so the preview stays on those while the student explores the rest; the
-// choice is still recorded, ready for the models that answer to it.
-const socketChoiceDefaults = { spatialWeightType: 'point-curve', continuity: 'g0' };
+// CB - Socket Lattice v1.0.11 added two menus. Spatial Weight Type was swept: Ollie in both types, the
+// wheelchair case in Point & Curve only (its notebook errors on 2 Curves). Continuity was only run at
+// Geometric (G0), so other continuities are recorded for grading while the preview stays on G0.
+// Each case starts on the type its notebook was saved with.
+const socketChoiceDefaults = { spatialWeightType: '2-curves', continuity: 'g0' };
 const socketChoiceState = { ...socketChoiceDefaults };
 const SOCKET_CHOICE_LABEL = {
     spatialWeightType: { '2-curves': '2 Curves', 'point-curve': 'Point & Curve' },
     continuity: { g0: 'Geometric (G0)', g1: 'Tangent (G1)', g2: 'Curvature (G2)' },
 };
+const isWheelchairCase = () => importSelection.solidAnimal?.blendSet === 'wheelchair'
+    || importSelection.attachment?.blendSet === 'wheelchair';
+const caseSpatialWeightTypes = () => (isWheelchairCase() ? ['point-curve'] : ['2-curves', 'point-curve']);
+const caseSpatialWeightDefault = () => (isWheelchairCase() ? 'point-curve' : '2-curves');
+// The folder of Step 3 sockets for the case and the chosen Spatial Weight Type.
+function socketSetDir() {
+    const type = socketChoiceState.spatialWeightType === 'point-curve' ? 'pc' : '2c';
+    return isWheelchairCase() ? 'sample-models/chi-wc-socket-1022/pc' : `sample-models/ollie-socket-1022/${type}`;
+}
 
 function syncSocketChoiceNote() {
     const note = document.getElementById('socket-choice-note');
     if (!note) return;
-    const off = Object.keys(socketChoiceState).filter(key => socketChoiceState[key] !== socketChoiceDefaults[key]);
-    note.hidden = !off.length;
-    if (!off.length) return;
-    const named = off.map(key => SOCKET_CHOICE_LABEL[key][socketChoiceState[key]]).join(' and ');
-    note.textContent = `The socket on screen is still the generated sweep, which was run at Point & Curve with Geometric (G0). ${named} is recorded, but no mesh for it is on the site yet.`;
+    const off = socketChoiceState.continuity !== socketChoiceDefaults.continuity;
+    note.hidden = !off;
+    if (!off) return;
+    note.textContent = `The socket on screen is the generated sweep, which was run with Geometric (G0) continuity. ${SOCKET_CHOICE_LABEL.continuity[socketChoiceState.continuity]} is recorded, but no mesh for it is on the site yet.`;
+}
+
+// Offer only the types the case was generated in, and move to the case's own type when the case changes.
+function syncSpatialWeightTypeChoices({ resetToDefault = false } = {}) {
+    const select = document.querySelector('[data-socket-choice="spatialWeightType"]');
+    if (!select) return;
+    const allowed = caseSpatialWeightTypes();
+    [...select.options].forEach(option => {
+        option.disabled = !allowed.includes(option.value);
+        option.title = option.disabled ? 'Not generated for this case: its notebook errors on 2 Curves.' : '';
+    });
+    if (resetToDefault || !allowed.includes(socketChoiceState.spatialWeightType)) socketChoiceState.spatialWeightType = caseSpatialWeightDefault();
+    select.value = socketChoiceState.spatialWeightType;
 }
 
 document.querySelectorAll('[data-socket-choice]').forEach(select => {
     select.addEventListener('change', () => {
         socketChoiceState[select.dataset.socketChoice] = select.value;
         syncSocketChoiceNote();
+        // Spatial Weight Type picks a different generated set, so the socket in view changes with it.
+        if (select.dataset.socketChoice === 'spatialWeightType') loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
     });
 });
+syncSpatialWeightTypeChoices({ resetToDefault: true });
 const socketParameterTouched = new Set();
 const socketParameterModelMeta = {
     minThickness: { label: 'min lattice thickness', unit: ' mm' },
@@ -606,6 +665,7 @@ let activePelvicPlaneAxis = 1;
 
 function cloneImportForPelvic(key, target, materialConfig) {
     const clone = layers[key].group.clone(true);
+    clone.position.set(0, 0, 0);   // see cloneForInterface
     clone.traverse(child => {
         if (!child.isMesh) return;
         child.material = new THREE.MeshStandardMaterial({ dithering: true,
@@ -634,21 +694,23 @@ function clearPelvicOverlays() {
     boundsLines = null;
 }
 
-// The density sweep runs the point density at 1, 2, 4, 6 ... 60; the 35 baseline exists only at
-// weighting 0.6. Away from 0.6, 35 becomes 34 (the nearest generated value).
+// The density sweep runs the point density at 1, 5, 10 ... 100; the notebook's 32 only exists as the
+// thickness sweep's 6 / 12 socket at weighting 0.6. Away from 0.6, 32 becomes 30 (the nearest generated value).
+const isBaselineDensity = s => s.pointDensity === 32 && Math.abs(s.spatialWeighting - 0.6) < 1e-9;
 function resolveSweepState(state, group) {
     const resolved = { ...socketParameterDefaults, ...state };
-    if (group === 'density' && resolved.pointDensity === 35 && Math.abs(resolved.spatialWeighting - 0.6) > 1e-9) resolved.pointDensity = 34;
+    if (group === 'density' && resolved.pointDensity === 32 && !isBaselineDensity(resolved)) resolved.pointDensity = 30;
     return resolved;
 }
 
 // The socket for the current pair of values; the other pair is at its baseline.
 function socketModelFile(state = socketParameterState, group = sweepGroupOf(activeSocketParameter)) {
-    const pad = value => String(value).padStart(2, '0');
+    const pad = (value, width = 2) => String(value).padStart(width, '0');
     const s = resolveSweepState(state, group);
-    const dir = `sample-models/chi-socket${surfaceSetSuffix()}`;
+    const dir = socketSetDir();
     if (group === 'thickness') return `${dir}/t${pad(s.minThickness)}-${pad(s.maxThickness)}.glb`;
-    return `${dir}/w${pad(Math.round(s.spatialWeighting * 10))}-d${pad(s.pointDensity)}.glb`;
+    if (isBaselineDensity(s)) return `${dir}/t06-12.glb`;
+    return `${dir}/w${pad(Math.round(s.spatialWeighting * 10))}-d${pad(s.pointDensity, 3)}.glb`;
 }
 
 function socketParameterModelFile(key, value) {
@@ -722,7 +784,10 @@ async function loadSocketParameterModel(key, value) {
         const values = parameterValues[key];
         const index = values.indexOf(value);
         [index - 1, index + 1].forEach(next => {
-            if (next >= 0 && next < values.length) socketModelPromise(key, values[next]);
+            if (next < 0 || next >= values.length) return;
+            const candidate = { ...socketParameterState, [key]: values[next] };
+            if (candidate.minThickness > candidate.maxThickness) return;   // only Min <= Max was generated
+            socketModelPromise(key, values[next]).catch(() => {});
         });
     } catch (error) {
         if (request !== socketModelRequest) return;
@@ -1705,6 +1770,7 @@ function keepOverlayVisible(object, renderOrder = 30) {
 
 function cloneForInterface(layer) {
     const clone = layer.group.clone(true);
+    clone.position.set(0, 0, 0);   // the import preview stands it aside; here it belongs at its origin
     // Step 1 visibility belongs to the import preview. Interface stages own
     // their visibility independently and must not inherit a hidden source root.
     clone.visible = true;
@@ -2349,6 +2415,8 @@ async function loadImportSelection(role, entry) {
     const layer = layers[role];
     const previous = importSelection[role];
     importSelection[role] = entry;
+    // A different case has its own Spatial Weight Types (the wheelchair one only Point & Curve) and starts on its own.
+    if (role === 'solidAnimal' || role === 'attachment') syncSpatialWeightTypeChoices({ resetToDefault: previous?.breed !== entry?.breed });
     clearImportStage();
     syncImportPathLabels();
     loaderEl.hidden = false;
@@ -2377,6 +2445,7 @@ async function loadImportSelection(role, entry) {
         // A different case can mean a different blend sweep, with its own steps.
         if (role === 'solidAnimal' || role === 'attachment') syncBlendSliderRanges();
         if (role === 'attachment') showOverTheBody(layer.group);
+        layoutImportPreview();
         // There is nothing to turn around until a mesh is in, so the movement guide waits for the scan.
         // Not on requestAnimationFrame: a window that is not painting (another tab in front, a
         // phone with the page in the background) never runs those callbacks, and the guide would
@@ -2629,6 +2698,7 @@ function setScaleFactor(value, reframe = true) {
     }
     clearMeasurement();
     if (scaleDemoPivot) scaleDemoPivot.scale.setScalar(scaleFactor);
+    layoutImportPreview();   // the animal just changed size, so the row beside it moves
     syncPositionGizmo();
     syncScaleNote();
     if (scaleDemoOn) {
@@ -3006,9 +3076,13 @@ document.querySelectorAll('[data-socket-param]').forEach(input => {
         socketParameterTouched.add(key);
         resetSocketParametersForSweep(key);
         setSocketParameterControl(key, value);
+        // Only Min <= Max was generated: dragging one thickness past the other drags the other along.
+        if (key === 'minThickness' && value > socketParameterState.maxThickness) { setSocketParameterControl('maxThickness', value); socketParameterChoices.maxThickness = value; }
+        if (key === 'maxThickness' && value < socketParameterState.minThickness) { setSocketParameterControl('minThickness', value); socketParameterChoices.minThickness = value; }
         loadSocketParameterModel(key, value);
     };
     input.addEventListener('input', updateParameter);
+    input.max = String(parameterValues[input.dataset.socketParam].length - 1);
     setSocketParameterControl(input.dataset.socketParam, socketParameterDefaults[input.dataset.socketParam]);
 });
 
@@ -3424,33 +3498,22 @@ document.querySelectorAll('[data-attach-param]').forEach(input => {
     });
 });
 
-// ---- Step 5: the blended-socket sweep (10-15, tools/convert_chi_final_sweeps.py) --------------------
-// Min x Max Blend (0..120 by 5, only Min <= Max was generated) at connector radius 5, and connector
-// radius 0..15 at blend 0 / 20. Per surface set (see surfaceSetSuffix).
+// ---- Step 5: the blended-socket sweep (10-22, tools/convert_1022_sweeps.py) --------------------------
+// Both cases ran the same blend sweep on their own blend notebook: Min x Max Blend (0..60 by 5, only
+// Min <= Max) at connector blend 8, and connector blend 0..30 by 1 at min 5 / max 45, each in a
+// four-connector and a six-connector version. Which one is shown follows the number of attachment
+// points the student placed, because that is what feeds Attachments in the block. The blend notebooks
+// build on their own saved socket (6 / 12 / 0.6 / 32; Ollie 2 Curves, the wheelchair Point & Curve).
 const blendValues = {
-    minBlend: Array.from({ length: 25 }, (_, index) => index * 5),
-    maxBlend: Array.from({ length: 25 }, (_, index) => index * 5),
-    connectorRadius: Array.from({ length: 16 }, (_, index) => index),
+    minBlend: Array.from({ length: 13 }, (_, index) => index * 5),
+    maxBlend: Array.from({ length: 13 }, (_, index) => index * 5),
+    connectorRadius: Array.from({ length: 31 }, (_, index) => index),
 };
-const blendDefaults = { minBlend: 0, maxBlend: 20, connectorRadius: 5 };
-
-// The wheelchair case brought its own blend sweep (tools/convert_chi_wheelchair.py): a 0..50 by 5
-// grid of min against max at connector blend 5, and connector blend 0..30 at min 10 / max 50, each
-// in a four-connector and a six-connector version. Which one is shown follows the number of
-// attachment points the student placed, because that is what feeds Attachments in the block.
-const WHEELCHAIR_BLEND = {
-    dir: 'sample-models/chi-wc-blend',
-    values: {
-        minBlend: Array.from({ length: 11 }, (_, index) => index * 5),
-        maxBlend: Array.from({ length: 11 }, (_, index) => index * 5),
-        connectorRadius: [0, 2, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
-    },
-    defaults: { minBlend: 10, maxBlend: 50, connectorRadius: 5 },
-};
-const isWheelchairBlend = () => importSelection.solidAnimal?.blendSet === 'wheelchair'
-    || importSelection.attachment?.blendSet === 'wheelchair';
-const blendSetValues = () => (isWheelchairBlend() ? WHEELCHAIR_BLEND.values : blendValues);
-const blendSetDefaults = () => (isWheelchairBlend() ? WHEELCHAIR_BLEND.defaults : blendDefaults);
+const blendDefaults = { minBlend: 5, maxBlend: 45, connectorRadius: 8 };
+const isWheelchairBlend = isWheelchairCase;
+const blendSetDir = () => (isWheelchairBlend() ? 'sample-models/chi-wc-blend-1022' : 'sample-models/ollie-blend-1022');
+const blendSetValues = () => blendValues;
+const blendSetDefaults = () => blendDefaults;
 // Four or six connectors, from the points placed in Step 4a; anything above four reads as six.
 const blendConnectorCount = () => (attachmentHoles.getPoints().length > 4 ? 6 : 4);
 
@@ -3461,15 +3524,10 @@ let activeBlendParameter = 'maxBlend';
 let currentFinalFile = null;
 const finalModelPromises = new Map();
 let finalModelRequest = 0;
-function finalSocketFile(state, group) {
+function finalSocketFile(state) {
     const pad = value => String(value).padStart(2, '0');
-    if (isWheelchairBlend()) {
-        return `${WHEELCHAIR_BLEND.dir}/c${blendConnectorCount()}`
-            + `-lo${pad(state.minBlend)}-hi${pad(state.maxBlend)}-cb${pad(state.connectorRadius)}.glb`;
-    }
-    const dir = `sample-models/chi-final${surfaceSetSuffix()}`;
-    if (group === 'connector') return `${dir}/c${pad(state.connectorRadius)}.glb`;
-    return `${dir}/b${pad(state.minBlend)}-${pad(state.maxBlend)}.glb`;
+    return `${blendSetDir()}/c${blendConnectorCount()}`
+        + `-lo${pad(state.minBlend)}-hi${pad(state.maxBlend)}-cb${pad(state.connectorRadius)}.glb`;
 }
 function finalModelPromise(file) {
     if (!finalModelPromises.has(file)) {
