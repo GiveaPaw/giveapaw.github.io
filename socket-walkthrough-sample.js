@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=15';
+import { createAttachmentHoles } from './attachment-holes.js?v=16';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
 import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=10';
@@ -367,30 +367,41 @@ const UNIT_TO_METERS = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 };
 let scaleFactor = 0.95; // the 10-13 notebook's value; the 10-15 socket sweeps were run at it
 
 // Step 1 only. The interfaces are modelled about the origin, which sits inside the animal, so on
-// their own they would be hidden inside it the moment they were switched on. They are stood in a row
-// beside the animal instead, on the same ground, in the order they appear in the block.
+// their own they would be hidden inside it the moment they were switched on. Both are moved clear of
+// the animal by the same amount, which keeps them on top of each other exactly as they are modelled:
+// the solid interface is the mechanical one's solid, so toggling between the two has to compare like
+// with like. Moving them apart would make that comparison meaningless.
+const PREVIEW_INTERFACES = ['mechanical', 'solidInterface'];
+
 function layoutImportPreview() {
     const animal = layers.solidAnimal;
-    ['mechanical', 'solidInterface'].forEach(key => layers[key].group.position.set(0, 0, 0));
+    PREVIEW_INTERFACES.forEach(key => layers[key].group.position.set(0, 0, 0));
     if (!animal.group.children.length) return;
     animal.group.updateMatrixWorld(true);
     const animalBox = new THREE.Box3().setFromObject(animal.group);
     if (animalBox.isEmpty()) return;
-    const gap = Math.max(animalBox.getSize(new THREE.Vector3()).x * 0.08, 0.02);
-    let x = animalBox.max.x + gap;
-    ['mechanical', 'solidInterface'].forEach(key => {
+
+    // One box around both interfaces as they sit, so the shift that clears the animal is the same
+    // for each and whatever offset they have from one another is kept.
+    const together = new THREE.Box3();
+    PREVIEW_INTERFACES.forEach(key => {
         const group = layers[key].group;
         if (!group.children.length) return;
         group.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(group);
-        if (box.isEmpty()) return;
-        const size = box.getSize(new THREE.Vector3());
-        group.position.set(
-            x - box.min.x,
-            animalBox.getCenter(new THREE.Vector3()).y - box.getCenter(new THREE.Vector3()).y,
-            animalBox.min.z - box.min.z,            // standing on the same ground as the animal
-        );
-        x += size.x + gap;
+        together.union(new THREE.Box3().setFromObject(group));
+    });
+    if (together.isEmpty()) return;
+
+    const gap = Math.max(animalBox.getSize(new THREE.Vector3()).x * 0.08, 0.02);
+    const shift = new THREE.Vector3(
+        animalBox.max.x + gap - together.min.x,
+        animalBox.getCenter(new THREE.Vector3()).y - together.getCenter(new THREE.Vector3()).y,
+        animalBox.min.z - together.min.z,           // standing on the same ground as the animal
+    );
+    PREVIEW_INTERFACES.forEach(key => {
+        const group = layers[key].group;
+        if (!group.children.length) return;
+        group.position.copy(shift);
         group.updateMatrixWorld(true);
     });
 }
