@@ -472,7 +472,14 @@ function showOverTheBody(group, renderOrder = SURFACE_ORDER) {
         // every step change and every see-through toggle, and it undid this the moment a student
         // left Step 1; it now leaves these meshes' depth alone.
         child.userData.overTheBody = true;
-        if (child.material) child.material.depthWrite = true;
+        if (child.material) {
+            child.material.depthWrite = true;
+            // And it has to stay in the transparent pass whatever its opacity. The clearer lives
+            // there; an opaque surface is drawn in the opaque pass before the clearer runs, and is
+            // back to losing to the body. The see-through button sets the surface to 1, which is
+            // exactly how that happened.
+            child.material.transparent = true;
+        }
     });
     if (!group.children.some(child => child.userData.depthClearer)) {
         const clearer = depthClearer(renderOrder - 1);
@@ -2131,8 +2138,9 @@ function applyLayerAlphas(scope, stage) {
         layerAlphaTargets(scope, key).forEach(target => target.traverse(object => {
             if (!object.isMesh || !object.material || object.userData.fixedAlpha) return;
             object.material.opacity = value;
-            object.material.transparent = value < 0.99;
-            // A surface drawn over the body keeps writing depth whatever its opacity: see showOverTheBody.
+            // A surface drawn over the body stays in the transparent pass and keeps writing depth
+            // whatever its opacity: see showOverTheBody.
+            object.material.transparent = value < 0.99 || !!object.userData.overTheBody;
             object.material.depthWrite = value >= 0.99 || !!object.userData.overTheBody;
             object.material.needsUpdate = true;
         }));
