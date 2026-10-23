@@ -1,8 +1,9 @@
 """Bring the 10-21 Chihuahua wheelchair case onto the site: scan, surface, both interfaces, blend sockets.
 
-The surface, the interfaces and the 274 blend sockets all share one frame, the 0.95-scaled nTop frame
-the sockets were generated in, so they are stored exactly as exported rather than unscaled the
-way the 10-15 case is. Keeping the case in its own frame is what lets its sockets sit on it.
+The solid export is the raw scan; the surface and the 274 blend sockets are the post-factor 0.95
+meshes, scaled about the scan's bounding-box centre. The site keeps raw meshes for Step 1 and lets the
+student's factor scale body and surface together, so the surface is put back to raw on the way in and
+the sockets, which Step 5 shows in the post-factor frame, are left as they are.
 
     python tools/convert_chi_wheelchair.py             # meshes and sockets
     python tools/convert_chi_wheelchair.py --meshes    # just the surface and the interfaces
@@ -70,6 +71,19 @@ def meshes():
     mesh = trimesh.load(surface, force='mesh')
     if mesh.is_watertight:
         raise SystemExit('That file is watertight, so it is the solid, not the surface: check the drop.')
+    # The surface export is the post-factor mesh, scaled 0.95 about the scan's bounding-box centre;
+    # the solid export, whatever its name says, is the raw scan. The site stores raw meshes and lets
+    # Step 1's factor scale body and surface together, so the surface is put back to raw here. The
+    # sockets stay as they are: they are post-factor too, which is the frame Step 5 shows them in.
+    solid_raw = trimesh.load(SOLID_SRC, force='mesh')
+    pivot = solid_raw.bounds.mean(axis=0)
+    mesh.apply_translation(-pivot)
+    mesh.apply_scale(1 / 0.95)
+    mesh.apply_translation(pivot)
+    gap = abs(trimesh.proximity.signed_distance(solid_raw, mesh.vertices[::15]))
+    print(f'surface put back to raw: {gap.mean():.3f} mm mean, {gap.max():.2f} mm max off the solid skin')
+    if gap.mean() > 0.1:
+        raise SystemExit('The unscaled surface does not sit on the solid: the pivot or factor is wrong.')
     out = os.path.join(SITE, 'sample-models', 'chi-wc-surface.glb')
     write_glb(mesh, out, os.path.join(previews, 'chi-wc-surface.glb'))
     print(f'chi-wc-surface.glb: {len(mesh.faces)} faces, {os.path.getsize(out) / 1e6:.2f} MB')

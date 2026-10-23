@@ -31,9 +31,11 @@ export const BREEDS = [
         }],
     },
     {
-        // The 10-21 wheelchair case. Its scan, its two interfaces and its 274 blend sockets were all
-        // generated together in the 0.95-scaled nTop frame, so this case is stored in that frame and
-        // keeps to itself: the 10-15 sweeps above do not fit it and its sockets do not fit them.
+        // The 10-21 wheelchair case. Its scan and surface are stored raw, as Ollie's are, so Step 1's
+        // factor scales them together; the surface export was the post-factor mesh and was put back
+        // to raw on the way in (tools/convert_chi_wheelchair.py). Its 274 blend sockets are in the
+        // post-factor frame Step 5 shows them in. The case keeps to itself: the 10-15 sweeps above
+        // do not fit it and its sockets do not fit them.
         // Its attachment surface has not been exported yet, so the case cannot be completed in the
         // browser until it arrives.
         slug: 'chi-wc', label: 'Chihuahua (wheelchair)', units: 'm',
