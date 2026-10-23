@@ -10,139 +10,82 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="model-convert.css?v=2">
-    <link rel="stylesheet" href="convert.css?v=1">
-    <link rel="stylesheet" href="mesh-check.css?v=2">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="mesh-check.css?v=3">
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
-        }
-    }
+    { "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/" } }
     </script>
 </head>
-<body>
-    <header class="cv-top">
-        <div class="cv-top-title">
-            <a class="cv-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw"></a>
-            <div>
-                <span class="cv-eyebrow">Give a Paw · Tools</span>
-                <h1>Mesh check &amp; repair</h1>
-            </div>
+<body class="pm">
+    <header class="a-top">
+        <a class="pm-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw home"></a>
+        <div>
+            <h1>Mesh check &amp; repair</h1>
+            <p>Find and fix what stops a mesh working in nTop. Runs in your browser; nothing is uploaded.</p>
         </div>
-        <p class="cv-lead">Drop in a mesh and get a plain-English report of what is wrong with it, a 3D view that points at each problem, and a repaired file. It fixes the common things (split vertices, flipped and sliver triangles, small holes, inside-out shells, debris, overlapping bodies) and tells you exactly what it could not fix and why. Everything happens in your browser; nothing is uploaded. Need a web-ready GLB instead? Use the <a href="convert.html">model converter</a>.</p>
     </header>
 
-    <main class="cv-main">
-        <section class="cv-drop" id="mk-drop" tabindex="0" aria-label="Choose a mesh file">
-            <i data-lucide="stethoscope" aria-hidden="true"></i>
+    <main class="a-main">
+        <section class="a-drop" id="mk-drop" tabindex="0" aria-label="Choose a mesh file">
+            <span class="a-drop-icon"><i data-lucide="upload" aria-hidden="true"></i></span>
             <h2>Drop a mesh here</h2>
-            <p>STL, OBJ, 3MF or GLB, straight out of nTop, SolidWorks, Meshmixer, Blender or a scanner. Units and orientation are left exactly as they are in the file.</p>
-            <div class="cv-drop-actions">
-                <button type="button" class="mc-btn mc-primary" id="mk-choose"><i data-lucide="folder-open" aria-hidden="true"></i> Choose a file</button>
-                <button type="button" class="mc-btn" id="mk-sample" title="A real attachment surface from Ollie's project with split vertices and sliver triangles"><i data-lucide="sparkles" aria-hidden="true"></i> Try a sample</button>
+            <p>STL, OBJ, 3MF or GLB, from nTop, SolidWorks, Meshmixer, Blender or a scanner. Units and orientation stay exactly as they are.</p>
+            <div class="pm-row">
+                <button type="button" class="pm-btn pm-primary" id="mk-choose"><i data-lucide="folder-open" aria-hidden="true"></i> Choose a file</button>
+                <button type="button" class="pm-btn" id="mk-sample" title="A real attachment surface from Ollie's project with split vertices and sliver triangles"><i data-lucide="sparkles" aria-hidden="true"></i> Try a sample</button>
             </div>
             <input type="file" id="mk-file" accept=".stl,.obj,.3mf,.glb,.gltf" hidden>
         </section>
 
-        <section class="cv-work" id="mk-work" hidden>
-            <div class="cv-work-head">
-                <h2 id="mk-work-title">Check</h2>
-                <button type="button" class="mc-btn" id="mk-restart"><i data-lucide="rotate-ccw" aria-hidden="true"></i> Start over with another file</button>
+        <section class="a-work" id="mk-work" hidden>
+            <div class="a-file">
+                <span class="pm-file-icon"><i data-lucide="box" aria-hidden="true"></i></span>
+                <div class="a-file-text"><strong data-name></strong><small data-facts></small></div>
+                <button type="button" class="pm-btn pm-ghost" id="mk-restart"><i data-lucide="rotate-ccw" aria-hidden="true"></i> New file</button>
             </div>
-            <div class="mk-panel">
-                <div class="mk-side">
-                    <div class="mc-card mk-options">
-                        <h3><i data-lucide="sliders-horizontal" aria-hidden="true"></i> Repairs to apply</h3>
-                        <label class="mk-opt"><input type="checkbox" id="opt-holes" checked> Fill small holes</label>
-                        <label class="mk-opt"><input type="checkbox" id="opt-debris" checked> Remove loose debris</label>
-                        <label class="mk-opt"><input type="checkbox" id="opt-union" checked> Merge overlapping shells (Boolean union)</label>
-                        <label class="mk-opt mk-opt-select"><span>Look for self-intersections</span>
-                            <select id="opt-intersect">
-                                <option value="20" selected>up to 20 s</option>
-                                <option value="60">up to 60 s</option>
-                                <option value="180">up to 3 min</option>
-                                <option value="off">off</option>
-                            </select>
-                        </label>
-                        <button type="button" class="mc-btn" id="mk-rerun"><i data-lucide="refresh-cw" aria-hidden="true"></i> Run again with these settings</button>
-                    </div>
-                    <div class="mk-progress" id="mk-progress" hidden>
-                        <div class="mk-bar-track"><div class="mk-bar" id="mk-bar"></div></div>
+            <div class="a-grid">
+                <div class="a-col">
+                    <div class="pm-progress" id="mk-progress" role="status" hidden>
+                        <div class="pm-track"><div class="pm-bar" id="mk-bar"></div></div>
                         <p id="mk-msg">Starting</p>
                     </div>
-                    <div class="mk-report" id="mk-report" hidden></div>
-                    <div class="mk-actions" id="mk-actions" hidden>
-                        <button type="button" class="mc-btn mc-gold" id="mk-stl"><i data-lucide="download" aria-hidden="true"></i> Download repaired STL</button>
-                        <button type="button" class="mc-btn" id="mk-obj"><i data-lucide="download" aria-hidden="true"></i> Download as OBJ</button>
-                        <button type="button" class="mc-btn" id="mk-copy"><i data-lucide="clipboard-copy" aria-hidden="true"></i> Copy report</button>
-                        <small>The repaired file keeps the original units and orientation. Binary STL is what nTop, PrusaSlicer and Bambu Studio read most reliably.</small>
-                    </div>
-                </div>
-                <div class="mk-view">
-                    <div class="mk-view-bar">
-                        <div class="mk-seg" role="group" aria-label="Which mesh to show">
-                            <button type="button" id="mk-view-before">Original</button>
-                            <button type="button" id="mk-view-after" class="active">Repaired</button>
+                    <div id="mk-result" class="a-result" aria-live="polite" hidden></div>
+                    <details class="a-settings" id="mk-settings" data-needs-result hidden>
+                        <summary><i data-lucide="sliders-horizontal" aria-hidden="true"></i> Repair settings</summary>
+                        <div class="pm-settings">
+                            <label><input type="checkbox" id="opt-holes" checked> Fill small holes</label>
+                            <label><input type="checkbox" id="opt-debris" checked> Remove loose debris</label>
+                            <label><input type="checkbox" id="opt-union" checked> Merge overlapping shells (Boolean union)</label>
+                            <label class="pm-select">Self-intersection check
+                                <select id="opt-intersect"><option value="20" selected>up to 20 s</option><option value="60">up to 60 s</option><option value="180">up to 3 min</option><option value="off">off</option></select>
+                            </label>
+                            <button type="button" class="pm-btn" id="mk-rerun"><i data-lucide="refresh-cw" aria-hidden="true"></i> Run again</button>
                         </div>
-                        <span class="mk-legend"><span class="mk-swatch" style="background:#b9c2cc"></span> outside <span class="mk-swatch" style="background:#e7a0b4"></span> inside (back faces)</span>
+                    </details>
+                </div>
+                <div class="a-view">
+                    <div class="pm-viewbar">
+                        <div class="pm-seg" role="group" aria-label="Which mesh to show">
+                            <button type="button" id="mk-view-before" aria-pressed="false">Original</button>
+                            <button type="button" id="mk-view-after" class="active" aria-pressed="true">Repaired</button>
+                        </div>
+                        <button type="button" class="pm-link" data-reset-view hidden>Show the whole model</button>
                     </div>
-                    <div class="mk-stage" id="mk-stage"></div>
-                    <p class="mk-view-hint">Drag to orbit, right-drag to pan, scroll to zoom. Pink areas are back faces: flipped triangles, or the inside of an open surface. Tick "Show in 3D" on a finding to see where it is.</p>
+                    <div class="pm-stage" id="mk-stage"></div>
+                    <p class="pm-hint">Drag to turn, scroll to zoom. Pink is the back of a surface.</p>
                 </div>
             </div>
         </section>
 
-        <section class="cv-help">
-            <h2>Common mesh problems, and what they do to you</h2>
-            <p class="mk-intro">Almost every "nTop will not import my mesh", "Remesh fails", "the quad mesh looks like spaghetti" and "the print has gaps" comes down to one of these. The checker runs them in this order, because each one needs the earlier ones cleaned up first.</p>
-            <div class="cv-help-grid mk-ref">
-                <article>
-                    <h3><i data-lucide="git-merge" aria-hidden="true"></i> Split vertices &amp; pinholes</h3>
-                    <p>Two triangles meet at a corner but store it twice, a hair apart. Looks closed, is not. <strong>Symptom:</strong> "mesh is not closed", zero-area triangles after remeshing. <strong>Cause:</strong> exports from CAD at loose tolerance, stitching surfaces by hand. <strong>Fix:</strong> weld vertices within a tolerance; done here automatically.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="triangle-alert" aria-hidden="true"></i> Degenerate &amp; duplicate triangles</h3>
-                    <p>Triangles with zero area, or the same triangle twice. <strong>Symptom:</strong> normals go haywire, quad remesh fails, four triangles on one edge. <strong>Cause:</strong> Booleans, "double-sided" exports. <strong>Fix:</strong> delete them; done here.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="flip-horizontal" aria-hidden="true"></i> Flipped triangles &amp; inside-out shells</h3>
-                    <p>Normals pointing into the solid, for a patch or a whole shell. <strong>Symptom:</strong> dark or invisible patches, Boolean union subtracts the body, thickening goes inward, slicer prints it hollow. <strong>Cause:</strong> mirroring, negative scale, hand-edited faces. <strong>Fix:</strong> reorient to match neighbours and flip shells with negative volume; done here.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="circle-dot" aria-hidden="true"></i> Holes &amp; open edges</h3>
-                    <p>Edges used by only one triangle. Small loops are holes; long loops mean the surface was never closed. <strong>Symptom:</strong> Mesh to Implicit and Booleans refuse, the slicer fills the wrong side. <strong>Cause:</strong> scan gaps, surfaces that were never thickened. <strong>Fix:</strong> small holes are patched here; large openings need Thicken Mesh or a rebuild in CAD.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="spline" aria-hidden="true"></i> Non-manifold edges</h3>
-                    <p>An edge shared by three or more triangles (a fin or internal wall), or a bow-tie vertex. <strong>Symptom:</strong> "mesh is not manifold", Remesh and Booleans refuse to run. <strong>Cause:</strong> meshing two touching bodies as one, internal faces left after a Boolean. <strong>Fix:</strong> only by hand or by rebuilding: union the bodies implicitly before meshing; delete the fin in Meshmixer or Blender. Highlighted here, not changed.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="sparkles" aria-hidden="true"></i> Loose debris</h3>
-                    <p>Tiny separate shells floating in the file. <strong>Symptom:</strong> extra bodies, specks in the print, blobs in the implicit field. <strong>Cause:</strong> scanner noise, Boolean leftovers. <strong>Fix:</strong> delete pieces far smaller than the model; done here.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="minus" aria-hidden="true"></i> Sliver triangles</h3>
-                    <p>Needles (two corners nearly touching) and caps (a corner on the opposite edge). <strong>Symptom:</strong> remesh fails, quad conversion produces spikes, normals wrong. <strong>Cause:</strong> Booleans, decimation, tight STL tolerances. <strong>Fix:</strong> collapse needles, re-split caps with their neighbour; done here without moving the surface.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="git-fork" aria-hidden="true"></i> Self-intersections</h3>
-                    <p>Triangles passing through other triangles. The number-one reason a mesh "looks fine" but every downstream block fails. <strong>Two kinds:</strong> separate shells overlapping (socket + attachment exported together) and a single surface folding through itself (over-thickened, tight sweep). <strong>Fix:</strong> overlapping closed shells are Boolean-unioned here; a self-folding surface needs a coarser remesh, a smaller thickening distance, or an implicit rebuild.</p>
-                </article>
-                <article>
-                    <h3><i data-lucide="ruler" aria-hidden="true"></i> Wrong units</h3>
-                    <p>Not a defect in the mesh, but the most common surprise: a 200 mm socket that arrives as 0.2 units was exported in metres (scanners, Blender). <strong>Symptom:</strong> nTop shows a speck or a building. <strong>Fix:</strong> the report flags suspicious sizes; set the unit on import in nTop or scale by 1000 in the converter.</p>
-                </article>
-            </div>
-            <p class="cv-fine">Order matters: welding first turns most "non-manifold" and "open edge" reports into nothing, and winding has to be consistent before a shell can be called inside-out. The self-intersection sweep is the slow one (it compares neighbouring triangles on a grid) and stops at the time limit you choose; the report says how much of the model it covered. Repairs never move a vertex that was not already on top of another one, and never change units or orientation. For meshes it cannot fix, nTop's own route is usually best: Mesh to Implicit with a small tolerance, Boolean the bodies there, then Implicit to Mesh. Checks run with three.js for reading files and Manifold (WebAssembly) for the Boolean union.</p>
+        <section class="a-gloss">
+            <h2>What the checks mean</h2>
+            <div class="pm-glossary" id="mk-glossary"></div>
+            <p class="pm-fine"><strong>Wrong units</strong> are not a defect but the most common surprise: a 200 mm socket that shows up as 0.2 was exported in metres (scanners, Blender). The file details line flags sizes like that; set the unit when you import into nTop. <strong>Order matters:</strong> the checks run in the order above, because welding split vertices first clears most open-edge and non-manifold reports. Repairs never move a vertex that was not already on top of another one. The self-intersection check is the slow one and stops at the time limit in Repair settings. For meshes this cannot fix, nTop's own route usually works: Mesh to Implicit, Boolean the bodies there, then Implicit to Mesh.</p>
+            <p class="pm-fine">Need a web-ready GLB instead? Use the <a href="convert.html">model converter</a>.</p>
         </section>
     </main>
-
-    <div class="cv-toast" id="mk-toast" role="status" hidden></div>
-
-    <script type="module" src="mesh-check.js?v=2"></script>
+    <div class="pm-toast" id="mk-toast" role="status" hidden></div>
+    <script type="module" src="mesh-check.js?v=3"></script>
 </body>
 </html>
