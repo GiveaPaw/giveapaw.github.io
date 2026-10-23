@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screw Attachment - Give a Paw</title>
+    <!-- meta:start -->
+    <meta name="description" content="What each number in the nTop screw attachment block does: attachment diameter, shank diameter, grip length, head diameter and head height, shown on 2,498 real nTop exports with a see-through screw, real M2 to M6 screw sizes, and a five-slider explorer.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Give a Paw">
+    <meta property="og:title" content="Screw Attachment">
+    <meta property="og:description" content="What each number in the nTop screw attachment block does: attachment diameter, shank diameter, grip length, head diameter and head height, shown on 2,498 real nTop exports with a see-through screw, real M2 to M6 screw sizes, and a five-slider explorer.">
+    <meta property="og:image" content="https://giveapaw.github.io/social-card.jpg">
+    <meta property="og:url" content="https://giveapaw.github.io/screw-attachment.html">
+    <meta name="twitter:card" content="summary_large_image">
+    <!-- meta:end -->
+    <link rel="stylesheet" href="style.css?v=43">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+    .sa-app {
+        --sa-panel: #ffffff; --sa-ink: #1d2733; --sa-muted: #5f6b78; --sa-line: #dde3e9; --sa-stage: #f2f5f7;
+        --sa-accent: #003262; --sa-accent-soft: #e8eef5;
+        --sa-warn: #8a4b00; --sa-warn-soft: #fff3e0; --sa-bad: #b3261e; --sa-bad-soft: #fdecea; --sa-ok: #2e6b4f; --sa-ok-soft: #e7f4ee;
+        --c-A: #2f6fb3; --c-S: #d2603c; --c-G: #2e8b6a; --c-HD: #8e44ad; --c-HH: #b07a00;
+        color: var(--sa-ink);
+    }
+    .sa-app .slide-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 1rem 0 0; }
+    .sa-app .slide-strip button { border: 1px solid var(--sa-line); background: var(--sa-panel); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13.5px; color: var(--sa-ink); cursor: pointer; }
+    .sa-app .slide-strip button .n { color: var(--sa-muted); margin-right: 5px; font-variant-numeric: tabular-nums; }
+    .sa-app .slide-strip button[aria-current=true] { background: var(--sa-accent); border-color: var(--sa-accent); color: #fff; }
+    .sa-app .slide-strip button[aria-current=true] .n { color: #c9d6e6; }
+    .sa-app .sa-main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; margin-top: 12px; }
+    @media (max-width: 1100px) { .sa-app .sa-main { grid-template-columns: 1fr; } .sa-app #controls-card { order: -1; } }
+    .sa-app .viewer { position: sticky; top: 12px; align-self: start; height: clamp(420px, 78vh, 640px); background: var(--sa-stage); border: 1px solid var(--sa-line); border-radius: 12px; overflow: hidden; }
+    @media (max-width: 1100px) { .sa-app .viewer { position: relative; top: 0; height: 460px; } }
+    @media (max-width: 700px) { .sa-app .viewer { height: 380px; } }
+    .sa-app canvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; }
+    .sa-app .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .sa-app .dim-label { padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.92); border: 1.5px solid currentColor; font-size: 12.5px; font-weight: 600; white-space: nowrap; line-height: 1.35; }
+    .sa-app .dim-label.muted { color: #8995a2 !important; font-weight: 500; border-color: #c9d1d9; opacity: .9; }
+    .sa-app .dim-label.side { transform: translateX(calc(50% + 6px)); }
+    @media (max-width: 700px) { .sa-app .dim-label { font-size: 11px; padding: 1px 5px; } }
+    .sa-app .dim-label.below { transform: translateY(calc(50% + 4px)); }
+    .sa-app .view-tools { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .sa-app .view-tools label, .sa-app .view-tools button { display: flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; background: rgba(255,255,255,.92); border: 1px solid var(--sa-line); font: inherit; font-size: 12.5px; color: var(--sa-ink); cursor: pointer; }
+    .sa-app .view-tools input { margin: 0; accent-color: var(--sa-accent); }
+    .sa-app .key-chip { position: absolute; bottom: 10px; left: 10px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.92); border: 1px solid var(--sa-line); font-size: 12px; color: var(--sa-muted); pointer-events: none; }
+    .sa-app .key-chip i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin: 0 4px 0 8px; }
+    .sa-app .key-chip i:first-child { margin-left: 0; }
+    .sa-app .overlay { position: absolute; inset: auto 12px 44px 12px; margin: 0 auto; max-width: 460px; padding: 10px 12px; border-radius: 10px; font-size: 14px; display: none; text-align: center; }
+    .sa-app .overlay.show { display: block; }
+    .sa-app .overlay.bad { background: var(--sa-bad-soft); color: var(--sa-bad); border: 1px solid #f3c4bf; }
+    .sa-app .loading { position: absolute; top: 12px; right: 12px; font-size: 12.5px; color: var(--sa-muted); background: rgba(255,255,255,.9); border: 1px solid var(--sa-line); padding: 3px 9px; border-radius: 999px; display: none; }
+    .sa-app .sa-side { display: flex; flex-direction: column; gap: 12px; }
+    .sa-app .card { background: var(--sa-panel); border: 1px solid var(--sa-line); border-radius: 12px; padding: 14px 16px; }
+    .sa-app .card h2 { margin: 0 0 8px; padding: 0; border: 0; font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--sa-muted); font-weight: 600; line-height: 1.4; }
+    .sa-app .slide-title { font-family: var(--font-heading); font-size: 21px; font-weight: 700; margin: 0 0 6px; line-height: 1.25; }
+    .sa-app .slide-text { font-size: 14.5px; line-height: 1.55; }
+    .sa-app .slide-text p { margin: 0 0 8px; }
+    .sa-app .slide-text p:last-child { margin-bottom: 0; }
+    .sa-app .slide-text ul { margin: 4px 0 0; padding-left: 0; list-style: none; }
+    .sa-app .slide-text li { margin: 0 0 7px; padding-left: 18px; position: relative; }
+    .sa-app .slide-text li::before { content: ""; position: absolute; left: 0; top: .45em; width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+    .sa-app .nav-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .sa-app .nav-row button { flex: 1; border: 1px solid var(--sa-line); border-radius: 8px; background: var(--sa-panel); padding: 7px 10px; font: inherit; font-size: 14px; cursor: pointer; color: var(--sa-accent); font-weight: 600; }
+    .sa-app .nav-row button:disabled { color: #b5bec8; cursor: default; }
+    .sa-app .ctl { margin-top: 2px; }
+    .sa-app .ctl + .ctl { margin-top: 12px; }
+    .sa-app .ctl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .sa-app .ctl-name { font-weight: 600; font-size: 14px; }
+    .sa-app .ctl-name::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--c); margin-right: 6px; vertical-align: -1px; }
+    .sa-app .ctl-value { font-family: var(--font-heading); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+    .sa-app .ctl-value small { font-size: 13px; color: var(--sa-muted); font-weight: 500; }
+    .sa-app .big .ctl-value { font-size: 30px; }
+    .sa-app input[type=range] { width: 100%; margin: 8px 0 0; accent-color: var(--c, var(--sa-accent)); display: block; }
+    .sa-app .zones { height: 6px; border-radius: 3px; margin: 3px 7px 0; }
+    .sa-app .ticks-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--sa-muted); margin-top: 3px; }
+    .sa-app .zone-key { display: flex; gap: 12px; font-size: 12px; color: var(--sa-muted); margin-top: 6px; flex-wrap: wrap; }
+    .sa-app .zone-key span::before { content: ""; display: inline-block; width: 12px; height: 6px; border-radius: 2px; margin-right: 5px; vertical-align: 1px; background: var(--z); }
+    .sa-app .checks { display: flex; flex-direction: column; gap: 6px; }
+    .sa-app .check-item { font-size: 13.5px; padding: 7px 10px; border-radius: 8px; line-height: 1.45; }
+    .sa-app .check-item.ok { background: var(--sa-ok-soft); color: var(--sa-ok); }
+    .sa-app .check-item.warn { background: var(--sa-warn-soft); color: var(--sa-warn); }
+    .sa-app .check-item.bad { background: var(--sa-bad-soft); color: var(--sa-bad); }
+    .sa-app .check-item.info { background: var(--sa-accent-soft); color: var(--sa-accent); }
+    .sa-app table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0; border: 0; }
+    .sa-app th, .sa-app td { padding: 4px 0; border: 0; background: none; }
+    .sa-app .derived td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+    .sa-app .derived td.warn { color: var(--sa-warn); } .sa-app .derived td.bad { color: var(--sa-bad); }
+    .sa-app .small { font-size: 13px; color: var(--sa-muted); margin-top: 6px; line-height: 1.45; }
+    .sa-app .presets { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .sa-app .presets h3 { grid-column: 1 / -1; margin: 6px 0 0; font-size: 12.5px; color: var(--sa-muted); font-weight: 600; }
+    .sa-app .presets h3:first-child { margin-top: 0; }
+    .sa-app .presets button { border: 1px solid var(--sa-line); background: var(--sa-panel); border-radius: 8px; padding: 6px 4px; font: inherit; cursor: pointer; text-align: center; color: var(--sa-ink); }
+    .sa-app .presets button b { display: block; font-size: 15px; }
+    .sa-app .presets button span { font-size: 11.5px; color: var(--sa-muted); }
+    .sa-app .presets button[aria-pressed=true] { background: var(--sa-accent-soft); border-color: #9db6d3; }
+    .sa-app .presets button[aria-pressed=true] b { color: var(--sa-accent); }
+    .sa-app .spec td { text-align: right; font-variant-numeric: tabular-nums; } .sa-app .spec td:first-child { text-align: left; color: var(--sa-muted); }
+    .sa-app .method { margin-top: 1rem; font-size: 14px; color: var(--sa-muted); }
+    .sa-app .hidden { display: none !important; }
+    </style>
+</head>
+<body class="wide">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="index.html" class="sidebar-logo-link">
+                <img src="logo.jpg" alt="Give a Paw Logo" class="sidebar-logo">
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <p class="sidebar-nav-title">Our Patients</p>
+            <ul>
+                <li><a href="max-case-study.html">Max</a></li>
+                <li><a href="billie-case-study.html">Billie</a></li>
+                <li><a href="yana-case-study.html">Yana</a></li>
+                <li><a href="ollie-case-study.html">Ollie</a></li>
+                <li><a href="kiki-case-study.html">Kiki</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Earlier Projects</p>
+            <ul>
+                <li><a href="full-limb.html">Full Limb</a></li>
+                <li><a href="wheel-chair.html">Wheel Chair</a></li>
+            </ul>
+            <p class="sidebar-nav-title">How We Build</p>
+            <ul>
+                <li><a href="3d-scanning.html">3D Scanning</a></li>
+                <li><a href="preparing-ntop-input.html">Preparing nTop Input</a></li>
+                <li><a href="ntop-socket-creation.html">nTop Socket Creation</a></li>
+                <li><a href="pelvic-plane-locator.html">Pelvic Plane Locator</a></li>
+                <li><a href="interface-plane-locator.html">Interface Plane Locator</a></li>
+                <li class="active"><a href="screw-attachment.html">Screw Attachment</a></li>
+                <li><a href="socket-walkthrough-sample.html">Socket Walkthrough</a></li>
+                <li><a href="implicit-viewer.html">Implicit Field Viewer</a></li>
+                <li><a href="mesh-tolerance.html">Mesh Tolerance</a></li>
+                <li><a href="materials.html">Materials</a></li>
+                <li><a href="3d-printing.html">3D Printing</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Tools</p>
+            <ul>
+                <li><a href="mesh-check.html">Mesh Check &amp; Repair</a></li>
+                <li><a href="convert.html">Model Converter</a></li>
+                <li><a href="surface-interpolator.html">Surface Interpolator</a></li>
+                <li><a href="review-builder.html">Review Builder</a></li>
+            </ul>
+            <p class="sidebar-nav-title">Learn &amp; Try</p>
+            <ul>
+                <li><a href="anatomy-quiz.html">Canine Anatomy Quiz</a></li>
+                <li><a href="human-anatomy.html">Human Anatomy</a></li>
+                <li><a href="anatomy-learning-lab.html">Anatomy Learning Lab</a></li>
+            </ul>
+            <p class="sidebar-nav-title">About</p>
+            <ul>
+                <li><a href="meet-the-team.html">Meet the Team</a></li>
+                <li><a href="credits.html">Credits</a></li>
+            </ul>
+        </nav>
+    </aside>
+    <div class="page">
+        <div class="content">
+            <article>
+                <section id="screw-attachment">
+                    <h1>Screw Attachment<a class="headerlink" href="#screw-attachment" title="Permalink to this heading">&para;</a></h1>
+                    <p>Every socket is fastened to the rest of the prosthetic with screws, and each screw goes through a small round <strong>attachment</strong> that nTop builds onto the socket. Five numbers in the attachment block decide its shape. Each model below is a real nTop export: 2,498 versions of the attachment, one for every setting on the sliders.</p>
+                    <p>Step through the slides to see what each number does, then try real screw sizes, or set all five yourself in the explorer.</p>
+                    <div class="sa-app">
+                    <div class="slide-strip" id="strip" role="tablist" aria-label="Slides"></div>
+                    <div class="sa-main">
+  <div class="viewer" id="viewer">
+    <canvas id="c"></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="view-tools">
+      <label><input type="checkbox" id="opt-cut" checked> Cut in half</label>
+      <label><input type="checkbox" id="opt-screw" checked> Screw</label>
+      <label><input type="checkbox" id="opt-dims" checked> Dimensions</label>
+      <button id="reset-view" type="button">Reset view</button>
+    </div>
+    <div class="key-chip"><i style="background:#b9c2cc"></i>attachment<i style="background:#6f86a0"></i>cut face<i style="background:#e3a43a"></i>screw, drawn to fit the hole</div>
+    <div class="overlay bad" id="overlay"></div>
+    <div class="loading" id="loading">Loading…</div>
+  </div>
+  <div class="sa-side">
+    <div class="card">
+      <h2 id="slide-count"></h2>
+      <div class="slide-title" id="slide-title"></div>
+      <div class="slide-text" id="slide-text"></div>
+      <div class="nav-row"><button id="prev" type="button">&larr; Previous</button><button id="next" type="button">Next &rarr;</button></div>
+    </div>
+    <div class="card" id="controls-card">
+      <h2 id="controls-title">Setting</h2>
+      <div id="controls"></div>
+    </div>
+    <div class="card">
+      <h2>What this setting gives you</h2>
+      <table class="derived">
+        <tr><td>Total height (grip + head height)</td><td id="d-height"></td></tr>
+        <tr><td>Wall around the head recess</td><td id="d-wall"></td></tr>
+        <tr><td>Ledge the screw head presses on</td><td id="d-ledge"></td></tr>
+      </table>
+      <div class="checks" id="checks" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+                    <p class="method">How these were made: the attachment notebook (<code>10-23_attachment.ntop</code>) was run through nTop Automate for every setting on the sliders: each number on its own with the others at 15 / 4 / 2.8 / 7 / 2.8 mm, nine standard screws, and a 2,310-case explorer grid that skips combinations where the head is not wider than the shank or the pad is less than 2 mm wider than the head. Five explorer cases (10 mm pad, Grip 5, Head Diameter 8, Head Height 5) failed to mesh in nTop and are missing. Each export went through the site's usual model pipeline (Draco GLB, about 20 KB each). The part is shown flipped so the screw goes in from the top; in nTop's frame the head end sits at z = 0. The screw is drawn by this page, not exported from nTop, sized to fit the hole exactly.</p>
+                    </div>
+                </section>
+                <!-- related:start -->
+                <section id="related" class="related-links">
+                    <h2>Related<a class="headerlink" href="#related" title="Permalink to this heading">&para;</a></h2>
+                    <ul>
+                        <li><a href="ntop-socket-creation.html">nTop Socket Creation</a> &mdash; the socket the attachments are built onto</li>
+                        <li><a href="socket-walkthrough-sample.html">Socket Walkthrough</a> &mdash; where the attachment points are placed on Ollie's socket</li>
+                        <li><a href="3d-printing.html">3D Printing</a> &mdash; printing the attachment and its screw holes</li>
+                    </ul>
+                </section>
+                <!-- related:end -->
+            </article>
+            <footer>
+                <div class="footer-navigation">
+                    <a href="interface-plane-locator.html" class="footer-prev">
+                        <div class="footer-prev-label">Previous</div>
+                        <div class="footer-prev-title">Interface Plane Locator</div>
+                    </a>
+                    <a href="socket-walkthrough-sample.html" class="footer-next">
+                        <div class="footer-next-label">Next</div>
+                        <div class="footer-next-title">Socket Walkthrough</div>
+                    </a>
+                </div>
+                <div class="footer-credits">
+                    <p>&copy; 2026 Give a Paw &middot; Bioprinting@Berkeley</p>
+                    <p>Animal prosthetics documentation and open design records.</p>
+                    <p class="footer-attrib">Canine reference meshes by kenchoo and Gert-Jan van den Boom, used under Creative Commons. <a href="credits.html">Full credits and licenses</a>.</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+    <button class="mobile-toggle" id="mobile-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    <script src="script.js?v=57"></script>
+    <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+    import { withModelFallback } from './model-base.js?v=2';
+
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- the five inputs and the files ----------
+    const BASE = { A: 15, S: 4, G: 2.8, HD: 7, HH: 2.8 };
+    const VARS = {
+      A:  { name: 'Attachment Diameter', short: 'Attachment Ø', lower: 'attachment diameter' },
+      S:  { name: 'Shank Diameter',      short: 'Shank Ø',      lower: 'shank diameter' },
+      G:  { name: 'Grip Length',         short: 'Grip',         lower: 'grip length' },
+      HD: { name: 'Head Diameter',       short: 'Head Ø',       lower: 'head diameter' },
+      HH: { name: 'Head Height',         short: 'Head height',  lower: 'head height' },
+    };
+    const ORDER = ['A', 'S', 'G', 'HD', 'HH'];
+    const color = (v) => `var(--c-${v})`;
+    const cssColor = (v) => getComputedStyle($('viewer')).getPropertyValue(`--c-${v}`).trim();
+    // File names hold each value in hundredths of a millimetre, 4 digits (tools/convert_attachment_1023.py).
+    const code = (v) => String(Math.round(v * 100)).padStart(4, '0');
+    const fileFor = (p) => `sample-models/attachment-screw-1023/a${code(p.A)}-s${code(p.S)}-g${code(p.G)}-d${code(p.HD)}-h${code(p.HH)}.glb`;
+    const fmt = (v) => (Math.round(v * 100) / 100).toString();
+    const range = (a, b, s) => Array.from({ length: Math.round((b - a) / s) + 1 }, (_, i) => Math.round((a + i * s) * 100) / 100);
+
+    // ---------- what a setting means ----------
+    function checks(p) {
+      const out = [];
+      const ledge = (p.HD - p.S) / 2, wall = (p.A - p.HD) / 2;
+      if (p.HD < p.S) out.push(['bad', `The head recess (${fmt(p.HD)} mm) is narrower than the shank hole under it (${fmt(p.S)} mm). There is no ledge: a screw head that fits the recess drops straight through the wider hole.`]);
+      else if (p.HD === p.S) out.push(['bad', `The head recess and the shank hole are the same width, so there is no ledge for the head to press on. The screw pulls straight through.`]);
+      else if (ledge < 0.75) out.push(['warn', `The ledge the screw head presses on is only ${fmt(ledge)} mm wide, so the head bears on a thin ring of plastic.`]);
+      if (p.HD >= p.A) out.push(['bad', `The head recess (${fmt(p.HD)} mm) is at least as wide as the pad (${fmt(p.A)} mm), so nTop cuts the whole head section away and only the grip section is left.`]);
+      else if (wall < 1) out.push(['warn', `The wall around the head recess is ${fmt(wall)} mm thick, under 1 mm (about two lines from a 0.4 mm nozzle).`]);
+      if (p.G === 0) out.push(['bad', `Grip Length 0: there is no material under the head, so the screw has nothing to clamp.`]);
+      else if (p.G < 1) out.push(['warn', `Only ${fmt(p.G)} mm of material under the head for the screw to clamp.`]);
+      if (p.HH === 0) out.push(['info', `Head Height 0: there is no recess, so the screw head sits on top of the pad.`]);
+      if (!out.length) out.push(['ok', 'Works: the head has a ledge to press on, the wall around it is at least 1 mm, and there is material under it to clamp.']);
+      return out;
+    }
+    const level = (p) => { const c = checks(p).map((x) => x[0]); return c.includes('bad') ? 'bad' : c.includes('warn') ? 'warn' : 'ok'; };
+
+    // ---------- the slides ----------
+    const li = (v, html) => `<li style="--c:${color(v)}">${html}</li>`;
+    const SLIDES = [
+      { id: 'anatomy', tab: 'Anatomy', kind: 'anatomy', title: 'Anatomy of the attachment',
+        text: `<p>The attachment is a round pad with a stepped hole through it. The screw goes in from the top: its <b>head</b> sits in the wide recess and its <b>shaft</b> passes through the narrow hole and on into the part below.</p><ul>
+          ${li('A', '<b>Attachment Diameter</b>: how wide the pad is.')}
+          ${li('S', '<b>Shank Diameter</b>: the hole for the screw shaft.')}
+          ${li('G', '<b>Grip Length</b>: how thick the pad is under the head, which is the material the screw clamps.')}
+          ${li('HD', '<b>Head Diameter</b>: how wide the head recess is.')}
+          ${li('HH', '<b>Head Height</b>: how deep the head recess is.')}
+          </ul><p class="small">Drag to turn the model, scroll to zoom. The model is cut in half so you can see the hole.</p>` },
+      { id: 'attachment-diameter', tab: 'Attachment Ø', kind: 'single', v: 'A', values: range(6, 24, 0.5),
+        title: 'Attachment Diameter: the size of the pad',
+        text: `<p>The outside width of the pad. The hole stays the same, so a bigger pad only adds material around it: a thicker wall around the screw head and more surface to blend into the socket.</p><p>The 7 mm head recess sets the lower limit. Below 9 mm the wall around it is under 1 mm thick. Below 7 mm the recess is wider than the pad, and nTop removes the whole head section.</p>` },
+      { id: 'shank-diameter', tab: 'Shank Ø', kind: 'single', v: 'S', values: range(1, 7.5, 0.25),
+        title: 'Shank Diameter: the hole for the screw shaft',
+        text: `<p>The hole the screw's shaft passes through. It matches the screw's size: 3 mm for an M3, 4 mm for an M4.</p><p>The step between this hole and the head recess is the <b>ledge</b> the screw head presses on when it is tightened. As the shank hole gets wider the ledge shrinks, and at 7 mm (the width of the head recess) it is gone, so the screw would pull straight through.</p>` },
+      { id: 'grip-length', tab: 'Grip', kind: 'single', v: 'G', values: range(0, 8, 0.2),
+        title: 'Grip Length: the material the screw clamps',
+        text: `<p>How thick the pad is under the screw head. This is the material the screw squeezes against the part below, so a longer grip gives a stiffer, stronger attachment.</p><p>It also sets the screw length: the screw has to pass all the way through the grip and still reach far enough into the part below to hold. The pad gets taller as you drag, because its total height is grip plus head height.</p>` },
+      { id: 'head-diameter', tab: 'Head Ø', kind: 'single', v: 'HD', values: range(3, 16, 0.25),
+        title: 'Head Diameter: the width of the head recess',
+        text: `<p>The width of the recess the screw head sits in. It matches the head of the screw: 7 mm for an M4 socket head, 7.6 mm for an M4 button head.</p><p>It has to sit between the other two widths. If it is no wider than the 4 mm shank hole there is no ledge for the head. If it gets close to the 15 mm pad the wall around it gets thin, and from 15 mm the recess breaks out of the pad completely.</p>` },
+      { id: 'head-height', tab: 'Head height', kind: 'single', v: 'HH', values: range(0, 6, 0.2),
+        title: 'Head Height: the depth of the head recess',
+        text: `<p>How deep the recess is. Match it to the height of the screw head and the head sits flush with the top: 4 mm for an M4 socket head, 2.2 mm for an M4 button head. A shallower recess leaves the head sticking out; a deeper one sinks it below the surface.</p><p>At 0 there is no recess and the head sits on top. Like Grip Length, this makes the pad taller.</p>` },
+      { id: 'screws', tab: 'Real screws', kind: 'presets', title: 'Real screws',
+        text: `<p>Pick a screw to see the attachment it needs. Each one uses the screw's own sizes, so the head sits flush in a recess exactly its size. The pad stays at 15 mm and the grip at 2.8 mm.</p><p><b>Socket head</b> screws (ISO 4762) have tall heads that sink deep. <b>Button head</b> screws (ISO 7380) have wide, low heads that need a shallow recess.</p><p class="small">These are the screw's own sizes with no clearance. Printed holes come out slightly small, so a part to print needs a little extra on the shank hole and the head recess.</p>` },
+      { id: 'explorer', tab: 'Explorer', kind: 'explorer', title: 'Explorer: set all five',
+        text: `<p>Every combination nTop exported. Set the five numbers and see the attachment they make, with checks for problems.</p><p class="small">Combinations where the head is not wider than the shank, or the pad is less than 2 mm wider than the head, were not exported. The sliders step in 1 mm (5 mm for the pad).</p>` },
+    ];
+    const PRESETS = [
+      { group: 'Socket head (ISO 4762)', name: 'M2', S: 2, HD: 3.8, HH: 2 },
+      { group: 'Socket head (ISO 4762)', name: 'M2.5', S: 2.5, HD: 4.5, HH: 2.5 },
+      { group: 'Socket head (ISO 4762)', name: 'M3', S: 3, HD: 5.5, HH: 3 },
+      { group: 'Socket head (ISO 4762)', name: 'M4', S: 4, HD: 7, HH: 4 },
+      { group: 'Socket head (ISO 4762)', name: 'M5', S: 5, HD: 8.5, HH: 5 },
+      { group: 'Socket head (ISO 4762)', name: 'M6', S: 6, HD: 10, HH: 6 },
+      { group: 'Button head (ISO 7380)', name: 'M3', S: 3, HD: 5.7, HH: 1.65 },
+      { group: 'Button head (ISO 7380)', name: 'M4', S: 4, HD: 7.6, HH: 2.2 },
+      { group: 'Button head (ISO 7380)', name: 'M5', S: 5, HD: 9.5, HH: 2.75 },
+    ].map((x) => ({ ...x, p: { A: 15, G: 2.8, S: x.S, HD: x.HD, HH: x.HH } }));
+    const EX = { A: [10, 15, 20], S: range(2, 6, 1), G: range(1, 5, 1), HD: range(4, 10, 1), HH: range(0, 5, 1) };
+    const EX_START = { A: 15, S: 4, G: 3, HD: 7, HH: 3 };
+    const NTOP_FAILED = (p) => p.A === 10 && p.G === 5 && p.HD === 8 && p.HH === 5;
+    function explorerGap(p) {
+      if (NTOP_FAILED(p)) return 'nTop could not mesh this combination (it ran out of memory on the 1 mm wall at this height), so there is no model for it.';
+      if (p.HD <= p.S) return `Not exported: the head (${p.HD} mm) has to be wider than the shank (${p.S} mm), or there is no ledge for it to press on.`;
+      if (p.A < p.HD + 2) return `Not exported: the pad (${p.A} mm) has to be at least 2 mm wider than the head (${p.HD} mm).`;
+      return null;
+    }
+
+    // ---------- viewer ----------
+    const viewer = $('viewer');
+    const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.localClippingEnabled = true;
+    const labelRenderer = new CSS2DRenderer({ element: $('labels') });
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf2f5f7);
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 2000);
+    camera.up.set(0, 0, 1);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x6f7884, 1.55));
+    const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-2, -3, 4); scene.add(key);
+    const rim = new THREE.DirectionalLight(0xffe7bd, 0.85); rim.position.set(3, 1, 2); scene.add(rim);
+
+    // Cut in half: keep y >= 0, so the camera (on the -y side) looks straight at the cut face.
+    const cutPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const clip = [cutPlane];
+    const partMat = new THREE.MeshStandardMaterial({ color: 0xb9c2cc, roughness: 0.85, metalness: 0, clippingPlanes: clip });
+    const cutMat = new THREE.MeshStandardMaterial({ color: 0x6f86a0, roughness: 0.9, metalness: 0, side: THREE.BackSide, clippingPlanes: clip });
+    const screwMat = new THREE.MeshStandardMaterial({ color: 0xe3a43a, roughness: 0.5, metalness: 0.1, transparent: true, opacity: 0.55, depthWrite: false, clippingPlanes: clip, side: THREE.DoubleSide });
+    const part = new THREE.Mesh(new THREE.BufferGeometry(), partMat);
+    const partBack = new THREE.Mesh(part.geometry, cutMat);
+    const screw = new THREE.Group();
+    const dims = new THREE.Group();
+    scene.add(part, partBack, screw, dims);
+
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/');
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
+    const loadModel = withModelFallback((url) => loader.loadAsync(url));
+
+    // One promise per file; each geometry is flipped so the head end is on top and the base sits at z = 0.
+    const cache = new Map();
+    function geometryFor(p) {
+      const path = fileFor(p);
+      if (!cache.has(path)) {
+        const height = p.G + p.HH;
+        cache.set(path, loadModel(path).then((gltf) => {
+          let mesh = null;
+          gltf.scene.updateMatrixWorld(true);
+          gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
+          const g = mesh.geometry.clone();
+          g.applyMatrix4(mesh.matrixWorld);
+          g.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI));
+          g.translate(0, 0, height);
+          return g;
+        }).catch((err) => { cache.delete(path); throw err; }));
+      }
+      return cache.get(path);
+    }
+    // Background loading, a few at a time, without blocking what the viewer asks for.
+    let prefetchQueue = [], prefetchRunning = 0;
+    function prefetch(list) {
+      prefetchQueue = list.filter((p) => !cache.has(fileFor(p)));
+      pump();
+    }
+    function pump() {
+      while (prefetchRunning < 4 && prefetchQueue.length) {
+        const p = prefetchQueue.shift();
+        if (cache.has(fileFor(p))) continue;
+        prefetchRunning++;
+        geometryFor(p).catch(() => {}).finally(() => { prefetchRunning--; pump(); });
+      }
+    }
+
+    const opts = { cut: true, screw: true, dims: true };
+    let state = { p: { ...BASE }, active: null, all: false };
+    let showToken = 0;
+    async function showPart(p, gap) {
+      const token = ++showToken;
+      $('overlay').classList.toggle('show', !!gap);
+      $('overlay').textContent = gap || '';
+      if (gap) { part.visible = partBack.visible = false; return; }
+      const loadingTimer = setTimeout(() => { if (token === showToken) $('loading').style.display = 'block'; }, 150);
+      try {
+        const g = await geometryFor(p);
+        if (token !== showToken) return;
+        part.geometry = partBack.geometry = g;
+        part.visible = partBack.visible = true;
+      } catch (err) {
+        if (token !== showToken) return;
+        part.visible = partBack.visible = false;
+        $('overlay').textContent = 'This model could not be loaded. Check the connection and try again.';
+        $('overlay').classList.add('show');
+        console.warn(err);
+      } finally {
+        clearTimeout(loadingTimer);
+        if (token === showToken) $('loading').style.display = 'none';
+      }
+    }
+
+    // The screw, drawn to fit the hole: shaft through the grip and on below, head in the recess.
+    const TAIL = 5;   // how far the shaft reaches into the part below
+    function cylinder(r, z0, z1) {
+      const geo = new THREE.CylinderGeometry(r, r, Math.max(z1 - z0, 0.01), 48, 1, false);
+      geo.rotateX(Math.PI / 2);
+      geo.translate(0, 0, (z0 + z1) / 2);
+      return new THREE.Mesh(geo, screwMat);
+    }
+    function buildScrew(p) {
+      screw.children.forEach((m) => m.geometry.dispose());
+      screw.clear();
+      const shaftR = Math.max(p.S / 2 - 0.04, 0.2);
+      const headR = Math.max(p.HD / 2 - 0.04, 0.2);
+      const headTop = p.HH > 0 ? p.G + p.HH - 0.02 : p.G + 1.6;   // no recess: the head sits on top
+      screw.add(cylinder(shaftR, -TAIL, p.G - 0.04));   // caps kept off the ledge so they do not flicker
+      screw.add(cylinder(headR, p.G + 0.04, headTop));
+      screw.visible = opts.screw;
+    }
+
+    // Dimension lines in the cut plane, drawn over the model.
+    function line(points, col, muted) {
+      const geo = new THREE.BufferGeometry().setFromPoints(points.map(([x, z]) => new THREE.Vector3(x, -0.01, z)));
+      const mat = new THREE.LineBasicMaterial({ color: muted ? 0xa7b1bc : col, depthTest: false, transparent: true, opacity: muted ? 0.8 : 1 });
+      const l = new THREE.LineSegments(geo, mat);
+      l.renderOrder = 10;
+      return l;
+    }
+    function label(text, x, z, v, muted, cls) {
+      const div = document.createElement('div');
+      div.className = 'dim-label' + (muted ? ' muted' : '') + (cls ? ' ' + cls : '');
+      div.style.color = cssColor(v);
+      div.textContent = text;
+      const o = new CSS2DObject(div);
+      o.position.set(x, -0.01, z);
+      return o;
+    }
+    function buildDims(p) {
+      dims.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      dims.children.slice().forEach((o) => { if (o.isCSS2DObject) o.element.remove(); });
+      dims.clear();
+      if (!opts.dims) return;
+      const H = p.G + p.HH, rA = p.A / 2, t = 0.35;
+      const xs = Math.max(rA, p.HD / 2) + 1.4;   // vertical dimensions sit just outside the pad
+      const muted = (v) => !state.all && state.active && state.active !== v;
+      const add = (v, segs, lab) => {
+        const c = new THREE.Color(cssColor(v));
+        dims.add(line(segs.flat(), c, muted(v)));
+        dims.add(lab);
+      };
+      const horiz = (v, half, z, text, cls) => add(v, [[[-half, z], [half, z]], [[-half, z - t], [-half, z + t]], [[half, z - t], [half, z + t]]],
+        label(text, 0, z, v, muted(v), cls));
+      const vert = (v, z0, z1, text) => add(v, [[[xs, z0], [xs, z1]], [[xs - t, z0], [xs + t, z0]], [[xs - t, z1], [xs + t, z1]]],
+        label(text, xs, (z0 + z1) / 2, v, muted(v), 'side'));
+      // Attachment diameter above the pad, with extension lines down to its top edge.
+      const zA = H + 1.3;
+      add('A', [[[-rA, zA], [rA, zA]], [[-rA, H + 0.2], [-rA, zA + t]], [[rA, H + 0.2], [rA, zA + t]]], label(`${VARS.A.short} ${fmt(p.A)} mm`, 0, zA, 'A', muted('A'), 'below'));
+      if (p.HH > 0) horiz('HD', p.HD / 2, p.G + p.HH / 2, `${VARS.HD.short} ${fmt(p.HD)} mm`);
+      else dims.add(label(`${VARS.HD.short} ${fmt(p.HD)} mm (no recess)`, 0, H + 3.6, 'HD', muted('HD')));
+      if (p.G > 0) horiz('S', p.S / 2, p.G / 2, `${VARS.S.short} ${fmt(p.S)} mm`);
+      else dims.add(label(`${VARS.S.short} ${fmt(p.S)} mm`, 0, -1.2, 'S', muted('S')));
+      if (p.G > 0) vert('G', 0, p.G, `${VARS.G.short} ${fmt(p.G)} mm`);
+      if (p.HH > 0) vert('HH', p.G, H, `${VARS.HH.short} ${fmt(p.HH)} mm`);
+    }
+
+    function applyOptions() {
+      [partMat, cutMat, screwMat].forEach((m) => { m.clippingPlanes = opts.cut ? clip : []; m.needsUpdate = true; });
+      partBack.visible = part.visible;
+      screw.visible = opts.screw;
+      buildDims(state.p);
+    }
+
+    // Frame the largest model a slide can show, so the camera holds still while a slider moves.
+    let frame = null;
+    function fitTo(maxA, maxH) {
+      const xr = maxA / 2 + 6.5, zmin = -TAIL, zmax = maxH + 2.5;   // room for the side labels
+      const center = new THREE.Vector3(0, 0, (zmin + zmax) / 2);
+      const r = Math.hypot(xr, (zmax - zmin) / 2);
+      frame = { center, r };
+      resetView();
+    }
+    function resetView() {
+      if (!frame) return;
+      // Fit to whichever of the two field-of-view angles is tighter for this viewer's shape.
+      const aspect = viewer.clientWidth / Math.max(viewer.clientHeight, 1);
+      const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
+      const hHalf = Math.atan(Math.tan(vHalf) * aspect);
+      const dist = frame.r / Math.sin(Math.min(vHalf, hHalf)) * 0.82;
+      controls.target.copy(frame.center);
+      camera.position.copy(frame.center).add(new THREE.Vector3(0.42, -1.6, 0.62).normalize().multiplyScalar(dist));
+      camera.near = frame.r / 50; camera.far = frame.r * 50; camera.updateProjectionMatrix();
+      controls.update();
+    }
+
+    function resize() {
+      const w = viewer.clientWidth, h = viewer.clientHeight;
+      renderer.setSize(w, h, false);
+      labelRenderer.setSize(w, h);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(viewer);
+    resize();
+    (function render() {
+      requestAnimationFrame(render);
+      controls.update();
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+    })();
+
+    // ---------- side panel ----------
+    function setModel(p, { gap = null } = {}) {
+      state.p = { ...p };
+      showPart(p, gap);
+      buildScrew(p);
+      buildDims(p);
+      const ledge = (p.HD - p.S) / 2, wall = (p.A - p.HD) / 2;
+      $('d-height').textContent = `${fmt(p.G + p.HH)} mm`;
+      const dw = $('d-wall'), dl = $('d-ledge');
+      dw.textContent = wall > 0 ? `${fmt(wall)} mm` : 'none';
+      dw.className = wall <= 0 ? 'bad' : wall < 1 ? 'warn' : '';
+      dl.textContent = ledge > 0 ? `${fmt(ledge)} mm` : 'none';
+      dl.className = ledge <= 0 ? 'bad' : ledge < 0.75 ? 'warn' : '';
+      $('checks').innerHTML = checks(p).map(([lvl, text]) => `<div class="check-item ${lvl}">${text}</div>`).join('');
+    }
+
+    function zoneGradient(values, toParams) {
+      const cols = { ok: '#9fd3bc', warn: '#f2c17d', bad: '#e7958d' };
+      const n = values.length;
+      const stops = values.map((v, i) => {
+        const c = cols[level(toParams(v))];
+        const a = (i === 0 ? 0 : (i - 0.5) / (n - 1)) * 100, b = (i === n - 1 ? 1 : (i + 0.5) / (n - 1)) * 100;
+        return `${c} ${a.toFixed(2)}%, ${c} ${b.toFixed(2)}%`;
+      });
+      return `linear-gradient(90deg, ${stops.join(', ')})`;
+    }
+
+    function sliderHtml(v, values, value, { big = false, zones = null } = {}) {
+      const i = values.indexOf(value);
+      return `<div class="ctl${big ? ' big' : ''}" style="--c:${color(v)}">
+        <div class="ctl-head"><span class="ctl-name">${VARS[v].name}</span><span class="ctl-value" data-value="${v}">${fmt(value)} <small>mm</small></span></div>
+        <input type="range" data-var="${v}" min="0" max="${values.length - 1}" step="1" value="${i}" aria-label="${VARS[v].name}">
+        ${zones ? `<div class="zones" style="background:${zones}"></div>` : ''}
+        <div class="ticks-row"><span>${fmt(values[0])}</span><span>${fmt(values.at(-1))} mm</span></div>
+      </div>`;
+    }
+
+    let current = 0;
+    function renderSlide(index, { push = true } = {}) {
+      current = Math.max(0, Math.min(SLIDES.length - 1, index));
+      const s = SLIDES[current];
+      document.querySelectorAll('#strip button').forEach((b, i) => b.setAttribute('aria-current', i === current));
+      $('slide-count').textContent = `Slide ${current + 1} of ${SLIDES.length}`;
+      $('slide-title').textContent = s.title;
+      $('slide-text').innerHTML = s.text;
+      $('prev').disabled = current === 0;
+      $('next').disabled = current === SLIDES.length - 1;
+      if (push) history.replaceState(null, '', '#' + s.id);
+      const box = $('controls');
+      $('controls-card').classList.remove('hidden');
+      state.all = s.kind !== 'single';
+      state.active = s.kind === 'single' ? s.v : null;
+
+      if (s.kind === 'anatomy') {
+        $('controls-card').classList.add('hidden');
+        fitTo(15, 5.6);
+        setModel(BASE);
+      } else if (s.kind === 'single') {
+        $('controls-title').textContent = 'Drag to change it';
+        const toParams = (v) => ({ ...BASE, [s.v]: v });
+        box.innerHTML = sliderHtml(s.v, s.values, BASE[s.v], { big: true, zones: zoneGradient(s.values, toParams) }) +
+          `<div class="zone-key"><span style="--z:#9fd3bc">works</span><span style="--z:#f2c17d">thin</span><span style="--z:#e7958d">fails</span></div>` +
+          `<p class="small">The other four stay at ${ORDER.filter((v) => v !== s.v).map((v) => `${VARS[v].lower} ${fmt(BASE[v])}`).join(', ')} mm.</p>`;
+        const maxA = s.v === 'A' ? 24 : s.v === 'HD' ? 16 : 15;
+        const maxH = s.v === 'G' ? 8 + BASE.HH : s.v === 'HH' ? BASE.G + 6 : BASE.G + BASE.HH;
+        fitTo(maxA, maxH);
+        const input = box.querySelector('input');
+        input.addEventListener('input', () => {
+          const v = s.values[+input.value];
+          box.querySelector('.ctl-value').innerHTML = `${fmt(v)} <small>mm</small>`;
+          setModel(toParams(v));
+        });
+        setModel(BASE);
+        const start = s.values.indexOf(BASE[s.v]);
+        prefetch(s.values.map((_, i) => s.values[(start + i) % s.values.length]).map(toParams));
+      } else if (s.kind === 'presets') {
+        $('controls-title').textContent = 'Choose a screw';
+        let html = '<div class="presets">', group = '';
+        PRESETS.forEach((x, i) => {
+          if (x.group !== group) { group = x.group; html += `<h3>${group}</h3>`; }
+          html += `<button type="button" data-preset="${i}" aria-pressed="false"><b>${x.name}</b><span>Ø${fmt(x.HD)} × ${fmt(x.HH)}</span></button>`;
+        });
+        html += '</div><table class="spec" style="margin-top:10px"><tbody id="spec"></tbody></table>';
+        box.innerHTML = html;
+        const pick = (i) => {
+          const x = PRESETS[i];
+          box.querySelectorAll('[data-preset]').forEach((b) => b.setAttribute('aria-pressed', +b.dataset.preset === i));
+          $('spec').innerHTML = `<tr><td>Screw</td><td><b>${x.name} ${x.group.split(' (')[0].toLowerCase()}</b></td></tr>
+            <tr><td>Shank Diameter</td><td>${fmt(x.S)} mm</td></tr><tr><td>Head Diameter</td><td>${fmt(x.HD)} mm</td></tr>
+            <tr><td>Head Height</td><td>${fmt(x.HH)} mm</td></tr>`;
+          setModel(x.p);
+        };
+        box.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => pick(+b.dataset.preset)));
+        fitTo(15, 2.8 + 6);
+        pick(3);
+        prefetch(PRESETS.map((x) => x.p));
+      } else {
+        $('controls-title').textContent = 'Set all five';
+        const p = { ...EX_START };
+        box.innerHTML = ORDER.map((v) => sliderHtml(v, EX[v], p[v])).join('');
+        fitTo(20, 10);
+        const neighbours = () => {
+          const list = [];
+          for (const v of ORDER) for (const d of [-1, 1]) {
+            const i = EX[v].indexOf(p[v]) + d;
+            if (i >= 0 && i < EX[v].length) { const q = { ...p, [v]: EX[v][i] }; if (!explorerGap(q)) list.push(q); }
+          }
+          return list;
+        };
+        box.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => {
+          const v = input.dataset.var;
+          p[v] = EX[v][+input.value];
+          box.querySelector(`[data-value="${v}"]`).innerHTML = `${fmt(p[v])} <small>mm</small>`;
+          setModel(p, { gap: explorerGap(p) });
+          prefetch(neighbours());
+        }));
+        setModel(p, { gap: explorerGap(p) });
+        prefetch(neighbours());
+      }
+    }
+
+    // ---------- wiring ----------
+    $('strip').innerHTML = SLIDES.map((s, i) => `<button type="button" role="tab" data-slide="${i}"><span class="n">${i + 1}</span>${s.tab}</button>`).join('');
+    $('strip').addEventListener('click', (e) => { const b = e.target.closest('[data-slide]'); if (b) renderSlide(+b.dataset.slide); });
+    $('prev').addEventListener('click', () => renderSlide(current - 1));
+    $('next').addEventListener('click', () => renderSlide(current + 1));
+    $('reset-view').addEventListener('click', resetView);
+    $('opt-cut').addEventListener('change', (e) => { opts.cut = e.target.checked; applyOptions(); });
+    $('opt-screw').addEventListener('change', (e) => { opts.screw = e.target.checked; applyOptions(); });
+    $('opt-dims').addEventListener('change', (e) => { opts.dims = e.target.checked; applyOptions(); });
+    window.addEventListener('hashchange', () => {
+      const i = SLIDES.findIndex((s) => '#' + s.id === location.hash);
+      if (i >= 0 && i !== current) renderSlide(i, { push: false });
+    });
+    const startAt = SLIDES.findIndex((s) => '#' + s.id === location.hash);
+    renderSlide(startAt >= 0 ? startAt : 0, { push: false });
+    </script>
+</body>
+</html>
