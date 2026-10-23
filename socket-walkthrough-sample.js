@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=17';
+import { createAttachmentHoles } from './attachment-holes.js?v=19';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
 import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=10';
@@ -445,25 +445,39 @@ function depthClearer(renderOrder) {
     }));
     clearer.frustumCulled = false;
     clearer.renderOrder = renderOrder;
-    clearer.onBeforeRender = renderer => renderer.clearDepth();
+    // A depth clear is masked by the depth-write mask, and three.js only resets that mask at the
+    // start of a frame. onBeforeRender runs before the clearer's own material state is applied, so
+    // the mask is whatever the previous transparent object left: with depthWrite off it is false,
+    // and the clear silently does nothing. That is what made the surface look right from most
+    // angles and ragged from the rest. The mask is switched on here first.
+    clearer.onBeforeRender = renderer => {
+        renderer.state.buffers.depth.setMask(true);
+        renderer.clearDepth();
+    };
     return clearer;
 }
 
 // Put a surface over whatever has been drawn so far, keeping its own shading.
 function showOverTheBody(group, renderOrder = SURFACE_ORDER) {
     group.traverse(child => {
-        if (!child.isMesh) return;
+        if (!child.isMesh || child.userData.depthClearer) return;
         child.renderOrder = renderOrder;
         // It has to write depth even though it is see-through. Once the buffer is cleared there is
         // nothing left to sort these triangles against each other, and a surface that curves right
         // round, as the wheelchair cut does, draws its near and far faces in whatever order they
         // happen to come in: the speckled mess. The flatter cuts barely show it, which is why this
         // only looked broken on one case.
+        //
+        // The flag is what makes it stick. applyLayerAlphas rewrites depthWrite from the opacity on
+        // every step change and every see-through toggle, and it undid this the moment a student
+        // left Step 1; it now leaves these meshes' depth alone.
+        child.userData.overTheBody = true;
         if (child.material) child.material.depthWrite = true;
     });
     if (!group.children.some(child => child.userData.depthClearer)) {
         const clearer = depthClearer(renderOrder - 1);
         clearer.userData.depthClearer = true;
+        clearer.userData.fixedAlpha = true;   // the alpha pass must not touch it either
         group.add(clearer);
     }
 }
@@ -2118,7 +2132,8 @@ function applyLayerAlphas(scope, stage) {
             if (!object.isMesh || !object.material || object.userData.fixedAlpha) return;
             object.material.opacity = value;
             object.material.transparent = value < 0.99;
-            object.material.depthWrite = value >= 0.99;
+            // A surface drawn over the body keeps writing depth whatever its opacity: see showOverTheBody.
+            object.material.depthWrite = value >= 0.99 || !!object.userData.overTheBody;
             object.material.needsUpdate = true;
         }));
         const attribute = scope === 'pelvic' ? 'data-view-alpha' : 'data-interface-alpha';
@@ -3430,16 +3445,52 @@ const attachmentHoles = createAttachmentHoles({ scene, camera, canvas,
     isMeasuring: () => measureMode,
 });
 
-// ---- Step 4b: the attachment sweep (10-15) ---------------------------------------------------------
-// The block is CB - Attachment v1.0.2 now: Attachment Diameter, Shank Diameter, Grip Length, Head
-// Diameter, Head Height, Nozzle Diameter. The sweep came from the block before it, which had Normal
-// Wall Distance and Hole Cut Depth instead of Grip Length, so three of the new inputs have models
-// behind them and the rest are typed values.
-//
-// normalWallDistance has no input any more but it is still in every generated filename, so it stays
-// here pinned at the value the sweep fixed it to.
-const attachmentValues = { attachDiameter: [0, 4, 8, 12, 16], normalWallDistance: [0, 4, 8, 12], screwHeadDiameter: [0, 4, 8, 12], screwShaftDiameter: [0, 4, 8, 12] };
-const attachmentDesign = { attachDiameter: 4, normalWallDistance: 4, screwHeadDiameter: 8, screwShaftDiameter: 4 };
+// ---- Step 4b: the screw attachment sweep (10-23, tools/convert_attachment_1023.py) -----------------
+// CB - Attachment takes Solid Animal, Attachment Point and five numbers. The defaults are the notebook's
+// screw, a McMaster-Carr low-profile socket head M4 (head 7 mm across, 2.8 mm tall). nTop exported
+// every value on each input's own sweep with the other four at those defaults, nine standard screws,
+// and a coarse grid of all five (the same set screw-attachment.html shows), so a change snaps to the
+// nearest exported attachment and the other inputs move only when they have to.
+const ATTACH_KEYS = ['attachDiameter', 'shankDiameter', 'gripLength', 'headDiameter', 'headHeight'];
+const ATTACH_LABELS = { attachDiameter: 'attachment diameter', shankDiameter: 'shank diameter', gripLength: 'grip length', headDiameter: 'head diameter', headHeight: 'head height' };
+const attachmentDefaults = { attachDiameter: 15, shankDiameter: 4, gripLength: 2.8, headDiameter: 7, headHeight: 2.8 };
+const attachmentCombos = (() => {
+    const r2 = value => Math.round(value * 100) / 100;
+    const range = (start, end, step) => Array.from({ length: Math.round((end - start) / step) + 1 }, (_, i) => r2(start + i * step));
+    const combos = new Map();
+    const add = combo => combos.set(ATTACH_KEYS.map(k => combo[k]).join(','), combo);
+    // Each input on its own, the other four at the defaults.
+    const single = { attachDiameter: range(6, 24, 0.5), shankDiameter: range(1, 7.5, 0.25), gripLength: range(0, 8, 0.2), headDiameter: range(3, 16, 0.25), headHeight: range(0, 6, 0.2) };
+    for (const [key, values] of Object.entries(single)) values.forEach(value => add({ ...attachmentDefaults, [key]: value }));
+    // Socket head ISO 4762 M2-M6 and button head ISO 7380 M3-M5, at attachment 15 / grip 2.8.
+    [[2, 3.8, 2], [2.5, 4.5, 2.5], [3, 5.5, 3], [4, 7, 4], [5, 8.5, 5], [6, 10, 6], [3, 5.7, 1.65], [4, 7.6, 2.2], [5, 9.5, 2.75]]
+        .forEach(([s, hd, hh]) => add({ attachDiameter: 15, shankDiameter: s, gripLength: 2.8, headDiameter: hd, headHeight: hh }));
+    // The coarse grid: head wider than the shank, attachment at least 2 mm wider than the head. nTop could
+    // not mesh attachment 10 / grip 5 / head 8 / head height 5 at any shank, so those five are missing.
+    for (const a of [10, 15, 20]) for (const s of range(2, 6, 1)) for (const g of range(1, 5, 1)) for (const hd of range(4, 10, 1)) for (const hh of range(0, 5, 1)) {
+        if (hd <= s || a < hd + 2 || (a === 10 && g === 5 && hd === 8 && hh === 5)) continue;
+        add({ attachDiameter: a, shankDiameter: s, gripLength: g, headDiameter: hd, headHeight: hh });
+    }
+    return [...combos.values()];
+})();
+const attachmentValues = Object.fromEntries(ATTACH_KEYS.map(key => [key, [...new Set(attachmentCombos.map(c => c[key]))].sort((a, b) => a - b)]));
+const attachmentSpan = Object.fromEntries(ATTACH_KEYS.map(key => [key, attachmentValues[key].at(-1) - attachmentValues[key][0]]));
+const attachmentDesign = { ...attachmentDefaults };
+// The exported attachment closest to what was asked for. Only combinations that move the input the way
+// it was pushed count (so a slider is never ignored); among those, keeping the other inputs where they
+// are matters ten times more than landing exactly on the moved one, so a step on the coarse grid goes
+// to the next grid value rather than back to the fine sweep.
+function nearestAttachment(request, movedKey) {
+    const current = attachmentDesign[movedKey], target = request[movedKey];
+    let best = null, bestScore = Infinity;
+    for (const combo of attachmentCombos) {
+        if (target !== current && Math.sign(combo[movedKey] - current) !== Math.sign(target - current)) continue;
+        let score = 0;
+        for (const key of ATTACH_KEYS) score += Math.abs(combo[key] - request[key]) / attachmentSpan[key] * (key === movedKey ? 1 : 10);
+        if (score < bestScore) { bestScore = score; best = combo; }
+    }
+    return best || { ...attachmentDesign };
+}
 const attachmentBlockEl = document.getElementById('attachment-block');
 const attachmentModeButton = document.getElementById('attachment-control-mode');
 attachmentBlockEl.classList.add('slider-mode');
@@ -3454,6 +3505,7 @@ function setAttachmentControl(key, value) {
     const input = document.querySelector('[data-attach-param="' + key + '"]');
     const index = attachmentValues[key].indexOf(value);
     if (!input || index < 0) return;
+    input.max = String(attachmentValues[key].length - 1);
     input.value = String(index);
     document.querySelector('[data-attach-output="' + key + '"]').value = value;
     input.setAttribute('aria-valuetext', value + ' mm');
@@ -3463,59 +3515,13 @@ function attachmentStatus(text) {
     el.textContent = text;
     el.hidden = !text;
 }
-// One input at a time (the 10-16 sweep, sample-models/chi-attach-one): the moved input takes the value, every
-// other input sits at the notebook's value, because only those combinations were generated.
-const attachmentOneValues = {
-    attach: Array.from({ length: 30 }, (_, i) => i + 1), wall: Array.from({ length: 30 }, (_, i) => i + 1),
-    head: Array.from({ length: 30 }, (_, i) => i + 1), height: Array.from({ length: 30 }, (_, i) => i + 1),
-    shaft: Array.from({ length: 30 }, (_, i) => i + 1), nozzle: [0.4, 0.6, 0.8, ...Array.from({ length: 30 }, (_, i) => i + 1)],
-    hole: Array.from({ length: 50 }, (_, i) => i + 1),
-};
-const attachmentOneDefaults = { attach: 16, wall: 8, head: 8, height: 5, shaft: 4, nozzle: 0.6, hole: 20 };
-const attachmentOneLabels = { attach: 'attachment diameter', head: 'head diameter', height: 'head height', shaft: 'shank diameter', nozzle: 'nozzle diameter' };
-const attachmentOneDesign = { param: 'attach', value: 16 };
-let attachmentMode = 'grid';
-function setAttachmentOneControl(key, value) {
-    const input = document.querySelector('[data-attach1-param="' + key + '"]');
-    const index = attachmentOneValues[key].indexOf(value);
-    if (!input || index < 0) return;
-    input.value = String(index);
-    document.querySelector('[data-attach1-output="' + key + '"]').value = value;
-    input.setAttribute('aria-valuetext', value + ' mm');
-}
-const currentAttachmentDesign = () => attachmentMode === 'one' ? { mode: 'one', ...attachmentOneDesign } : attachmentDesign;
-const attachmentDesignLabel = () => attachmentMode === 'one'
-    ? `${attachmentOneLabels[attachmentOneDesign.param]} ${attachmentOneDesign.value}`
-    : `attachment ${attachmentDesign.attachDiameter} / shank ${attachmentDesign.screwShaftDiameter} / head ${attachmentDesign.screwHeadDiameter}`;
-document.querySelectorAll('[data-attach-mode]').forEach(button => button.addEventListener('click', () => {
-    attachmentMode = button.dataset.attachMode;
-    document.querySelectorAll('[data-attach-mode]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); });
-    attachmentBlockEl.classList.toggle('one-mode', attachmentMode === 'one');
-    applyAttachmentDesign();
-}));
-document.querySelectorAll('[data-attach1-param]').forEach(input => {
-    setAttachmentOneControl(input.dataset.attach1Param, attachmentOneDefaults[input.dataset.attach1Param]);
-    input.addEventListener('input', () => {
-        const key = input.dataset.attach1Param;
-        attachmentOneDesign.param = key;
-        attachmentOneDesign.value = attachmentOneValues[key][+input.value];
-        Object.entries(attachmentOneDefaults).forEach(([k, v]) => { if (k !== key) setAttachmentOneControl(k, v); });
-        setAttachmentOneControl(key, attachmentOneDesign.value);
-        applyAttachmentDesign();
-    });
-});
 let attachmentDesignRequest = 0;
 async function applyAttachmentDesign() {
     const request = ++attachmentDesignRequest;
-    if (!attachmentHoles.designExists(currentAttachmentDesign())) {
-        attachmentStatus(`nTop did not generate ${attachmentDesignLabel()}; the last generated attachment stays in the view.`);
-        return;
-    }
-    attachmentStatus('Loading nTop attachment…');
     try {
-        const applied = await attachmentHoles.setDesign(currentAttachmentDesign());
+        const applied = await attachmentHoles.setDesign(attachmentDesign);
         if (request !== attachmentDesignRequest) return;
-        if (applied) attachmentStatus('');
+        if (!applied) return;
     } catch (error) {
         if (request !== attachmentDesignRequest) return;
         attachmentStatus('Could not load that attachment.');
@@ -3526,9 +3532,14 @@ document.querySelectorAll('[data-attach-param]').forEach(input => {
     setAttachmentControl(input.dataset.attachParam, attachmentDesign[input.dataset.attachParam]);
     input.addEventListener('input', () => {
         const key = input.dataset.attachParam;
-        const value = attachmentValues[key][+input.value];
-        attachmentDesign[key] = value;
-        setAttachmentControl(key, value);
+        const request = { ...attachmentDesign, [key]: attachmentValues[key][+input.value] };
+        const chosen = nearestAttachment(request, key);
+        const moved = ATTACH_KEYS.filter(k => k !== key && chosen[k] !== attachmentDesign[k]);
+        Object.assign(attachmentDesign, chosen);
+        ATTACH_KEYS.forEach(k => setAttachmentControl(k, attachmentDesign[k]));
+        attachmentStatus(moved.length
+            ? `nTop exported ${ATTACH_LABELS[key]} ${chosen[key]} only with ${moved.map(k => `${ATTACH_LABELS[k]} ${chosen[k]}`).join(', ')}, so ${moved.length > 1 ? 'those moved' : 'that moved'} too.`
+            : '');
         applyAttachmentDesign();
     });
 });
@@ -3679,7 +3690,7 @@ renderLegend();
 window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
 
 // Typed values use the same update path as their paired slider.
-for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['attach-output', 'attach-param'], ['attach1-output', 'attach1-param'], ['blend-output', 'blend-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
+for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['attach-output', 'attach-param'], ['blend-output', 'blend-param'], ['orient-output', 'orient'], ['adjust-output', 'adjust']]) {
     document.querySelectorAll(`[data-${outputAttr}]`).forEach(field => {
         const key = field.getAttribute(`data-${outputAttr}`);
         const slider = document.querySelector(`[data-${sliderAttr}="${key}"]`);
@@ -3687,8 +3698,8 @@ for (const [outputAttr, sliderAttr] of [['param-output', 'socket-param'], ['atta
         const commit = () => {
             const value = Number(field.value);
             if (field.value === '' || !Number.isFinite(value)) { slider.dispatchEvent(new Event('input')); return; }
-            if (outputAttr === 'param-output' || outputAttr === 'attach-output' || outputAttr === 'attach1-output' || outputAttr === 'blend-output') {
-                const values = outputAttr === 'param-output' ? parameterValues[key] : outputAttr === 'attach-output' ? attachmentValues[key] : outputAttr === 'attach1-output' ? attachmentOneValues[key] : blendSetValues()[key];
+            if (outputAttr === 'param-output' || outputAttr === 'attach-output' || outputAttr === 'blend-output') {
+                const values = outputAttr === 'param-output' ? parameterValues[key] : outputAttr === 'attach-output' ? attachmentValues[key] : blendSetValues()[key];
                 slider.value = values.reduce((best, v, i) => Math.abs(v-value) < Math.abs(values[best]-value) ? i : best, 0);
             } else slider.value = Math.round(Math.max(+slider.min, Math.min(+slider.max, value)));
             slider.dispatchEvent(new Event('input'));
@@ -3841,9 +3852,8 @@ walkthroughNotes = createWalkthroughNotes({
     onDrawingChange: drawing => { if (drawing && measureMode) setMeasureMode(false); },
 });
 
-// Step 4b's ?: the attachment and its capsule on their own, big, with nothing else in the way,
-// so one input at a time can be watched. The sweep switches to the one-at-a-time set, which is the
-// one that moves a single input in 1 mm steps.
+// Step 4b's ?: the attachment on its own, big, with nothing else in the way, so one input at a time
+// can be watched.
 const attachmentHelpButton = document.getElementById('attachment-help');
 const attachmentHelpCard = document.getElementById('attachment-help-card');
 const attachmentSoloButton = document.getElementById('attachment-solo-btn');
@@ -3859,12 +3869,12 @@ function syncAttachmentSolo() {
     attachmentSoloButton.querySelector('span').textContent = on ? 'Back to the whole socket' : 'Show the part on its own';
     setViewerMode('attachmentSolo', on ? {
         name: 'One part only',
-        text: 'The attachment and its capsule on their own, with the socket out of the way.',
+        text: 'The attachment on its own, with the socket out of the way.',
         done: () => { attachmentSolo = false; syncAttachmentSolo(); },
     } : null);
     attachmentHelpNote.hidden = !attachmentSolo;
     attachmentHelpNote.textContent = attachmentSolo
-        ? 'The attachment (teal) and its capsule (orange) on their own. Move one slider and watch what it changes; the sweep is the one-at-a-time set, so the other inputs stay put.'
+        ? 'The attachment on its own. Move one slider and watch what it changes; from the starting screw, every input has its own fine sweep, so the others stay put.'
         : '';
     if (on) {
         const object = attachmentHoles.soloObject();
@@ -3877,8 +3887,6 @@ function syncAttachmentSolo() {
 attachmentHelpButton.addEventListener('click', () => toggleHelpCard(attachmentHelpButton, attachmentHelpCard));
 attachmentSoloButton.addEventListener('click', () => {
     attachmentSolo = !attachmentSolo;
-    // The one-at-a-time sweep is the one that moves a single input, so that is what this opens on.
-    if (attachmentSolo) document.querySelector('[data-attach-mode="one"]:not(.active)')?.click();
     syncAttachmentSolo();
 });
 
@@ -3924,7 +3932,6 @@ window.gapWalkthrough = {
     attachment: attachmentDesign,
     interfaceAxes: () => lastInterfaceAxes && { ...lastInterfaceAxes },
     interfaceType: () => interfaceType,
-    attachmentOne: () => ({ mode: attachmentMode, ...attachmentOneDesign }),
     blend: blendState,
     defaults: { ...socketParameterDefaults },
     goToStep: step => showStep(step, true),

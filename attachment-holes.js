@@ -7,7 +7,7 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     const animal = new THREE.Group();
     const handle = new THREE.Object3D();
     const points = [];
-    const visibility = { surface: true, animal: true, capsule: true, attachment: true, points: true };
+    const visibility = { surface: true, animal: true, attachment: true, points: true };
     let solo = false;
     // The status line under the block was removed; messages now only go to the console on failure.
     const status = { textContent: '' };
@@ -25,9 +25,8 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     let triangles = [];
     let sourceMesh = null;
     let sourceAnimal = null;
-    let templates = null;   // { attachment, solid, capsule } for the current design
+    let templates = null;   // { attachment } for the current design
     let design = null;
-    let index = null;       // which combinations nTop generated (sample-models/chi-attach/index.json)
     let designRequest = 0;
     let down;
     let dragFrame = null;
@@ -37,24 +36,18 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     root.visible = false;
     scene.add(root);
 
-    // The parts come from the 10-13 notebook's attachment sweep (tools/convert_chi_attachments.py):
-    // the printed attachment (cylinder around the screw, with its hole) and the capsule (the screw
-    // shaft, which punches the hole). Both sit at the origin, base at z = 0, +Z out of the surface,
-    // in millimetres. They are placed on the surface and move live; nothing is cut in the browser.
-    const ASSET_DIR = 'sample-models/chi-attach/';
-    // The 10-16 one-at-a-time sweep: one input varied, the others at the notebook's values (tools/convert_ollie_surface_sweeps.py).
-    const ONE_DIR = 'sample-models/chi-attach-one/';
-    let indexOne = null;
-    const DEFAULT_DESIGN = { attachDiameter: 4, normalWallDistance: 4, screwHeadDiameter: 8, screwShaftDiameter: 4 };
+    // The parts come from the 10-23 screw attachment sweep (10-23_attachment.ntop, converted by
+    // tools/convert_attachment_1023.py): the printed attachment with its stepped screw hole. It sits at
+    // the origin, base at z = 0 (the head recess end), +Z out of the surface, in millimetres, the same
+    // way the earlier sweeps did. It is placed on the surface and moves live; nothing is cut in the browser.
+    const ASSET_DIR = 'sample-models/attachment-screw-1023/';
+    // The notebook's screw: a McMaster-Carr low-profile socket head M4.
+    const DEFAULT_DESIGN = { attachDiameter: 15, shankDiameter: 4, gripLength: 2.8, headDiameter: 7, headHeight: 2.8 };
     const templateCache = new Map();
-    const pad = value => String(value).padStart(2, '0');
+    // Each value in hundredths of a millimetre, 4 digits: a1500-s0400-g0280-d0700-h0280.glb.
+    const code = value => String(Math.round(value * 100)).padStart(4, '0');
     function designFiles(d) {
-        if (d.mode === 'one') {
-            const code = `${d.param}-${pad(d.param === 'nozzle' ? Math.round(d.value * 10) : d.value)}`;
-            return { attachment: `${ONE_DIR}${code}.glb`, capsule: `${ONE_DIR}${code}-cap.glb` };
-        }
-        const code = `a${pad(d.attachDiameter)}-w${pad(d.normalWallDistance)}-h${pad(d.screwHeadDiameter)}-s${pad(d.screwShaftDiameter)}`;
-        return { attachment: `${ASSET_DIR}att-${code}.glb`, capsule: d.screwShaftDiameter > 0 ? `${ASSET_DIR}cap-s${pad(d.screwShaftDiameter)}.glb` : null };
+        return { attachment: `${ASSET_DIR}a${code(d.attachDiameter)}-s${code(d.shankDiameter)}-g${code(d.gripLength)}-d${code(d.headDiameter)}-h${code(d.headHeight)}.glb` };
     }
     function template(file) {
         if (!templateCache.has(file)) {
@@ -71,27 +64,19 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         }
         return templateCache.get(file);
     }
-    function designExists(d) {
-        if (d.mode === 'one') return !indexOne || (indexOne.attachment[d.param] || []).includes(d.value);
-        if (!index) return true;
-        const key = [d.attachDiameter, d.normalWallDistance, d.screwHeadDiameter, d.screwShaftDiameter].join(',');
-        return index.attachment.some(combo => combo.join(',') === key);
-    }
     async function setDesign(next) {
         design = { ...next };
         const files = designFiles(design);
         const request = ++designRequest;
-        const [attachment, capsule] = await Promise.all([template(files.attachment), files.capsule ? template(files.capsule) : null]);
+        const attachment = await template(files.attachment);
         if (request !== designRequest) return false;
-        templates = { attachment, capsule };
+        templates = { attachment };
         points.forEach(rebuildAssembly);
         syncVisibility();
         emit('design');
         return true;
     }
-    const fetchIndex = url => fetch(url, { cache: 'no-cache' }).then(response => response.ok ? response.json() : null).catch(() => null);
-    const ready = Promise.all([fetchIndex(ASSET_DIR + 'index.json'), fetchIndex(ONE_DIR + 'index.json')])
-        .then(([grid, one]) => { index = grid; indexOne = one; return setDesign(DEFAULT_DESIGN); })
+    const ready = setDesign(DEFAULT_DESIGN)
         .catch(error => { console.error('Attachment models could not be loaded.', error); });
 
     // `behind` pushes a mesh a touch further away in the depth buffer, so a surface sharing the same
@@ -115,7 +100,12 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         }));
         clearer.frustumCulled = false;
         clearer.renderOrder = SURFACE_ORDER - 1;
-        clearer.onBeforeRender = renderer => renderer.clearDepth();
+        // The clear is masked by the depth-write mask, which three.js does not reset mid-frame;
+        // see depthClearer in socket-walkthrough-sample.js.
+        clearer.onBeforeRender = renderer => {
+            renderer.state.buffers.depth.setMask(true);
+            renderer.clearDepth();
+        };
         clearer.userData.depthClearer = true;
         surface.add(clearer);
     }
@@ -169,7 +159,6 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         animal.visible = visibility.animal && !preview && !solo;
         points.forEach((point, index) => {
             const otherInSolo = solo && index !== selected;
-            point.capsule.visible = !otherInSolo && visibility.capsule && point.capsuleVisible && (!preview || point.placed);
             point.attachment.visible = !otherInSolo && visibility.attachment && point.attachmentVisible && (!preview || point.placed);
             point.marker.visible = visibility.points && !preview && !solo;
             point.arrow.visible = visibility.points && !preview && !solo && index === selected;
@@ -218,9 +207,9 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     }
 
 
-    // The three parts of one attachment point, from the current design's templates.
+    // The attachment at one point, from the current design's template.
     function partClone(kind) {
-        const look = { capsule: [0xec9b45, 0.55], attachment: [0x2baca4, 1] }[kind];
+        const look = { attachment: [0x2baca4, 1] }[kind];
         const source = templates?.[kind];
         const clone = source ? styledClone(source, look[0], look[1]) : new THREE.Group();
         clone.name = kind;
@@ -228,9 +217,8 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     }
     function rebuildAssembly(point) {
         clearOwnedObjects(point.assembly);
-        point.capsule = partClone('capsule');
         point.attachment = partClone('attachment');
-        point.assembly.add(point.capsule, point.attachment);
+        point.assembly.add(point.attachment);
     }
 
     function createPoint() {
@@ -243,8 +231,8 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         keepOverlayVisible(marker, 125);
         keepOverlayVisible(arrow, 124);
         root.add(assembly, marker, arrow);
-        const point = { assembly, capsule: null, attachment: null, marker, arrow, placed: false,
-            position: new THREE.Vector3(), normal: new THREE.Vector3(0, 0, 1), capsuleVisible: true, attachmentVisible: true };
+        const point = { assembly, attachment: null, marker, arrow, placed: false,
+            position: new THREE.Vector3(), normal: new THREE.Vector3(0, 0, 1), attachmentVisible: true };
         rebuildAssembly(point);
         points.push(point);
         // New points sit at the world origin (0, 0, 0) until they are typed, dragged, or picked onto the surface.
@@ -444,7 +432,7 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         }
     });
 
-    return { root, ready, rebuild, setActive, setPreview, setSolo, syncVisibility, setDesign, designExists,
+    return { root, ready, rebuild, setActive, setPreview, setSolo, syncVisibility, setDesign,
         // The one part the solo view frames.
         soloObject: () => points[selected]?.assembly || null,
         get design() { return design; },
