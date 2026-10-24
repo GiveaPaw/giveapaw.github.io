@@ -1395,3 +1395,14 @@ output.workflow-number.is-fixed {
 /* The longest label in CB - Attachment is two pixels wider than the old column. */
 #attachment-block .workflow-param-row,
 #attachment-block .workflow-field-row { grid-template-columns: 20px minmax(132px, 1.4fr) minmax(30px, 1fr) 58px 22px; }
+
+/* local demo of the orienter axes (?axes=1) */
+.axes-demo-legend {
+    position: absolute; z-index: 9; left: 12px; bottom: 12px; max-width: 420px;
+    display: flex; flex-direction: column; gap: 5px; padding: 9px 11px;
+    border-radius: 8px; background: rgba(255, 255, 255, 0.96); box-shadow: 0 6px 18px rgba(18, 35, 53, 0.18);
+    color: #41505e; font: 600 0.7rem/1.35 var(--font-heading);
+}
+.axes-demo-legend[hidden] { display: none; }
+.axes-demo-legend span { display: flex; align-items: center; gap: 7px; }
+.axes-demo-legend i { flex: none; width: 12px; height: 12px; border-radius: 3px; }

@@ -1960,6 +1960,67 @@ if (interfaceTypeSelect) {
     });
 }
 
+// ---- local demo of the orienter axes (?axes=1) -------------------------------------------------
+// Draws, at Step 2d, the line the lateral axis is taken from, and the three axes the angles turn
+// about, so the choice of axes can be looked at rather than argued about. Off without the flag.
+const AXES_DEMO = new URLSearchParams(location.search).get('axes') === '1';
+const axesDemoRoot = new THREE.Group();
+axesDemoRoot.visible = AXES_DEMO;
+interfaceRoot.add(axesDemoRoot);
+const AXES_DEMO_COLOURS = { line: 0xfdb515, lateral: 0xfdb515, rotation: 0xdf7544, medial: 0xd63384, spin: 0x6750a4, normal: 0x8c949d };
+
+function drawAxesDemo(a) {
+    if (!AXES_DEMO) return;
+    axesDemoRoot.clear();
+    const arrowLength = 0.06;
+    const add = (dir, origin, colour, length = arrowLength) => {
+        const arrow = new THREE.ArrowHelper(dir.clone().normalize(), origin, length, colour, length * 0.28, length * 0.14);
+        keepOverlayVisible(arrow, 40);
+        axesDemoRoot.add(arrow);
+    };
+    // the projection: interface position down to the pelvic plane, then the line in the plane
+    // The drop itself is short (the pelvic plane sits at the surface's edge, a few mm from the
+    // interface position), so the axis it defines is drawn extended well past both ends, dashed,
+    // in the lateral colour; the drop proper is the solid grey piece between the two dots.
+    const dropDirection = a.projected.clone().sub(a.position);
+    const dropLength = dropDirection.length();
+    dropDirection.normalize();
+    const reach = 0.05;
+    const axisLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+            a.position.clone().addScaledVector(dropDirection, -reach),
+            a.projected.clone().addScaledVector(dropDirection, reach)]),
+        new THREE.LineDashedMaterial({ color: AXES_DEMO_COLOURS.lateral, dashSize: 0.004, gapSize: 0.003 }));
+    axisLine.computeLineDistances();
+    keepOverlayVisible(axisLine, 40);
+    axesDemoRoot.add(axisLine);
+    const drop = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a.position.clone(), a.projected.clone()]),
+        new THREE.LineBasicMaterial({ color: AXES_DEMO_COLOURS.normal }));
+    keepOverlayVisible(drop, 41);
+    axesDemoRoot.add(drop);
+    [a.projected].forEach(point => {
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0025, 12, 10), new THREE.MeshBasicMaterial({ color: AXES_DEMO_COLOURS.normal, toneMapped: false }));
+        dot.position.copy(point);
+        keepOverlayVisible(dot, 41);
+        axesDemoRoot.add(dot);
+    });
+    // the three axes, from the interface position
+    add(a.lateral, a.position, AXES_DEMO_COLOURS.lateral);
+    add(a.rotation, a.position, AXES_DEMO_COLOURS.rotation);
+    add(a.medial, a.position, AXES_DEMO_COLOURS.medial);
+    add(a.spin, a.position, AXES_DEMO_COLOURS.spin, arrowLength * 0.7);
+    const legend = document.getElementById('axes-demo-legend');
+    if (legend) {
+        legend.hidden = false;
+        legend.innerHTML = [
+            ['#fdb515', 'Lateral axis (dashed): the drop line extended, the pelvic plane normal through the interface position'],
+            ['#df7544', 'Rotation axis used for the cross product: the interface gradient after the base orientation'],
+            ['#d63384', 'Medial axis: rotation x lateral'],
+            ['#6750a4', 'Interface rotation (spin) axis: the gradient after lateral and medial too'],
+            ['#8c949d', 'Grey dot and stub: the closest point of the pelvic plane, and the drop onto it (short: the plane is at the surface edge)'],
+        ].map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`).join('');
+    }
+}
+
 function updateInterfaceOrientation() {
     if (!interfaceBounds || !orientedAssembly.children.length) return;
     const interfacePlane = planeData(interfaceBounds, interfacePlaneState, new THREE.Vector3(0, -1, 0));
@@ -1987,14 +2048,16 @@ function updateInterfaceOrientation() {
     const wheelchair = interfaceType === 'wheelchair';
 
     // Tripod: lateral about the in-plane axis across the body, medial about the surface normal.
-    // Wheelchair: lateral about the interface position projected onto the pelvic plane, and medial
-    // about that crossed with the rotation axis.
+    // Wheelchair: lateral about the line that drops the interface position onto the pelvic plane,
+    // which is the plane normal as it was set in Step 2a (the drop lands on the closest point of
+    // the plane, so the two are the same line; the normal is used so the direction cannot flip
+    // if the interface crosses the plane), and medial about the rotation axis crossed with that.
     //
     // The rotation axis used for that cross product is the gradient carried through the base
     // orientation only. Carrying it through lateral and medial as well, which is what the final
     // spin axis uses, would need the medial axis before it could be worked out: medial would depend
     // on itself. Taking it from the base settles it and leaves the spin itself unchanged.
-    const lateralAxis = wheelchair ? towardProjected : targetY;
+    const lateralAxis = wheelchair ? pelvicPlane.normal.clone().normalize() : targetY;
     const baseRotationAxis = sourceGradient.clone().applyQuaternion(base).normalize();
     const medialAxis = wheelchair
         ? baseRotationAxis.clone().cross(lateralAxis).normalize()
@@ -2007,7 +2070,15 @@ function updateInterfaceOrientation() {
     const interfaceSpin = new THREE.Quaternion().setFromAxisAngle(spinAxis, toRadians(orientationState.rotation));
     lastInterfaceAxes = { type: interfaceType, lateral: lateralAxis.toArray(), medial: medialAxis.toArray(),
                           spin: spinAxis.toArray(), normal: targetNormal.toArray(),
-                          projected: towardProjected.toArray(), rotation: baseRotationAxis.toArray() };
+                          projected: towardProjected.toArray(), rotation: baseRotationAxis.toArray(),
+                          pelvicNormal: pelvicPlane.normal.clone().normalize().toArray() };
+    drawAxesDemo({
+        pelvicPoint: pelvicPlane.point,
+        projected: interfacePositionState.clone().addScaledVector(
+            pelvicPlane.normal, -interfacePositionState.clone().sub(pelvicPlane.point).dot(pelvicPlane.normal)),
+        position: interfacePositionState,
+        lateral: lateralAxis, medial: medialAxis, rotation: baseRotationAxis, spin: spinAxis, normal: targetNormal,
+    });
     const finalQuaternion = interfaceSpin.multiply(preSpinQuaternion).normalize();
     const adjustedTarget = interfacePositionState.clone().add(new THREE.Vector3(...orientationState.adjust).multiplyScalar(0.001));
 
