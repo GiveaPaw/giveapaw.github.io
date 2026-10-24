@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=19';
+import { createAttachmentHoles } from './attachment-holes.js?v=20';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
 import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=11';
@@ -426,69 +426,11 @@ const IN_FRONT = { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUn
 // weaves through it by a few tenths of a millimetre. A depth bias cannot cover that, so the surface
 // is lifted off the skin along its own normals once, when it loads. Every later clone shares this
 // geometry, so one lift serves the whole walkthrough. Half a millimetre on a 180 mm dog.
-// Drawn late, after the plane and its outline, so only the overlays come after it; they do not
-// depth test anyway. SURFACE_ORDER - 1 is where the depth buffer is cleared.
-const SURFACE_ORDER = 25;
-
-// A mesh that draws nothing and clears the depth buffer when its turn comes. three.js has no
-// per-object way to say "ignore that one object", so this marks a point in the render order
-// instead: everything already drawn stops occluding, everything after it carries on normally.
-function depthClearer(renderOrder) {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
-    // transparent on purpose. three.js draws every opaque object before any transparent one, so an
-    // opaque clearer would fire at the end of the opaque pass and wipe the body's depth before the
-    // grid and the plane are drawn: they would then show straight through the animal. In the
-    // transparent pass it fires after them and before the surface, which is the only gap wanted.
-    const clearer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        colorWrite: false, depthWrite: false, depthTest: false, transparent: true, opacity: 0,
-    }));
-    clearer.frustumCulled = false;
-    clearer.renderOrder = renderOrder;
-    // A depth clear is masked by the depth-write mask, and three.js only resets that mask at the
-    // start of a frame. onBeforeRender runs before the clearer's own material state is applied, so
-    // the mask is whatever the previous transparent object left: with depthWrite off it is false,
-    // and the clear silently does nothing. That is what made the surface look right from most
-    // angles and ragged from the rest. The mask is switched on here first.
-    clearer.onBeforeRender = renderer => {
-        renderer.state.buffers.depth.setMask(true);
-        renderer.clearDepth();
-    };
-    return clearer;
-}
-
-// Put a surface over whatever has been drawn so far, keeping its own shading.
-function showOverTheBody(group, renderOrder = SURFACE_ORDER) {
-    group.traverse(child => {
-        if (!child.isMesh || child.userData.depthClearer) return;
-        child.renderOrder = renderOrder;
-        // It has to write depth even though it is see-through. Once the buffer is cleared there is
-        // nothing left to sort these triangles against each other, and a surface that curves right
-        // round, as the wheelchair cut does, draws its near and far faces in whatever order they
-        // happen to come in: the speckled mess. The flatter cuts barely show it, which is why this
-        // only looked broken on one case.
-        //
-        // The flag is what makes it stick. applyLayerAlphas rewrites depthWrite from the opacity on
-        // every step change and every see-through toggle, and it undid this the moment a student
-        // left Step 1; it now leaves these meshes' depth alone.
-        child.userData.overTheBody = true;
-        if (child.material) {
-            child.material.depthWrite = true;
-            // And it has to stay in the transparent pass whatever its opacity. The clearer lives
-            // there; an opaque surface is drawn in the opaque pass before the clearer runs, and is
-            // back to losing to the body. The see-through button sets the surface to 1, which is
-            // exactly how that happened.
-            child.material.transparent = true;
-        }
-    });
-    if (!group.children.some(child => child.userData.depthClearer)) {
-        const clearer = depthClearer(renderOrder - 1);
-        clearer.userData.depthClearer = true;
-        clearer.userData.fixedAlpha = true;   // the alpha pass must not touch it either
-        group.add(clearer);
-    }
-}
-
+// There is no special drawing for the attachment surface. It sits on the skin, so the ordinary
+// depth test with the polygon offset in prepareObject and the lift below is what keeps it readable,
+// and the body hides whatever part of it passes behind the body, as it should. A surface drawn over
+// everything looked right only while the wheelchair surface was 5% too small and inside the body;
+// that export is corrected on the way in now (tools/convert_chi_wheelchair.py).
 function liftOffTheSkin(geometry, millimetres) {
     const position = geometry.attributes.position;
     const normal = geometry.attributes.normal;
@@ -859,7 +801,7 @@ function rebuildPelvicScene() {
     clearPelvicOverlays();
     cloneImportForPelvic('solidAnimal', pelvicBody, { color: PART_COLOR.solidAnimal, opacity: 1, roughness: 0.82 });
     cloneImportForPelvic('attachment', pelvicAttach, { color: PART_COLOR.attachment, opacity: 0.78, roughness: 0.66 });
-    showOverTheBody(pelvicAttach);
+
     buildPlaneOverlays();
     buildSocketPreview();
     applyPelvicStageVisibility();
@@ -2138,10 +2080,8 @@ function applyLayerAlphas(scope, stage) {
         layerAlphaTargets(scope, key).forEach(target => target.traverse(object => {
             if (!object.isMesh || !object.material || object.userData.fixedAlpha) return;
             object.material.opacity = value;
-            // A surface drawn over the body stays in the transparent pass and keeps writing depth
-            // whatever its opacity: see showOverTheBody.
-            object.material.transparent = value < 0.99 || !!object.userData.overTheBody;
-            object.material.depthWrite = value >= 0.99 || !!object.userData.overTheBody;
+            object.material.transparent = value < 0.99;
+            object.material.depthWrite = value >= 0.99;
             object.material.needsUpdate = true;
         }));
         const attribute = scope === 'pelvic' ? 'data-view-alpha' : 'data-interface-alpha';
@@ -2502,7 +2442,6 @@ async function loadImportSelection(role, entry) {
         if (activeStep === '1') requestAnimationFrame(() => frameObject(layer.group));
         // A different case can mean a different blend sweep, with its own steps.
         if (role === 'solidAnimal' || role === 'attachment') syncBlendSliderRanges();
-        if (role === 'attachment') showOverTheBody(layer.group);
         layoutImportPreview();
         // There is nothing to turn around until a mesh is in, so the movement guide waits for the scan.
         // Not on requestAnimationFrame: a window that is not painting (another tab in front, a

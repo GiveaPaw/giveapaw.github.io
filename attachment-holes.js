@@ -81,35 +81,6 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
 
     // `behind` pushes a mesh a touch further away in the depth buffer, so a surface sharing the same
     // skin (the attachment surface is cut from the scan) wins the tie instead of speckling.
-    // Transparent on purpose: three.js draws every opaque object before any transparent one, so an
-    // opaque clearer would fire before the grid and wipe the animal from behind it too.
-    const SURFACE_ORDER = 25;
-    function showSurfaceOverAnimal() {
-        surface.traverse(child => {
-            if (!child.isMesh) return;
-            child.renderOrder = SURFACE_ORDER;
-            // See the note in socket-walkthrough-sample.js: with the depth buffer cleared, a
-            // see-through surface that does not write depth cannot sort its own faces.
-            if (child.material) child.material.depthWrite = true;
-        });
-        if (surface.children.some(child => child.userData.depthClearer)) return;
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
-        const clearer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-            colorWrite: false, depthWrite: false, depthTest: false, transparent: true, opacity: 0,
-        }));
-        clearer.frustumCulled = false;
-        clearer.renderOrder = SURFACE_ORDER - 1;
-        // The clear is masked by the depth-write mask, which three.js does not reset mid-frame;
-        // see depthClearer in socket-walkthrough-sample.js.
-        clearer.onBeforeRender = renderer => {
-            renderer.state.buffers.depth.setMask(true);
-            renderer.clearDepth();
-        };
-        clearer.userData.depthClearer = true;
-        surface.add(clearer);
-    }
-
     function styledClone(source, color, opacity = 1, behind = false) {
         const clone = source.clone(true);
         clone.visible = true;
@@ -312,13 +283,10 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         sourceAnimal = animalSource;
         clearOwnedObjects(surface);
         clearOwnedObjects(animal);
-        // The same teal the surface wears in every other step. A polygon offset only settles ties on
-        // a shared skin; a surface cut inside the body, as the wheelchair case has, is several
-        // millimetres under it and would simply be hidden. The depth buffer is cleared once the
-        // animal is drawn instead, so the surface reads over it however deep it sits.
+        // The same teal the surface wears in every other step, pulled forward so it wins the skin
+        // it shares with the scan.
         surface.add(styledClone(surfaceSource, 0x169c8c, 0.8, 'front'));
         animal.add(styledClone(animalSource, 0x496b94, 1, true));
-        showSurfaceOverAnimal();
         surface.updateMatrixWorld(true);
         bounds = new THREE.Box3().setFromObject(surface);
         triangles = collectSurfaceTriangles(surface);
