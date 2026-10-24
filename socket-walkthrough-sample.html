@@ -505,11 +505,9 @@
                                     <input type="number" step="any" class="workflow-number" data-param-output="pointDensity" value="32"><small></small>
                                 </label>
                                 <label class="workflow-type-row"><i data-lucide="list" aria-hidden="true"></i><span>Spatial Weight Type</span><select data-socket-choice="spatialWeightType" aria-label="Spatial weight type"><option value="2-curves" selected>2 Curves</option><option value="point-curve">Point &amp; Curve</option></select></label>
-                                <label class="workflow-type-row"><i data-lucide="list" aria-hidden="true"></i><span>Continuity</span><select data-socket-choice="continuity" aria-label="Continuity"><option value="g0" selected>Geometric (G0)</option><option value="g1">Tangent (G1)</option><option value="g2">Curvature (G2)</option></select></label>
                                 <div class="workflow-source-row"><svg class="ntop-point" aria-hidden="true"><use href="#ntop-point-icon"/></svg><span>Interface Position</span><output class="workflow-chip is-plain">Interface Position</output></div>
                                 <div class="workflow-source-row"><i data-lucide="globe-2" aria-hidden="true"></i><span>Attach Surface</span><output class="workflow-chip is-mesh">Scaled Attachment Surface Mesh</output></div>
                             </div>
-                            <p class="workflow-sweep-note" id="socket-choice-note" hidden></p>
                             <p class="workflow-slot-note"><span data-slot-status>Loading nTop-generated parameter models</span></p>
                             <p class="workflow-sweep-note">Min and max thickness are swept together, Min up to Max (weighting 0.6, 32 points); weighting and point density are swept together (thickness 6 to 12 mm). Moving one pair puts the other back at those values. Spatial Weight Type switches between the two generated sets (the wheelchair case has Point &amp; Curve only).</p>
                         </div>
@@ -781,7 +779,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=121"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=122"></script>
     <script type="module" src="walkthrough-grading.js?v=11"></script>
 </body>
 </html>

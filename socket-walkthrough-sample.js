@@ -577,16 +577,12 @@ const sweepGroupOf = key => Object.keys(SWEEP_GROUPS).find(group => SWEEP_GROUPS
 // The value the student last chose on each Step 3 slider and which ones they changed. Read by the expert grading panel.
 const socketParameterChoices = { ...socketParameterDefaults };
 
-// CB - Socket Lattice v1.0.11 added two menus. Spatial Weight Type was swept: Ollie in both types, the
-// wheelchair case in Point & Curve only (its notebook errors on 2 Curves). Continuity was only run at
-// Geometric (G0), so other continuities are recorded for grading while the preview stays on G0.
+// CB - Socket Lattice v1.0.11's Spatial Weight Type menu. It was swept: Ollie in both types, the
+// wheelchair case in Point & Curve only (its notebook errors on 2 Curves). The block's Continuity
+// menu is left out of the walkthrough: every sweep was run at Geometric (G0).
 // Each case starts on the type its notebook was saved with.
-const socketChoiceDefaults = { spatialWeightType: '2-curves', continuity: 'g0' };
+const socketChoiceDefaults = { spatialWeightType: '2-curves' };
 const socketChoiceState = { ...socketChoiceDefaults };
-const SOCKET_CHOICE_LABEL = {
-    spatialWeightType: { '2-curves': '2 Curves', 'point-curve': 'Point & Curve' },
-    continuity: { g0: 'Geometric (G0)', g1: 'Tangent (G1)', g2: 'Curvature (G2)' },
-};
 const isWheelchairCase = () => importSelection.solidAnimal?.blendSet === 'wheelchair'
     || importSelection.attachment?.blendSet === 'wheelchair';
 const caseSpatialWeightTypes = () => (isWheelchairCase() ? ['point-curve'] : ['2-curves', 'point-curve']);
@@ -595,15 +591,6 @@ const caseSpatialWeightDefault = () => (isWheelchairCase() ? 'point-curve' : '2-
 function socketSetDir() {
     const type = socketChoiceState.spatialWeightType === 'point-curve' ? 'pc' : '2c';
     return isWheelchairCase() ? 'sample-models/chi-wc-socket-1022/pc' : `sample-models/ollie-socket-1022/${type}`;
-}
-
-function syncSocketChoiceNote() {
-    const note = document.getElementById('socket-choice-note');
-    if (!note) return;
-    const off = socketChoiceState.continuity !== socketChoiceDefaults.continuity;
-    note.hidden = !off;
-    if (!off) return;
-    note.textContent = `The socket on screen is the generated sweep, which was run with Geometric (G0) continuity. ${SOCKET_CHOICE_LABEL.continuity[socketChoiceState.continuity]} is recorded, but no mesh for it is on the site yet.`;
 }
 
 // Offer only the types the case was generated in, and move to the case's own type when the case changes.
@@ -622,7 +609,6 @@ function syncSpatialWeightTypeChoices({ resetToDefault = false } = {}) {
 document.querySelectorAll('[data-socket-choice]').forEach(select => {
     select.addEventListener('change', () => {
         socketChoiceState[select.dataset.socketChoice] = select.value;
-        syncSocketChoiceNote();
         // Spatial Weight Type picks a different generated set, so the socket in view changes with it.
         if (select.dataset.socketChoice === 'spatialWeightType') loadSocketParameterModel(activeSocketParameter, socketParameterState[activeSocketParameter]);
     });
