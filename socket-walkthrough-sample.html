@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=43">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=66">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=67">
     <link rel="stylesheet" href="walkthrough-grading.css?v=11">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -538,6 +538,13 @@
                             <span class="workflow-step-number">Step 4b</span>
                             <div><small class="workflow-step-group">Step 4: Attachment Points</small><h2>Define hole parameters</h2></div>
                         </div>
+                        <div class="workflow-explainer-card" id="attachment-explainer">
+                            <p class="workflow-help-title"><i data-lucide="graduation-cap" aria-hidden="true"></i> First, what the attachment is</p>
+                            <p class="workflow-explainer-lead">A round pad with a stepped hole for the screw. Step through the slides to see what each input does, then pick a real screw: the block below takes its sizes.</p>
+                            <div class="workflow-explainer-frame"><iframe id="attachment-explainer-frame" title="Screw attachment: anatomy and real screws" data-src="screw-attachment.html?embed=1"></iframe></div>
+                            <label class="workflow-explainer-preset"><span>Screw for the block</span><select id="attachment-screw-preset" aria-label="Screw preset for the attachment block"></select></label>
+                            <p class="workflow-help-note" id="attachment-preset-note" hidden></p>
+                        </div>
                         <div class="workflow-block workflow-parameter-block" id="attachment-block">
                             <div class="workflow-block-title workflow-block-title-with-mode">
                                 <span class="workflow-implicit-icon" aria-hidden="true"><i class="workflow-implicit-waves" data-lucide="rss"></i><i class="workflow-implicit-cube" data-lucide="box"></i></span>
@@ -779,7 +786,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=122"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=123"></script>
     <script type="module" src="walkthrough-grading.js?v=11"></script>
 </body>
 </html>

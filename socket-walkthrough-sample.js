@@ -2098,7 +2098,8 @@ function syncPlaneVisibility(key, visible) {
     const target = planeLayerTargets[key];
     if (!target) return;
     planeLayerVisibility[key] = visible;
-    target.visible = visible;
+    // The socket stays out of the way while Step 4b shows its part alone, whatever its toggle says.
+    target.visible = visible && !(key === 'socket' && activeStep === '4b' && attachmentSoloOn());
     document.querySelectorAll('button[data-view-layer="' + key + '"]').forEach(button => setVisibilityButton(button, visible));
     document.querySelectorAll('input[data-view-layer="' + key + '"]').forEach(input => { input.checked = visible; });
     syncLayerMenus();
@@ -3176,6 +3177,8 @@ document.querySelectorAll('[data-grid-plane]').forEach(input => {
 });
 
 function viewRootForStep() {
+    // Step 4b on its own part: frame that part, not the whole assembly.
+    if (activeStep === '4b' && attachmentSoloOn()) return attachmentHoles.soloObject() || attachmentHoles.root;
     if (isAttachmentStep(activeStep)) return attachmentHoles.root;
     if (activeStep === '1') return importRoot;
     if (isPelvicStep(activeStep)) return planeRoot;
@@ -3526,6 +3529,11 @@ async function applyAttachmentDesign() {
         const applied = await attachmentHoles.setDesign(attachmentDesign);
         if (request !== attachmentDesignRequest) return;
         if (!applied) return;
+        // The part came in after the solo view opened on nothing: frame it now, once.
+        if (attachmentSoloOn() && !attachmentSoloFramed && attachmentHoles.soloObject()) {
+            attachmentSoloFramed = true;
+            requestAnimationFrame(frameActiveStep);
+        }
     } catch (error) {
         if (request !== attachmentDesignRequest) return;
         attachmentStatus('Could not load that attachment.');
@@ -3541,11 +3549,71 @@ document.querySelectorAll('[data-attach-param]').forEach(input => {
         const moved = ATTACH_KEYS.filter(k => k !== key && chosen[k] !== attachmentDesign[k]);
         Object.assign(attachmentDesign, chosen);
         ATTACH_KEYS.forEach(k => setAttachmentControl(k, attachmentDesign[k]));
+        syncAttachmentPresetSelect();
         attachmentStatus(moved.length
             ? `nTop exported ${ATTACH_LABELS[key]} ${chosen[key]} only with ${moved.map(k => `${ATTACH_LABELS[k]} ${chosen[k]}`).join(', ')}, so ${moved.length > 1 ? 'those moved' : 'that moved'} too.`
             : '');
         applyAttachmentDesign();
     });
+});
+
+// The screws the explainer offers, as exported by the sweep (15 mm pad, 2.8 mm grip, head sized to the
+// screw). The menu sets the block to one; the embedded explainer's Real screws slide does the same when
+// a screw is clicked there, and follows the menu the other way.
+const ATTACH_PRESETS = [
+    { label: 'McMaster-Carr low-profile socket head M4 (the notebook screw)', s: 4, hd: 7, hh: 2.8 },
+    { label: 'ISO 4762 socket head M2', s: 2, hd: 3.8, hh: 2 },
+    { label: 'ISO 4762 socket head M2.5', s: 2.5, hd: 4.5, hh: 2.5 },
+    { label: 'ISO 4762 socket head M3', s: 3, hd: 5.5, hh: 3 },
+    { label: 'ISO 4762 socket head M4', s: 4, hd: 7, hh: 4 },
+    { label: 'ISO 4762 socket head M5', s: 5, hd: 8.5, hh: 5 },
+    { label: 'ISO 4762 socket head M6', s: 6, hd: 10, hh: 6 },
+    { label: 'ISO 7380 button head M3', s: 3, hd: 5.7, hh: 1.65 },
+    { label: 'ISO 7380 button head M4', s: 4, hd: 7.6, hh: 2.2 },
+    { label: 'ISO 7380 button head M5', s: 5, hd: 9.5, hh: 2.75 },
+];
+const attachmentPresetSelect = document.getElementById('attachment-screw-preset');
+const attachmentPresetNote = document.getElementById('attachment-preset-note');
+const attachmentExplainerFrame = document.getElementById('attachment-explainer-frame');
+ATTACH_PRESETS.forEach((preset, index) => attachmentPresetSelect.append(new Option(preset.label, String(index))));
+const attachmentCustomOption = new Option('Custom (set on the sliders)', 'custom');
+attachmentCustomOption.disabled = true;
+attachmentPresetSelect.append(attachmentCustomOption);
+const attachmentPresetIndex = () => ATTACH_PRESETS.findIndex(preset => attachmentDesign.attachDiameter === 15 && attachmentDesign.gripLength === 2.8
+    && preset.s === attachmentDesign.shankDiameter && preset.hd === attachmentDesign.headDiameter && preset.hh === attachmentDesign.headHeight);
+function syncAttachmentPresetSelect() {
+    const index = attachmentPresetIndex();
+    attachmentPresetSelect.value = index >= 0 ? String(index) : 'custom';
+    if (index < 0) attachmentPresetNote.hidden = true;
+}
+function applyScrewPreset(index, { fromExplainer = false } = {}) {
+    const preset = ATTACH_PRESETS[index];
+    if (!preset) return;
+    Object.assign(attachmentDesign, { attachDiameter: 15, shankDiameter: preset.s, gripLength: 2.8, headDiameter: preset.hd, headHeight: preset.hh });
+    ATTACH_KEYS.forEach(k => setAttachmentControl(k, attachmentDesign[k]));
+    attachmentStatus('');
+    attachmentPresetNote.hidden = false;
+    attachmentPresetNote.textContent = `${preset.label}: shank ${preset.s} mm, head ${preset.hd} x ${preset.hh} mm, on the 15 mm pad with a 2.8 mm grip.`;
+    syncAttachmentPresetSelect();
+    applyAttachmentDesign();
+    if (!fromExplainer) attachmentExplainerFrame?.contentWindow?.postMessage({ type: 'gap-screw-preset-pick', S: preset.s, HD: preset.hd, HH: preset.hh }, location.origin);
+}
+attachmentPresetSelect.addEventListener('change', () => applyScrewPreset(+attachmentPresetSelect.value));
+syncAttachmentPresetSelect();
+// The explainer loads with Step 4b, not with the page: it has its own three.js and models.
+function loadAttachmentExplainer() {
+    if (!attachmentExplainerFrame || attachmentExplainerFrame.getAttribute('src')) return;
+    const modelBase = new URLSearchParams(location.search).get('modelBase');
+    attachmentExplainerFrame.src = attachmentExplainerFrame.dataset.src + (modelBase ? '&modelBase=' + encodeURIComponent(modelBase) : '');
+}
+window.addEventListener('message', event => {
+    if (event.origin !== location.origin || !event.data || typeof event.data !== 'object') return;
+    if (event.data.type === 'gap-screw-preset') {
+        const index = ATTACH_PRESETS.findIndex(preset => preset.s === event.data.S && preset.hd === event.data.HD && preset.hh === event.data.HH);
+        if (index >= 0) applyScrewPreset(index, { fromExplainer: true });
+    } else if (event.data.type === 'gap-screw-embed-size' && attachmentExplainerFrame && Number.isFinite(event.data.height)) {
+        attachmentExplainerFrame.style.height = Math.max(420, Math.ceil(event.data.height)) + 'px';
+    }
 });
 
 // ---- Step 5: the blended-socket sweep (10-22, tools/convert_1022_sweeps.py) --------------------------
@@ -3669,15 +3737,34 @@ document.querySelectorAll('[data-blend-param]').forEach(input => {
 });
 
 
-const stepObserver = new IntersectionObserver(entries => {
-    const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-    if (!visible) return;
-    const step = visible.target.dataset.step;
-    // Scrolling within the step already shown, or within the split pair, must not reset the view.
-    if (step === activeStep || (splitPaired(step) && splitPaired(activeStep))) return;
-    showStep(step);
-}, { root: document.getElementById('workflow-scroll'), threshold: [0.35, 0.6] });
-document.querySelectorAll('.workflow-step').forEach(step => stepObserver.observe(step));
+// The step in view is the one under a line two fifths of the way down the rail (or the last step once
+// the rail is scrolled to its end). Judging by how much of a section is visible does not work for a
+// section taller than the rail, such as Step 4b with the explainer in it.
+const stepScrollEl = document.getElementById('workflow-scroll');
+function stepUnderTheLine() {
+    const sections = [...document.querySelectorAll('.workflow-step')].filter(section => section.offsetParent !== null && section.offsetHeight > 0);
+    if (!sections.length) return null;
+    if (stepScrollEl.scrollTop + stepScrollEl.clientHeight >= stepScrollEl.scrollHeight - 2) return sections.at(-1);
+    const rail = stepScrollEl.getBoundingClientRect();
+    const line = rail.top + rail.height * 0.4;
+    let pick = sections[0];
+    for (const section of sections) {
+        if (section.getBoundingClientRect().top <= line) pick = section;
+        else break;
+    }
+    return pick;
+}
+let stepScrollFrame = 0;
+stepScrollEl.addEventListener('scroll', () => {
+    if (stepScrollFrame) return;
+    stepScrollFrame = requestAnimationFrame(() => {
+        stepScrollFrame = 0;
+        const step = stepUnderTheLine()?.dataset.step;
+        // Scrolling within the step already shown, or within the split pair, must not reset the view.
+        if (!step || step === activeStep || (splitPaired(step) && splitPaired(activeStep))) return;
+        showStep(step);
+    });
+}, { passive: true });
 
 attachmentHoles.ready.then(() => {
     Object.keys(layers).forEach(key => syncImportVisibility(key, layers[key].visible));
@@ -3863,11 +3950,23 @@ const attachmentHelpCard = document.getElementById('attachment-help-card');
 const attachmentSoloButton = document.getElementById('attachment-solo-btn');
 const attachmentHelpNote = document.getElementById('attachment-help-note');
 let attachmentSolo = false;
+let attachmentSoloStep = null;   // the step the last sync saw, so opening 4b (not staying on it) turns solo on
+let attachmentSoloFramed = false;
+function attachmentSoloOn() { return attachmentSolo && activeStep === '4b'; }
 
 function syncAttachmentSolo() {
     if (!attachmentSoloButton) return;
+    // Step 4b opens on the part by itself; the Done button or the ? card brings the socket back.
+    if (activeStep === '4b' && attachmentSoloStep !== '4b') {
+        attachmentSolo = true;
+        loadAttachmentExplainer();
+    }
+    attachmentSoloStep = activeStep;
     const on = attachmentSolo && activeStep === '4b';
     attachmentHoles.setSolo(on);
+    // The socket lattice goes with the rest while the part is on its own.
+    if (isAttachmentStep(activeStep)) socketPreviewRoot.visible = planeLayerVisibility.socket && !on;
+    if (!on) attachmentSoloFramed = false;
     attachmentSoloButton.setAttribute('aria-pressed', String(on));
     attachmentSoloButton.classList.toggle('is-on', on);
     attachmentSoloButton.querySelector('span').textContent = on ? 'Back to the whole socket' : 'Show the part on its own';
@@ -3882,7 +3981,7 @@ function syncAttachmentSolo() {
         : '';
     if (on) {
         const object = attachmentHoles.soloObject();
-        if (object) requestAnimationFrame(() => frameObject(object));
+        if (object) { attachmentSoloFramed = true; requestAnimationFrame(() => frameObject(object)); }
     } else if (activeStep === '4b') {
         requestAnimationFrame(() => frameObject(attachmentHoles.root));
     }

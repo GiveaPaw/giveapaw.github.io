@@ -111,6 +111,20 @@
     .sa-app .spec td { text-align: right; font-variant-numeric: tabular-nums; } .sa-app .spec td:first-child { text-align: left; color: var(--sa-muted); }
     .sa-app .method { margin-top: 1rem; font-size: 14px; color: var(--sa-muted); }
     .sa-app .hidden { display: none !important; }
+    /* Embedded in the walkthrough (?embed=1): the app alone, stacked, sized for a narrow column. */
+    html.embed, html.embed body { margin: 0; padding: 0; min-height: 0; height: auto; background: #fff; overflow: hidden; }
+    html.embed body { padding: 6px 6px 8px; }
+    html.embed .sa-app .slide-strip { margin: 0; gap: 4px; }
+    html.embed .sa-app .slide-strip button { padding: 3px 9px; font-size: 12px; }
+    html.embed .sa-app .sa-main { grid-template-columns: 1fr; gap: 10px; margin-top: 8px; }
+    html.embed .sa-app .viewer { position: relative; top: 0; height: 300px; }
+    html.embed .sa-app #controls-card { order: 0; }
+    html.embed .sa-app .card { padding: 10px 12px; }
+    html.embed .sa-app .slide-title { font-size: 16px; }
+    html.embed .sa-app .slide-text { font-size: 13px; }
+    html.embed .sa-app .check-item { font-size: 12.5px; }
+    html.embed .sa-app .presets button b { font-size: 14px; }
+    html.embed .sa-app .view-tools label, html.embed .sa-app .view-tools button { font-size: 12px; padding: 3px 8px; }
     </style>
 </head>
 <body class="wide">
@@ -254,6 +268,14 @@
 
     const $ = (id) => document.getElementById(id);
 
+    // Embedded in the walkthrough's Step 4b: keep the app and drop the page around it.
+    const EMBED = new URLSearchParams(location.search).get('embed') === '1';
+    if (EMBED) {
+      document.documentElement.classList.add('embed');
+      document.body.replaceChildren(document.querySelector('.sa-app'));
+    }
+    const tellParent = (message) => { if (EMBED && window.parent !== window) window.parent.postMessage(message, location.origin); };
+
     // ---------- the five inputs and the files ----------
     const BASE = { A: 15, S: 4, G: 2.8, HD: 7, HH: 2.8 };
     const VARS = {
@@ -299,7 +321,7 @@
           ${li('G', '<b>Grip Length</b>: how thick the pad is under the head, which is the material the screw clamps.')}
           ${li('HD', '<b>Head Diameter</b>: how wide the head recess is.')}
           ${li('HH', '<b>Head Height</b>: how deep the head recess is.')}
-          </ul><p class="small">Drag to turn the model, scroll to zoom. The model is cut in half so you can see the hole.</p>` },
+          </ul><p>The starting values, 15 / 4 / 2.8 / 7 / 2.8 mm, fit the notebook's screw: a McMaster-Carr <b>low-profile socket head M4</b>, with a head 7 mm across and 2.8 mm tall.</p><p class="small">Drag to turn the model, scroll to zoom. The model is cut in half so you can see the hole.</p>` },
       { id: 'attachment-diameter', tab: 'Attachment Ø', kind: 'single', v: 'A', values: range(6, 24, 0.5),
         title: 'Attachment Diameter: the size of the pad',
         text: `<p>The outside width of the pad. The hole stays the same, so a bigger pad only adds material around it: a thicker wall around the screw head and more surface to blend into the socket.</p><p>The 7 mm head recess sets the lower limit. Below 9 mm the wall around it is under 1 mm thick. Below 7 mm the recess is wider than the pad, and nTop removes the whole head section.</p>` },
@@ -316,11 +338,14 @@
         title: 'Head Height: the depth of the head recess',
         text: `<p>How deep the recess is. Match it to the height of the screw head and the head sits flush with the top: 4 mm for an M4 socket head, 2.2 mm for an M4 button head. A shallower recess leaves the head sticking out; a deeper one sinks it below the surface.</p><p>At 0 there is no recess and the head sits on top. Like Grip Length, this makes the pad taller.</p>` },
       { id: 'screws', tab: 'Real screws', kind: 'presets', title: 'Real screws',
-        text: `<p>Pick a screw to see the attachment it needs. Each one uses the screw's own sizes, so the head sits flush in a recess exactly its size. The pad stays at 15 mm and the grip at 2.8 mm.</p><p><b>Socket head</b> screws (ISO 4762) have tall heads that sink deep. <b>Button head</b> screws (ISO 7380) have wide, low heads that need a shallow recess.</p><p class="small">These are the screw's own sizes with no clearance. Printed holes come out slightly small, so a part to print needs a little extra on the shank hole and the head recess.</p>` },
+        text: `<p>Pick a screw to see the attachment it needs. Each one uses the screw's own sizes, so the head sits flush in a recess exactly its size. The pad stays at 15 mm and the grip at 2.8 mm.</p><p>The notebook's defaults are the McMaster-Carr <b>low-profile socket head</b> M4: the same 7 mm head as a standard socket head, but only 2.8 mm tall instead of 4. <b>Socket head</b> screws (ISO 4762) have tall heads that sink deep. <b>Button head</b> screws (ISO 7380) have wide, low heads that need a shallow recess.</p><p class="small">These are the screw's own sizes with no clearance. Printed holes come out slightly small, so a part to print needs a little extra on the shank hole and the head recess.</p>` },
       { id: 'explorer', tab: 'Explorer', kind: 'explorer', title: 'Explorer: set all five',
         text: `<p>Every combination nTop exported. Set the five numbers and see the attachment they make, with checks for problems.</p><p class="small">Combinations where the head is not wider than the shank, or the pad is less than 2 mm wider than the head, were not exported. The sliders step in 1 mm (5 mm for the pad).</p>` },
     ];
+    // Embedded, the walkthrough's own block is the explorer, so that slide stays out.
+    if (EMBED) SLIDES.splice(SLIDES.findIndex((s) => s.kind === 'explorer'), 1);
     const PRESETS = [
+      { group: 'Low-profile socket head (McMaster-Carr)', name: 'M4', S: 4, HD: 7, HH: 2.8 },
       { group: 'Socket head (ISO 4762)', name: 'M2', S: 2, HD: 3.8, HH: 2 },
       { group: 'Socket head (ISO 4762)', name: 'M2.5', S: 2.5, HD: 4.5, HH: 2.5 },
       { group: 'Socket head (ISO 4762)', name: 'M3', S: 3, HD: 5.5, HH: 3 },
@@ -582,6 +607,7 @@
     }
 
     let current = 0;
+    let pendingPreset = null;
     function renderSlide(index, { push = true } = {}) {
       current = Math.max(0, Math.min(SLIDES.length - 1, index));
       const s = SLIDES[current];
@@ -628,17 +654,20 @@
         });
         html += '</div><table class="spec" style="margin-top:10px"><tbody id="spec"></tbody></table>';
         box.innerHTML = html;
-        const pick = (i) => {
+        const pick = (i, { chosen = false } = {}) => {
           const x = PRESETS[i];
           box.querySelectorAll('[data-preset]').forEach((b) => b.setAttribute('aria-pressed', +b.dataset.preset === i));
           $('spec').innerHTML = `<tr><td>Screw</td><td><b>${x.name} ${x.group.split(' (')[0].toLowerCase()}</b></td></tr>
             <tr><td>Shank Diameter</td><td>${fmt(x.S)} mm</td></tr><tr><td>Head Diameter</td><td>${fmt(x.HD)} mm</td></tr>
             <tr><td>Head Height</td><td>${fmt(x.HH)} mm</td></tr>`;
           setModel(x.p);
+          // Only a screw the reader clicked goes to the walkthrough; opening the slide does not.
+          if (chosen) tellParent({ type: 'gap-screw-preset', name: x.name, group: x.group, S: x.S, HD: x.HD, HH: x.HH });
         };
-        box.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => pick(+b.dataset.preset)));
+        box.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => pick(+b.dataset.preset, { chosen: true })));
         fitTo(15, 2.8 + 6);
-        pick(3);
+        pick(pendingPreset ?? 0);   // the notebook's screw, or the one the walkthrough asked for
+        pendingPreset = null;
         prefetch(PRESETS.map((x) => x.p));
       } else {
         $('controls-title').textContent = 'Set all five';
@@ -680,6 +709,21 @@
     });
     const startAt = SLIDES.findIndex((s) => '#' + s.id === location.hash);
     renderSlide(startAt >= 0 ? startAt : 0, { push: false });
+
+    // Embedded: tell the walkthrough how tall the app is, and show the screw it picks from its menu.
+    if (EMBED) {
+      const app = document.querySelector('.sa-app');
+      const report = () => tellParent({ type: 'gap-screw-embed-size', height: app.offsetHeight + 16 });
+      new ResizeObserver(report).observe(app);
+      report();
+      window.addEventListener('message', (event) => {
+        if (event.origin !== location.origin || !event.data || event.data.type !== 'gap-screw-preset-pick') return;
+        const i = PRESETS.findIndex((x) => x.S === event.data.S && x.HD === event.data.HD && x.HH === event.data.HH);
+        if (i < 0) return;
+        pendingPreset = i;
+        renderSlide(SLIDES.findIndex((s) => s.kind === 'presets'));
+      });
+    }
     </script>
 </body>
 </html>
