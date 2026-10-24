@@ -1321,9 +1321,6 @@ output.workflow-number.is-fixed {
 @media (pointer: coarse) { .viewer-mode-done { min-height: 44px; padding: 11px 20px; } }
 
 /* The notes switch carries its name, so it is not just another icon in the rail. */
-.viewer-tool-labelled { display: grid; height: auto; min-height: 44px; gap: 2px; padding: 6px 5px 5px; place-items: center; }
-.viewer-tool-labelled small { font: 700 0.55rem var(--font-heading); letter-spacing: 0.04em; line-height: 1; text-transform: uppercase; }
-.viewer-tool-labelled[aria-pressed="true"] small { color: inherit; }
 
 /* ---- practice mode: the same two planes on a body that has been turned ----------------------- */
 .practice-bar {
