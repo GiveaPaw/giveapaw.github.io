@@ -14,26 +14,21 @@ BASE_URL = "https://giveapaw.github.io/"
 
 # ---- canonical sidebar -------------------------------------------------
 NAV_GROUPS = [
-    ("Our Patients", [
+    ("Spring 2026 Patients", [
         ("max-case-study.html", "Max"),
         ("billie-case-study.html", "Billie"),
         ("yana-case-study.html", "Yana"),
         ("ollie-case-study.html", "Ollie"),
         ("kiki-case-study.html", "Kiki"),
     ]),
-    ("Earlier Projects", [
-        ("full-limb.html", "Full Limb"),
-        ("wheel-chair.html", "Wheel Chair"),
-    ]),
+    # Empty until the fall patients have pages; the menu shows "Coming soon" under the title.
+    ("Fall 2026 Patients", []),
+    # Full Limb, Wheel Chair, Preparing nTop Input, nTop Socket Creation, the plane locators, Screw
+    # Attachment, Implicit Field Viewer and Mesh Tolerance left the menu on 2026-10-23 (Tyler: the
+    # walkthrough covers them). The pages still exist and are still generated if they have META entries.
     ("How We Build", [
         ("3d-scanning.html", "3D Scanning"),
-        ("preparing-ntop-input.html", "Preparing nTop Input"),
-        ("ntop-socket-creation.html", "nTop Socket Creation"),
-        ("pelvic-plane-locator.html", "Pelvic Plane Locator"),
-        ("interface-plane-locator.html", "Interface Plane Locator"),
         ("socket-walkthrough-sample.html", "Socket Walkthrough"),
-        ("implicit-viewer.html", "Implicit Field Viewer"),
-        ("mesh-tolerance.html", "Mesh Tolerance"),
         ("materials.html", "Materials"),
         ("3d-printing.html", "3D Printing"),
     ]),
@@ -85,6 +80,9 @@ def build_nav(current):
             cls = ' class="active"' if href == nav_section(current) else ''
             out.append('                <li%s><a href="%s">%s</a></li>'
                        % (cls, href, label))
+        if not links:
+            out.append('                <li><span class="sidebar-nav-soon" style="display:block;padding:0.5rem 1.5rem;'
+                       'color:var(--color-sidebar-text);opacity:0.78;font-size:0.95rem;font-style:italic">Coming soon</span></li>')
         out.append('            </ul>')
     out.append('        </nav>')
     return '\n'.join(out)
@@ -227,6 +225,11 @@ RELATED = {
         ("ollie-case-study.html", "Ollie", "the patient behind the socket field"),
         ("billie-case-study.html", "Billie", "the patient behind the full prosthetic field"),
     ])],
+    "screw-attachment.html": [("Related", [
+        ("ntop-socket-creation.html", "nTop Socket Creation", "the socket the attachments are built onto"),
+        ("socket-walkthrough-sample.html", "Socket Walkthrough", "where the attachment points are placed on Ollie's socket"),
+        ("3d-printing.html", "3D Printing", "printing the attachment and its screw holes"),
+    ])],
     "mesh-tolerance.html": [("Related", [
         ("ollie-case-study.html", "Ollie", "the patient whose socket is compared here"),
         ("ntop-socket-creation.html", "nTop Socket Creation", "the export block and its settings"),
@@ -339,6 +342,9 @@ META = {
     "mesh-tolerance.html": (
         "Mesh Tolerance",
         "How nTop's mesh tolerance changes the socket file the website shows: 20 exports of Ollie's blended socket from 0.1 to 3.9 mm, compressed the way the site compresses models, with file size, shape error and lost lattice side by side."),
+    "screw-attachment.html": (
+        "Screw Attachment",
+        "What each number in the nTop screw attachment block does: attachment diameter, shank diameter, grip length, head diameter and head height, shown on 2,498 real nTop exports with a see-through screw, real M2 to M6 screw sizes, and a five-slider explorer."),
     "pelvic-plane-locator.html": (
         "Pelvic Plane Locator",
         "Interactive 3D explainer for the nTop Pelvic Plane Locator block: pick Min, Centroid or Max on each axis of the attachment surface bounding box, set the normal, and watch the plane move on a real scan."),
