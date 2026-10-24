@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { createAttachmentDemo } from './attachment-demo.js?v=1';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
 import { createAttachmentHoles } from './attachment-holes.js?v=20';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
@@ -97,6 +98,8 @@ const NTOP_AXIS_COLORS = {
 const camera = new THREE.PerspectiveCamera(34, 1, 0.001, 10000);
 camera.up.set(0, 0, 1);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// Step 4b's explainer, drawn in this viewer on the part shown by itself (attachment-demo.js).
+const attachmentDemo = createAttachmentDemo({ renderer, scene, camera, labelsEl: document.getElementById('attachment-demo-labels') });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
@@ -1135,6 +1138,7 @@ function resize() {
     const height = stage.clientHeight;
     if (!width || !height) return;
     renderer.setSize(width, height, false);
+    attachmentDemo.resize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
 }
@@ -1185,6 +1189,7 @@ renderer.setAnimationLoop(() => {
     controls.update();
     if (renderOverride) renderOverride();
     else renderer.render(scene, camera);
+    if (!renderOverride) attachmentDemo.tick();
     renderSplitPane();
     walkthroughNotes?.tick();
 });
@@ -3189,7 +3194,8 @@ function viewRootForStep() {
 }
 
 function frameActiveStep() {
-    frameObject(viewRootForStep());
+    if (activeStep === '4b' && attachmentSoloOn()) frameObject(viewRootForStep(), attachmentDemo.viewDirection());
+    else frameObject(viewRootForStep());
 }
 
 // Fit (the toolbar button or F) refits every pane that is showing.
@@ -3529,6 +3535,7 @@ async function applyAttachmentDesign() {
         const applied = await attachmentHoles.setDesign(attachmentDesign);
         if (request !== attachmentDesignRequest) return;
         if (!applied) return;
+        if (attachmentSoloOn()) attachmentDemo.show(attachmentHoles.soloObject(), attachmentDesign);
         // The part came in after the solo view opened on nothing: frame it now, once.
         if (attachmentSoloOn() && !attachmentSoloFramed && attachmentHoles.soloObject()) {
             attachmentSoloFramed = true;
@@ -3550,6 +3557,7 @@ document.querySelectorAll('[data-attach-param]').forEach(input => {
         Object.assign(attachmentDesign, chosen);
         ATTACH_KEYS.forEach(k => setAttachmentControl(k, attachmentDesign[k]));
         syncAttachmentPresetSelect();
+        attachmentDemo.setActive(key);
         attachmentStatus(moved.length
             ? `nTop exported ${ATTACH_LABELS[key]} ${chosen[key]} only with ${moved.map(k => `${ATTACH_LABELS[k]} ${chosen[k]}`).join(', ')}, so ${moved.length > 1 ? 'those moved' : 'that moved'} too.`
             : '');
@@ -3557,11 +3565,10 @@ document.querySelectorAll('[data-attach-param]').forEach(input => {
     });
 });
 
-// The screws the explainer offers, as exported by the sweep (15 mm pad, 2.8 mm grip, head sized to the
-// screw). The menu sets the block to one; the embedded explainer's Real screws slide does the same when
-// a screw is clicked there, and follows the menu the other way.
+// The screws screw-attachment.html offers, as exported by the sweep (15 mm pad, 2.8 mm grip, head
+// sized to the screw). The menu sets the block to one.
 const ATTACH_PRESETS = [
-    { label: 'McMaster-Carr low-profile socket head M4 (the notebook screw)', s: 4, hd: 7, hh: 2.8 },
+    { label: 'McMaster-Carr low-profile M4 (the notebook screw)', s: 4, hd: 7, hh: 2.8 },
     { label: 'ISO 4762 socket head M2', s: 2, hd: 3.8, hh: 2 },
     { label: 'ISO 4762 socket head M2.5', s: 2.5, hd: 4.5, hh: 2.5 },
     { label: 'ISO 4762 socket head M3', s: 3, hd: 5.5, hh: 3 },
@@ -3574,7 +3581,6 @@ const ATTACH_PRESETS = [
 ];
 const attachmentPresetSelect = document.getElementById('attachment-screw-preset');
 const attachmentPresetNote = document.getElementById('attachment-preset-note');
-const attachmentExplainerFrame = document.getElementById('attachment-explainer-frame');
 ATTACH_PRESETS.forEach((preset, index) => attachmentPresetSelect.append(new Option(preset.label, String(index))));
 const attachmentCustomOption = new Option('Custom (set on the sliders)', 'custom');
 attachmentCustomOption.disabled = true;
@@ -3586,7 +3592,7 @@ function syncAttachmentPresetSelect() {
     attachmentPresetSelect.value = index >= 0 ? String(index) : 'custom';
     if (index < 0) attachmentPresetNote.hidden = true;
 }
-function applyScrewPreset(index, { fromExplainer = false } = {}) {
+function applyScrewPreset(index) {
     const preset = ATTACH_PRESETS[index];
     if (!preset) return;
     Object.assign(attachmentDesign, { attachDiameter: 15, shankDiameter: preset.s, gripLength: 2.8, headDiameter: preset.hd, headHeight: preset.hh });
@@ -3595,25 +3601,15 @@ function applyScrewPreset(index, { fromExplainer = false } = {}) {
     attachmentPresetNote.hidden = false;
     attachmentPresetNote.textContent = `${preset.label}: shank ${preset.s} mm, head ${preset.hd} x ${preset.hh} mm, on the 15 mm pad with a 2.8 mm grip.`;
     syncAttachmentPresetSelect();
+    attachmentDemo.setActive(null);
     applyAttachmentDesign();
-    if (!fromExplainer) attachmentExplainerFrame?.contentWindow?.postMessage({ type: 'gap-screw-preset-pick', S: preset.s, HD: preset.hd, HH: preset.hh }, location.origin);
 }
 attachmentPresetSelect.addEventListener('change', () => applyScrewPreset(+attachmentPresetSelect.value));
 syncAttachmentPresetSelect();
-// The explainer loads with Step 4b, not with the page: it has its own three.js and models.
-function loadAttachmentExplainer() {
-    if (!attachmentExplainerFrame || attachmentExplainerFrame.getAttribute('src')) return;
-    const modelBase = new URLSearchParams(location.search).get('modelBase');
-    attachmentExplainerFrame.src = attachmentExplainerFrame.dataset.src + (modelBase ? '&modelBase=' + encodeURIComponent(modelBase) : '');
-}
-window.addEventListener('message', event => {
-    if (event.origin !== location.origin || !event.data || typeof event.data !== 'object') return;
-    if (event.data.type === 'gap-screw-preset') {
-        const index = ATTACH_PRESETS.findIndex(preset => preset.s === event.data.S && preset.hd === event.data.HD && preset.hh === event.data.HH);
-        if (index >= 0) applyScrewPreset(index, { fromExplainer: true });
-    } else if (event.data.type === 'gap-screw-embed-size' && attachmentExplainerFrame && Number.isFinite(event.data.height)) {
-        attachmentExplainerFrame.style.height = Math.max(420, Math.ceil(event.data.height)) + 'px';
-    }
+// The demo's switches: cut in half, the screw, the dimensions.
+const attachmentDemoTools = document.getElementById('attachment-demo-tools');
+attachmentDemoTools.querySelectorAll('[data-demo-option]').forEach(input => {
+    input.addEventListener('change', () => attachmentDemo.setOptions({ [input.dataset.demoOption]: input.checked }));
 });
 
 // ---- Step 5: the blended-socket sweep (10-22, tools/convert_1022_sweeps.py) --------------------------
@@ -3957,22 +3953,22 @@ function attachmentSoloOn() { return attachmentSolo && activeStep === '4b'; }
 function syncAttachmentSolo() {
     if (!attachmentSoloButton) return;
     // Step 4b opens on the part by itself; the Done button or the ? card brings the socket back.
-    if (activeStep === '4b' && attachmentSoloStep !== '4b') {
-        attachmentSolo = true;
-        loadAttachmentExplainer();
-    }
+    if (activeStep === '4b' && attachmentSoloStep !== '4b') attachmentSolo = true;
     attachmentSoloStep = activeStep;
     const on = attachmentSolo && activeStep === '4b';
     attachmentHoles.setSolo(on);
     // The socket lattice goes with the rest while the part is on its own.
     if (isAttachmentStep(activeStep)) socketPreviewRoot.visible = planeLayerVisibility.socket && !on;
     if (!on) attachmentSoloFramed = false;
+    if (on) attachmentDemo.show(attachmentHoles.soloObject(), attachmentDesign);
+    else { attachmentDemo.hide(); attachmentDemo.clearLabels(); }
+    attachmentDemoTools.hidden = !on;
     attachmentSoloButton.setAttribute('aria-pressed', String(on));
     attachmentSoloButton.classList.toggle('is-on', on);
     attachmentSoloButton.querySelector('span').textContent = on ? 'Back to the whole socket' : 'Show the part on its own';
     setViewerMode('attachmentSolo', on ? {
-        name: 'One part only',
-        text: 'The attachment on its own, with the socket out of the way.',
+        name: 'The attachment',
+        text: 'Cut in half, with the screw drawn to fit: its head sits in the wide recess at the socket, its shaft passes through the narrow hole and on out to the prosthetic. Each label is one input of the block: move a slider or pick a screw and watch it change.',
         done: () => { attachmentSolo = false; syncAttachmentSolo(); },
     } : null);
     attachmentHelpNote.hidden = !attachmentSolo;
@@ -3981,12 +3977,13 @@ function syncAttachmentSolo() {
         : '';
     if (on) {
         const object = attachmentHoles.soloObject();
-        if (object) { attachmentSoloFramed = true; requestAnimationFrame(() => frameObject(object)); }
+        if (object) { attachmentSoloFramed = true; requestAnimationFrame(() => frameObject(object, attachmentDemo.viewDirection())); }
     } else if (activeStep === '4b') {
         requestAnimationFrame(() => frameObject(attachmentHoles.root));
     }
 }
 
+attachmentHoles.onChange(() => { if (attachmentSoloOn()) attachmentDemo.show(attachmentHoles.soloObject(), attachmentDesign); });
 attachmentHelpButton.addEventListener('click', () => toggleHelpCard(attachmentHelpButton, attachmentHelpCard));
 attachmentSoloButton.addEventListener('click', () => {
     attachmentSolo = !attachmentSolo;

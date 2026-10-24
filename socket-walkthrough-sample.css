@@ -1121,12 +1121,11 @@ button.workflow-var-help.is-on { border-color: #fdb515; background: #fdb515; col
 .workflow-help-note { margin: 9px 0 0; color: #41505e; font-size: 0.75rem; line-height: 1.5; }
 .workflow-help-note[hidden] { display: none; }
 
-/* Step 4b opens with the screw attachment explainer (screw-attachment.html, embedded) and a screw menu. */
-.workflow-explainer-card { margin: 0 0 12px; padding: 11px 13px 12px; border: 1px solid #d7dee6; border-radius: 8px; background: #f6f9fc; }
-.workflow-explainer-lead { margin: 0 0 9px; color: #41505e; font-size: 0.75rem; line-height: 1.5; }
-.workflow-explainer-frame { border: 1px solid #d7dee6; border-radius: 8px; overflow: hidden; background: #fff; }
-.workflow-explainer-frame iframe { display: block; width: 100%; height: 820px; border: 0; }
-.workflow-explainer-preset { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 10px; color: #173958; font: 700 0.75rem var(--font-heading); }
+/* Step 4b: the screw menu above the block, and the explainer drawn in the viewer on the part itself. */
+.workflow-explainer-card { margin: 0 0 12px; padding: 10px 13px 11px; border: 1px solid #d7dee6; border-radius: 8px; background: #f6f9fc; }
+.workflow-explainer-preset { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; color: #173958; font: 700 0.75rem var(--font-heading); }
+.workflow-explainer-preset span { display: inline-flex; align-items: center; gap: 6px; }
+.workflow-explainer-preset span svg { width: 14px; height: 14px; color: #6a7a89; }
 .workflow-explainer-preset select { min-width: 0; padding: 6px 8px; border: 1px solid #b6c0ca; border-radius: 6px; background: #fff; color: #173958; font: 600 0.75rem var(--font-heading); }
 .workflow-explainer-preset select:focus-visible { outline: 2px solid #fdb515; outline-offset: 1px; }
 
@@ -1412,3 +1411,17 @@ output.workflow-number.is-fixed {
 .axes-demo-legend[hidden] { display: none; }
 .axes-demo-legend span { display: flex; align-items: center; gap: 7px; }
 .axes-demo-legend i { flex: none; width: 12px; height: 12px; border-radius: 3px; }
+
+/* The attachment demo in the viewer (Step 4b on its own part): labels, and the cut / screw / dimension switches. */
+.attachment-demo-labels { position: absolute; z-index: 3; inset: 0; overflow: hidden; pointer-events: none; }
+.attachment-demo-labels .dim-label { padding: 2px 7px; border-radius: 6px; background: rgba(255, 255, 255, 0.92); border: 1.5px solid currentColor; font: 600 12.5px/1.35 var(--font-heading); white-space: nowrap; }
+.attachment-demo-labels .dim-label.muted { color: #8995a2 !important; font-weight: 500; border-color: #c9d1d9; opacity: 0.9; }
+.attachment-demo-labels .dim-label.side { transform: translateX(calc(50% + 6px)); }
+.attachment-demo-labels .dim-label.below { transform: translateY(calc(50% + 4px)); }
+.attachment-demo-tools { position: absolute; z-index: 9; left: 12px; top: 52px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: calc(100% - 180px); }
+.attachment-demo-tools[hidden] { display: none; }
+.attachment-demo-tools label { display: flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.94); border: 1px solid #d7dee6; color: #1d2733; font: 600 0.7rem var(--font-heading); cursor: pointer; }
+.attachment-demo-tools input { margin: 0; accent-color: #003262; }
+.attachment-demo-key { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.94); border: 1px solid #d7dee6; color: #5f6b78; font: 600 0.66rem var(--font-heading); }
+.attachment-demo-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 6px; }
+.attachment-demo-key i:first-child { margin-left: 0; }

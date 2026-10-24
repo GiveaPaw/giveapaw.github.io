@@ -111,20 +111,6 @@
     .sa-app .spec td { text-align: right; font-variant-numeric: tabular-nums; } .sa-app .spec td:first-child { text-align: left; color: var(--sa-muted); }
     .sa-app .method { margin-top: 1rem; font-size: 14px; color: var(--sa-muted); }
     .sa-app .hidden { display: none !important; }
-    /* Embedded in the walkthrough (?embed=1): the app alone, stacked, sized for a narrow column. */
-    html.embed, html.embed body { margin: 0; padding: 0; min-height: 0; height: auto; background: #fff; overflow: hidden; }
-    html.embed body { padding: 6px 6px 8px; }
-    html.embed .sa-app .slide-strip { margin: 0; gap: 4px; }
-    html.embed .sa-app .slide-strip button { padding: 3px 9px; font-size: 12px; }
-    html.embed .sa-app .sa-main { grid-template-columns: 1fr; gap: 10px; margin-top: 8px; }
-    html.embed .sa-app .viewer { position: relative; top: 0; height: 300px; }
-    html.embed .sa-app #controls-card { order: 0; }
-    html.embed .sa-app .card { padding: 10px 12px; }
-    html.embed .sa-app .slide-title { font-size: 16px; }
-    html.embed .sa-app .slide-text { font-size: 13px; }
-    html.embed .sa-app .check-item { font-size: 12.5px; }
-    html.embed .sa-app .presets button b { font-size: 14px; }
-    html.embed .sa-app .view-tools label, html.embed .sa-app .view-tools button { font-size: 12px; padding: 3px 8px; }
     </style>
 </head>
 <body class="wide">
@@ -268,14 +254,6 @@
 
     const $ = (id) => document.getElementById(id);
 
-    // Embedded in the walkthrough's Step 4b: keep the app and drop the page around it.
-    const EMBED = new URLSearchParams(location.search).get('embed') === '1';
-    if (EMBED) {
-      document.documentElement.classList.add('embed');
-      document.body.replaceChildren(document.querySelector('.sa-app'));
-    }
-    const tellParent = (message) => { if (EMBED && window.parent !== window) window.parent.postMessage(message, location.origin); };
-
     // ---------- the five inputs and the files ----------
     const BASE = { A: 15, S: 4, G: 2.8, HD: 7, HH: 2.8 };
     const VARS = {
@@ -342,8 +320,6 @@
       { id: 'explorer', tab: 'Explorer', kind: 'explorer', title: 'Explorer: set all five',
         text: `<p>Every combination nTop exported. Set the five numbers and see the attachment they make, with checks for problems.</p><p class="small">Combinations where the head is not wider than the shank, or the pad is less than 2 mm wider than the head, were not exported. The sliders step in 1 mm (5 mm for the pad).</p>` },
     ];
-    // Embedded, the walkthrough's own block is the explorer, so that slide stays out.
-    if (EMBED) SLIDES.splice(SLIDES.findIndex((s) => s.kind === 'explorer'), 1);
     const PRESETS = [
       { group: 'Low-profile socket head (McMaster-Carr)', name: 'M4', S: 4, HD: 7, HH: 2.8 },
       { group: 'Socket head (ISO 4762)', name: 'M2', S: 2, HD: 3.8, HH: 2 },
@@ -607,7 +583,6 @@
     }
 
     let current = 0;
-    let pendingPreset = null;
     function renderSlide(index, { push = true } = {}) {
       current = Math.max(0, Math.min(SLIDES.length - 1, index));
       const s = SLIDES[current];
@@ -654,20 +629,17 @@
         });
         html += '</div><table class="spec" style="margin-top:10px"><tbody id="spec"></tbody></table>';
         box.innerHTML = html;
-        const pick = (i, { chosen = false } = {}) => {
+        const pick = (i) => {
           const x = PRESETS[i];
           box.querySelectorAll('[data-preset]').forEach((b) => b.setAttribute('aria-pressed', +b.dataset.preset === i));
           $('spec').innerHTML = `<tr><td>Screw</td><td><b>${x.name} ${x.group.split(' (')[0].toLowerCase()}</b></td></tr>
             <tr><td>Shank Diameter</td><td>${fmt(x.S)} mm</td></tr><tr><td>Head Diameter</td><td>${fmt(x.HD)} mm</td></tr>
             <tr><td>Head Height</td><td>${fmt(x.HH)} mm</td></tr>`;
           setModel(x.p);
-          // Only a screw the reader clicked goes to the walkthrough; opening the slide does not.
-          if (chosen) tellParent({ type: 'gap-screw-preset', name: x.name, group: x.group, S: x.S, HD: x.HD, HH: x.HH });
         };
-        box.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => pick(+b.dataset.preset, { chosen: true })));
+        box.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => pick(+b.dataset.preset)));
         fitTo(15, 2.8 + 6);
-        pick(pendingPreset ?? 0);   // the notebook's screw, or the one the walkthrough asked for
-        pendingPreset = null;
+        pick(0);   // the notebook's screw
         prefetch(PRESETS.map((x) => x.p));
       } else {
         $('controls-title').textContent = 'Set all five';
@@ -709,21 +681,6 @@
     });
     const startAt = SLIDES.findIndex((s) => '#' + s.id === location.hash);
     renderSlide(startAt >= 0 ? startAt : 0, { push: false });
-
-    // Embedded: tell the walkthrough how tall the app is, and show the screw it picks from its menu.
-    if (EMBED) {
-      const app = document.querySelector('.sa-app');
-      const report = () => tellParent({ type: 'gap-screw-embed-size', height: app.offsetHeight + 16 });
-      new ResizeObserver(report).observe(app);
-      report();
-      window.addEventListener('message', (event) => {
-        if (event.origin !== location.origin || !event.data || event.data.type !== 'gap-screw-preset-pick') return;
-        const i = PRESETS.findIndex((x) => x.S === event.data.S && x.HD === event.data.HD && x.HH === event.data.HH);
-        if (i < 0) return;
-        pendingPreset = i;
-        renderSlide(SLIDES.findIndex((s) => s.kind === 'presets'));
-      });
-    }
     </script>
 </body>
 </html>

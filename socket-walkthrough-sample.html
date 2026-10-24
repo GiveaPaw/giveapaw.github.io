@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=43">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=67">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=68">
     <link rel="stylesheet" href="walkthrough-grading.css?v=11">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -539,10 +539,7 @@
                             <div><small class="workflow-step-group">Step 4: Attachment Points</small><h2>Define hole parameters</h2></div>
                         </div>
                         <div class="workflow-explainer-card" id="attachment-explainer">
-                            <p class="workflow-help-title"><i data-lucide="graduation-cap" aria-hidden="true"></i> First, what the attachment is</p>
-                            <p class="workflow-explainer-lead">A round pad with a stepped hole for the screw. Step through the slides to see what each input does, then pick a real screw: the block below takes its sizes.</p>
-                            <div class="workflow-explainer-frame"><iframe id="attachment-explainer-frame" title="Screw attachment: anatomy and real screws" data-src="screw-attachment.html?embed=1"></iframe></div>
-                            <label class="workflow-explainer-preset"><span>Screw for the block</span><select id="attachment-screw-preset" aria-label="Screw preset for the attachment block"></select></label>
+                            <label class="workflow-explainer-preset"><span><i data-lucide="wrench" aria-hidden="true"></i> Screw</span><select id="attachment-screw-preset" aria-label="Screw preset for the attachment block"></select></label>
                             <p class="workflow-help-note" id="attachment-preset-note" hidden></p>
                         </div>
                         <div class="workflow-block workflow-parameter-block" id="attachment-block">
@@ -720,6 +717,13 @@
                         <button type="button" class="workflow-layer-toggle active" data-hole-layer="points" aria-label="Hide attachment points"><span class="workflow-visibility-dot" aria-hidden="true"></span>Points</button>
                     </div>
 <div class="viewer-mode-frame" id="viewer-mode-frame" hidden></div>
+                    <div class="attachment-demo-labels" id="attachment-demo-labels" aria-hidden="true"></div>
+                    <div class="attachment-demo-tools" id="attachment-demo-tools" role="group" aria-label="Attachment demo" hidden>
+                        <label><input type="checkbox" data-demo-option="cut" checked> Cut in half</label>
+                        <label><input type="checkbox" data-demo-option="screw" checked> Screw</label>
+                        <label><input type="checkbox" data-demo-option="dims" checked> Dimensions</label>
+                        <span class="attachment-demo-key"><i style="background:#2baca4"></i>attachment <i style="background:#3f6f8c"></i>cut face <i style="background:#e3a43a"></i>screw, drawn to fit the hole</span>
+                    </div>
                     <div class="axes-demo-legend" id="axes-demo-legend" hidden></div>
                     <div class="viewer-mode-card" id="viewer-mode-card" hidden>
                         <span class="viewer-mode-chip"><i data-lucide="scan-search" aria-hidden="true"></i> <span id="viewer-mode-name">Compare mode</span></span>
@@ -786,7 +790,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=123"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=124"></script>
     <script type="module" src="walkthrough-grading.js?v=11"></script>
 </body>
 </html>
