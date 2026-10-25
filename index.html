@@ -17,6 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=43">
+    <link rel="stylesheet" href="home-hero.css?v=4">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
@@ -73,32 +74,26 @@
     <div class="page">
         <div class="content home">
             <article>
-                <section class="hero" id="hero">
-                    <div class="hero-model">
-                        <model-viewer id="hero-viewer"
-                                      src="billie-full-prosthetic.glb"
-                                      alt="Rotating 3D model of a finished 3D-printed dog prosthetic"
-                                      camera-controls
-                                      auto-rotate
-                                      auto-rotate-delay="600"
-                                      rotation-per-second="16deg"
-                                      interaction-prompt="none"
-                                      touch-action="pan-y"
-                                      shadow-intensity="1"
-                                      shadow-softness="0.7"
-                                      exposure="0.9"
-                                      tone-mapping="neutral"
-                                      environment-image="model-env.png"
-                                      loading="eager"></model-viewer>
-                    </div>
-                    <div class="hero-inner">
-                        <h1>Give a Paw</h1>
-                        <p class="hero-tagline">No-cost, custom 3D-printed prosthetics for shelter animals in the Bay Area.</p>
-                        <div class="hero-actions">
-                            <a href="#patients" class="hero-cta">Meet our 2026 patients</a>
-                            <a href="#playground" class="hero-cta-secondary">Design a socket in your browser</a>
+                <section class="hero hero-video" id="hero">
+                    <div class="hero-inner hero-split">
+                        <div class="hero-text">
+                            <h1>Give a Paw</h1>
+                            <p class="hero-tagline">No-cost, custom 3D-printed prosthetics for shelter animals in the Bay Area.</p>
+                            <div class="hero-actions">
+                                <a href="#patients" class="hero-cta">Meet our 2026 patients</a>
+                                <a href="socket-walkthrough-sample.html" class="hero-cta-secondary">Design a socket in your browser</a>
+                            </div>
                         </div>
-                        <div class="hero-model-toggle" id="hero-toggle" role="group" aria-label="Featured 3D model" hidden></div>
+                        <figure class="hero-media" role="button" tabindex="0" aria-pressed="false" aria-label="Ollie's socket designs from nTop, then rotating 3D scans of Billie and Ollie. Press to pause.">
+                            <div class="hero-stage">
+                                <video class="hero-clip is-on" data-cap="0" muted playsinline preload="auto" poster="media/home/hero-sockets.jpg" aria-hidden="true">
+                                    <source src="media/home/hero-sockets.mp4" type="video/mp4">
+                                </video>
+                                <video class="hero-clip" data-cap="1" muted playsinline preload="auto" poster="media/home/hero-scans.jpg" aria-hidden="true">
+                                    <source src="media/home/hero-scans.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </figure>
                     </div>
                 </section>
 
@@ -148,40 +143,6 @@
                     </div>
                 </section>
 
-                <section class="playground" id="playground">
-                    <div class="section-inner">
-                        <h2>Design a Socket in Your Browser</h2>
-                        <p class="section-sub">Every socket we build starts as a set of numbers. Move a slider and the model below is replaced by a real design generated from that value, the same way we generate them for our patients.</p>
-                        <div class="accordion-wrap">
-                            <div class="ntop-block" id="home-demo-block">
-                                <div class="ntop-block-title">
-                                    <span class="ntop-block-arrow" aria-hidden="true">&#9662;</span>
-                                    <span class="ntop-block-name">Try It - Socket Lattice</span>
-                                </div>
-                                <button type="button" class="ntop-block-row" data-key="home-point-count">
-                                    <span class="ntop-row-badge" aria-hidden="true">var</span>
-                                    <span class="ntop-row-label">Lattice Point Count:</span>
-                                    <span class="ntop-row-value" data-value>100</span>
-                                    <span class="ntop-row-unit"></span>
-                                    <span class="ntop-row-caret" aria-hidden="true">&#9662;</span>
-                                </button>
-                                <div class="ntop-expand" data-expand="home-point-count"><div class="ntop-expand-inner"><div class="ntop-expand-body"></div></div></div>
-                                <button type="button" class="ntop-block-row" data-key="home-max-thickness">
-                                    <span class="ntop-row-badge" aria-hidden="true">var</span>
-                                    <span class="ntop-row-label">Max Socket Thickness:</span>
-                                    <span class="ntop-row-value" data-value>8</span>
-                                    <span class="ntop-row-unit">mm</span>
-                                    <span class="ntop-row-caret" aria-hidden="true">&#9662;</span>
-                                </button>
-                                <div class="ntop-expand" data-expand="home-max-thickness"><div class="ntop-expand-inner"><div class="ntop-expand-body"></div></div></div>
-                            </div>
-                        </div>
-                        <p class="playground-cta-row">
-                            <a href="ntop-socket-creation.html" class="playground-cta">Open the full design tool &rarr;</a>
-                            <span class="playground-note">Over 40 live parameters across the socket, interface, attachment, and paw.</span>
-                        </p>
-                    </div>
-                </section>
 
                 <section class="process" id="process">
                     <div class="section-inner">
@@ -307,5 +268,6 @@
     </button>
 
     <script src="script.js?v=57"></script>
+    <script src="home-hero.js?v=4" defer></script>
 </body>
 </html>
