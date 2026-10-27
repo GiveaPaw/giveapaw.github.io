@@ -124,13 +124,13 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
         });
     }
 
-    // "Solo": the one part on its own, nothing else, for looking at what a single input does to it.
+    // "Solo": Step 4b's demo draws its own copy of the part at the origin (attachment-demo.js), so
+    // everything placed on the socket steps out of the way: surface, scan, markers and every part.
     function syncVisibility() {
         surface.visible = visibility.surface && !preview && !solo;
         animal.visible = visibility.animal && !preview && !solo;
         points.forEach((point, index) => {
-            const otherInSolo = solo && index !== selected;
-            point.attachment.visible = !otherInSolo && visibility.attachment && point.attachmentVisible && (!preview || point.placed);
+            point.attachment.visible = !solo && visibility.attachment && point.attachmentVisible && (!preview || point.placed);
             point.marker.visible = visibility.points && !preview && !solo;
             point.arrow.visible = visibility.points && !preview && !solo && index === selected;
             point.marker.material.color.setHex(index === selected ? 0xfdb515 : 0x203951);
@@ -315,6 +315,8 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     // Steps 5 and 6 show the placed attachments on the assembly without the surface, markers or tools.
     function setSolo(value) {
         solo = !!value;
+        // The layer chips switch things on the socket, none of which is on screen in the demo.
+        toolbar.hidden = !active || solo;
         syncVisibility();
     }
 
@@ -401,8 +403,8 @@ export function createAttachmentHoles({ scene, camera, canvas, transform, transf
     });
 
     return { root, ready, rebuild, setActive, setPreview, setSolo, syncVisibility, setDesign,
-        // The one part the solo view frames.
-        soloObject: () => points[selected]?.assembly || null,
+        // The loaded part for the current design, which Step 4b's demo copies.
+        template: () => templates?.attachment || null,
         get design() { return design; },
         // Where the student put the points, in millimetres, for the comparison in Step 6.
         getPoints: () => points.map(point => ({

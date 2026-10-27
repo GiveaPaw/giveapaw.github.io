@@ -5,12 +5,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { createAttachmentDemo } from './attachment-demo.js?v=1';
+import { createAttachmentDemo } from './attachment-demo.js?v=3';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
-import { createAttachmentHoles } from './attachment-holes.js?v=20';
+import { createAttachmentHoles } from './attachment-holes.js?v=22';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes } from './import-catalog.js?v=11';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes, INTERFACE_PLANES } from './import-catalog.js?v=12';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -803,11 +803,10 @@ let importBounds = null;
 let pelvicBounds = null;
 const planeState = { pick: [1, 2, 1], normal: [0, -1, 0] };
 
-// Ollie's answers. Both planes start scrambled away from these, every time the page loads, so the
-// student always has to find them; the comparison in Step 6 measures against them.
+// Ollie's worked solution. The two planes are not in it: their answers belong to the parts (the
+// pelvic plane to the case, the interface plane to the interface; import-catalog.js), so a different
+// scan or interface brings its own. Both planes start scrambled away from the answer, every time.
 const SOLUTION = {
-    pelvicPlane: { pick: [1, 2, 1], normal: [0, -1, 0] },
-    interfacePlane: { pick: [1, 1, 2], normal: [0, 0, -1] },
     interfacePosition: [-161.21, 146.38, 138.71],
     orientation: { lateral: -70, medial: -61, rotation: -180 },
     socket: { minThickness: 6, maxThickness: 12, spatialWeighting: 0.6, pointDensity: 32 },
@@ -820,6 +819,19 @@ const SOLUTION = {
         [-184.69, 148.02, 200.8],
     ],
 };
+
+// The recorded answer for the parts on screen. The pelvic plane is found on the attachment surface,
+// so its case decides; the interface plane on the mechanical interface (Step 2b), so that decides.
+// Before anything is imported, Ollie's and the small interface's. The large interface has none (null).
+function recordedAnswer(kind) {
+    if (kind === 'pelvic') {
+        const part = importSelection.attachment || importSelection.solidAnimal;
+        return part ? (part.pelvicPlane || null) : IMPORT_BREEDS[0].pelvicPlane;
+    }
+    const part = importSelection.mechanical || importSelection.solidInterface;
+    return part ? (part.interfacePlane || null) : INTERFACE_PLANES.small;
+}
+const currentSolution = () => ({ ...SOLUTION, pelvicPlane: recordedAnswer('pelvic'), interfacePlane: recordedAnswer('interface') });
 
 // ---- practice mode -------------------------------------------------------------------------
 // The same two planes, on a body that has been turned. One problem turns the scan and its surface
@@ -879,7 +891,7 @@ const practice = {
     firstTry: 0,        // of those, the ones right the first time
     checked: false,     // this problem has had its first check
     result: null,
-    answer: { pelvic: SOLUTION.pelvicPlane, interface: SOLUTION.interfacePlane },
+    answer: { pelvic: null, interface: null },
     saved: null,        // the student's real answers, parked while practice runs
 };
 
@@ -909,7 +921,7 @@ function newPracticeProblem() {
     const previous = practice.answer.pelvic;
     let bodyTurn = roll();
     // Two problems in a row with the same pelvic answer would read as nothing having changed.
-    for (let guard = 0; guard < 40 && sameAnswer(turnAnswer(SOLUTION.pelvicPlane, bodyTurn), previous); guard++) {
+    for (let guard = 0; guard < 40 && sameAnswer(turnAnswer(recordedAnswer('pelvic'), bodyTurn), previous); guard++) {
         bodyTurn = roll();
     }
     const interfaceTurn = roll();
@@ -919,8 +931,8 @@ function newPracticeProblem() {
     practice.bodyTurn = bodyTurn;
     practice.interfaceTurn = interfaceTurn;
     practice.answer = {
-        pelvic: turnAnswer(SOLUTION.pelvicPlane, bodyTurn),
-        interface: turnAnswer(SOLUTION.interfacePlane, interfaceTurn),
+        pelvic: turnAnswer(recordedAnswer('pelvic'), bodyTurn),
+        interface: turnAnswer(recordedAnswer('interface'), interfaceTurn),
     };
     applyPracticeTurns(bodyTurn, interfaceTurn);
     // Start scrambled away from this problem's answer, as the walkthrough itself does.
@@ -951,6 +963,12 @@ function setPractice(on) {
         renderPractice();
         return;
     }
+    // Practice checks against the recorded answer, so a part without one cannot be practised on.
+    if (on && (!recordedAnswer('pelvic') || !recordedAnswer('interface'))) {
+        practice.result = { noAnswer: true };
+        renderPractice();
+        return;
+    }
     practice.on = on;
     if (on) {
         practice.saved = {
@@ -960,11 +978,11 @@ function setPractice(on) {
         practice.problem = 0;
         practice.attempted = 0;
         practice.firstTry = 0;
-        practice.answer = { pelvic: SOLUTION.pelvicPlane, interface: SOLUTION.interfacePlane };
+        practice.answer = { pelvic: recordedAnswer('pelvic'), interface: recordedAnswer('interface') };
         newPracticeProblem();
         return;
     }
-    practice.answer = { pelvic: SOLUTION.pelvicPlane, interface: SOLUTION.interfacePlane };
+    practice.answer = { pelvic: null, interface: null };
     practice.result = null;
     applyPracticeTurns(null, null);
     if (practice.saved) {
@@ -1025,6 +1043,10 @@ function renderPractice() {
             note.hidden = false;
             note.classList.add('is-wrong');
             note.innerHTML = `${practiceIcon('triangle-alert')}<span>Import all four meshes first, then practice can turn them.</span>`;
+        } else if (result?.noAnswer) {
+            note.hidden = false;
+            note.classList.add('is-wrong');
+            note.innerHTML = `${practiceIcon('triangle-alert')}<span>No answer is recorded for ${noAnswerPart()}, so practice cannot check it. The small and wheelchair interfaces have one.</span>`;
         } else if (result?.right) {
             note.hidden = false;
             note.classList.add('is-right');
@@ -1054,7 +1076,12 @@ renderPractice();
 // screen. Everything that shows, checks or walks the student to an answer goes through this.
 function planeAnswer(kind) {
     if (practice.on) return practice.answer[kind];
-    return kind === 'pelvic' ? SOLUTION.pelvicPlane : SOLUTION.interfacePlane;
+    return recordedAnswer(kind);
+}
+// Which part has no answer, in words, for the notes that say so.
+function noAnswerPart() {
+    const part = importSelection.mechanical || importSelection.solidInterface;
+    return part && !part.interfacePlane ? `the ${String(part.label || part.name).toLowerCase()}` : 'this part';
 }
 
 // One scrambled plane: a bounding-box pick that is not all-centroid, plus the outward normal of one
@@ -1063,11 +1090,11 @@ function randomPlaneChoice(answer) {
     for (;;) {
         const pick = [0, 0, 0];
         for (let axis = 0; axis < 3; axis++) pick[axis] = Math.floor(Math.random() * 3);
-        if (pick.join() === answer.pick.join()) continue;
+        if (pick.join() === '1,1,1' || (answer && pick.join() === answer.pick.join())) continue;
         const axis = Math.floor(Math.random() * 3);
         const normal = [0, 0, 0];
         normal[axis] = Math.random() < 0.5 ? 1 : -1;
-        if (normal.join() === answer.normal.join()) continue;
+        if (answer && normal.join() === answer.normal.join()) continue;
         return { pick, normal, axis };
     }
 }
@@ -1374,7 +1401,7 @@ const SPOT_WORD = ['minimum', 'centroid', 'maximum'];
 
 function buildAnswerPlane(group, bounds, answer) {
     group.clear();
-    if (!bounds || bounds.isEmpty()) return false;
+    if (!answer || !bounds || bounds.isEmpty()) return false;
     const size = bounds.getSize(new THREE.Vector3());
     const diag = size.length();
     const data = planeData(bounds, answer, new THREE.Vector3(...answer.normal));
@@ -1424,12 +1451,18 @@ interfaceRoot.add(interfaceAnswerRoot);
 let interfaceAnswerShown = false;
 
 function syncInterfaceAnswer() {
-    const on = interfaceAnswerShown && activeStep === '2b' && !!interfaceBounds;
+    const on = interfaceAnswerShown && activeStep === '2b' && !!interfaceBounds && !!planeAnswer('interface');
     if (on && !interfaceAnswerRoot.children.length) buildInterfaceAnswer();
     interfaceAnswerRoot.visible = on;
+    // The large interface has no recorded answer: say so where the answer would have been.
+    const unanswered = interfaceAnswerShown && activeStep === '2b' && !planeAnswer('interface');
     setViewerMode('interfaceAnswer', on ? {
         name: 'Answer shown',
         text: 'The answer plane is the green one. Yours is blue.',
+        done: () => interfacePlaneHelpButton.click(),
+    } : unanswered ? {
+        name: 'No answer recorded',
+        text: `No answer is recorded for ${noAnswerPart()} yet. The small and wheelchair interfaces have one.`,
         done: () => interfacePlaneHelpButton.click(),
     } : null);
     syncPlaneMarks('interface');
@@ -1445,7 +1478,9 @@ function updateInterfaceHelpNote() {
         return;
     }
     const lines = [];
-    if (interfaceAnswerShown) {
+    if (interfaceAnswerShown && !planeAnswer('interface')) {
+        lines.push(`No answer is recorded for ${noAnswerPart()} yet. The small and wheelchair interfaces have one.`);
+    } else if (interfaceAnswerShown) {
         lines.push(interfaceBounds
             ? `The answer is in green: X ${SPOT_WORD[planeAnswer('interface').pick[0]]}, Y ${SPOT_WORD[planeAnswer('interface').pick[1]]}, Z ${SPOT_WORD[planeAnswer('interface').pick[2]]}, normal ${planeAnswer('interface').normal.join(', ')}. Yours is the blue one.`
             : 'Import the meshes first, then this shows the answer in the viewer.');
@@ -1484,6 +1519,7 @@ let planeGuide = null;
 
 function planeGuideSteps(kind) {
     const answer = planeAnswer(kind);
+    if (!answer) return [];
     const axisAttr = kind === 'pelvic' ? 'data-axis' : 'data-interface-axis';
     const home = PLANE_GUIDE_HOME[kind];
     const steps = [0, 1, 2].map(axis => ({
@@ -1538,6 +1574,7 @@ function stopPlaneGuide() {
 
 function startPlaneGuide(kind) {
     stopPlaneGuide();
+    if (!planeAnswer(kind)) return;   // nothing recorded to walk to; the button says so
     planeGuide = { kind, steps: planeGuideSteps(kind), index: 0, cheering: false };
     // Anything already right is skipped, so the guide starts on the first thing to change.
     settlePlaneGuide();
@@ -1613,8 +1650,11 @@ function syncPlaneGuideButtons() {
     [['pelvic', pelvicAnswerButton], ['interface', interfaceAnswerButton]].forEach(([kind, button]) => {
         if (!button) return;
         const on = planeGuide?.kind === kind;
+        const answered = !!planeAnswer(kind);
         button.setAttribute('aria-pressed', String(on));
         button.classList.toggle('is-on', on);
+        button.disabled = !answered;
+        button.title = answered ? '' : `No answer is recorded for ${noAnswerPart()} yet`;
         button.querySelector('span').textContent = on ? 'Stop walking me through' : 'Walk me through it';
     });
 }
@@ -2499,6 +2539,13 @@ async function loadImportSelection(role, entry) {
         }
         syncImportPathLabels();
         clearMeasurement();
+        // A new part can bring a different answer; never leave a plane sitting on it by luck.
+        if (!practice.on) {
+            if (sameAnswer(planeState, recordedAnswer('pelvic'))) { randomizePelvicPlane(); updatePlane(); }
+            if (sameAnswer(interfacePlaneState, recordedAnswer('interface'))) { randomizeInterfacePlane(); updateInterfacePlane(); }
+            pelvicAnswerRoot.clear();
+            interfaceAnswerRoot.clear();
+        }
         showStep(activeStep);
         // The interfaces are a few centimetres across and sit at the world origin, a long way from the
         // scan, so framing the whole assembly would lose them. Go to the mesh that was just imported.
@@ -2937,6 +2984,7 @@ function showStep(step, shouldScroll = false) {
     syncSplitLayout();
     requestAnimationFrame(frameActiveStep);
     if (shouldScroll) {
+        holdScrollSpy();
         // The pair scrolls to its first section (the interface plane, Step 2b).
         const section = document.getElementById('workflow-step-' + (paired ? '2b' : activeStep));
         const offset = () => section.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top;
@@ -3183,7 +3231,7 @@ document.querySelectorAll('[data-grid-plane]').forEach(input => {
 
 function viewRootForStep() {
     // Step 4b on its own part: frame that part, not the whole assembly.
-    if (activeStep === '4b' && attachmentSoloOn()) return attachmentHoles.soloObject() || attachmentHoles.root;
+    if (activeStep === '4b' && attachmentSoloOn() && attachmentDemo.hasPart) return attachmentDemo.root;
     if (isAttachmentStep(activeStep)) return attachmentHoles.root;
     if (activeStep === '1') return importRoot;
     if (isPelvicStep(activeStep)) return planeRoot;
@@ -3535,9 +3583,9 @@ async function applyAttachmentDesign() {
         const applied = await attachmentHoles.setDesign(attachmentDesign);
         if (request !== attachmentDesignRequest) return;
         if (!applied) return;
-        if (attachmentSoloOn()) attachmentDemo.show(attachmentHoles.soloObject(), attachmentDesign);
+        if (attachmentSoloOn()) attachmentDemo.show(attachmentHoles.template(), attachmentDesign);
         // The part came in after the solo view opened on nothing: frame it now, once.
-        if (attachmentSoloOn() && !attachmentSoloFramed && attachmentHoles.soloObject()) {
+        if (attachmentSoloOn() && !attachmentSoloFramed && attachmentDemo.hasPart) {
             attachmentSoloFramed = true;
             requestAnimationFrame(frameActiveStep);
         }
@@ -3751,8 +3799,19 @@ function stepUnderTheLine() {
     return pick;
 }
 let stepScrollFrame = 0;
+// A scroll the page makes itself (going to a step, or the comparison going to its note) passes over
+// other steps on the way; those must not be opened in passing, so the tracker waits for it to end.
+let scrollSpyHeld = false;
+let scrollSpyRelease = 0;
+function holdScrollSpy(maxMs = 1400) {
+    scrollSpyHeld = true;
+    clearTimeout(scrollSpyRelease);
+    const release = () => { scrollSpyHeld = false; clearTimeout(scrollSpyRelease); stepScrollEl.removeEventListener('scrollend', release); };
+    stepScrollEl.addEventListener('scrollend', release, { once: true });
+    scrollSpyRelease = setTimeout(release, maxMs);
+}
 stepScrollEl.addEventListener('scroll', () => {
-    if (stepScrollFrame) return;
+    if (scrollSpyHeld || stepScrollFrame) return;
     stepScrollFrame = requestAnimationFrame(() => {
         stepScrollFrame = 0;
         const step = stepUnderTheLine()?.dataset.step;
@@ -3925,6 +3984,79 @@ async function captureGhost(key, expertValue, studentValue) {
     await showValue(key, studentValue);
 }
 
+// ---- painted answer areas, for the comparison ----------------------------------------------------------
+// An answer key paints where the interface position or each screw may go as brush dabs
+// ({ p: [x, y, z] mm, r: mm }) in the scan's frame (scaled, millimetres). Here they are laid back onto
+// the scan or the attachment surface: every face whose corners mostly fall inside one zone is copied
+// in that zone's colour, a touch in front of the mesh, so the student sees the area itself.
+const regionRoot = new THREE.Group();
+regionRoot.name = 'answer-regions';
+scene.add(regionRoot);
+// The holes are painted on the attachment surface, which the socket lattice covers in Step 4a, so the
+// lattice steps aside while they show and comes back with them.
+let regionSocketWas = null;
+function clearRegions() {
+    regionRoot.traverse(object => { if (object.geometry) object.geometry.dispose(); if (object.material) object.material.dispose(); });
+    regionRoot.clear();
+    if (regionSocketWas !== null) { socketPreviewRoot.visible = regionSocketWas; regionSocketWas = null; }
+}
+function showRegions(kind, zones) {
+    clearRegions();
+    const source = (kind === 'animal' ? layers.solidAnimal : layers.attachment).group;
+    if (!source || !zones?.some(zone => zone.dabs?.length)) return 0;
+    if (kind !== 'animal') { regionSocketWas = socketPreviewRoot.visible; socketPreviewRoot.visible = false; }
+    source.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    const tint = new THREE.Color();
+    let faces = 0;
+    source.traverse(mesh => {
+        if (!mesh.isMesh || !mesh.geometry?.getAttribute('position')) return;
+        const position = mesh.geometry.getAttribute('position');
+        const count = position.count;
+        const world = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            v.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
+            world[i * 3] = v.x; world[i * 3 + 1] = v.y; world[i * 3 + 2] = v.z;
+        }
+        const zoneOf = new Int16Array(count).fill(-1);
+        zones.forEach((zone, z) => (zone.dabs || []).forEach(dab => {
+            const r2 = (dab.r / 1000) ** 2;
+            const [px, py, pz] = dab.p.map(c => c / 1000);
+            for (let i = 0; i < count; i++) {
+                if (zoneOf[i] !== -1) continue;
+                const dx = world[i * 3] - px, dy = world[i * 3 + 1] - py, dz = world[i * 3 + 2] - pz;
+                if (dx * dx + dy * dy + dz * dz <= r2) zoneOf[i] = z;
+            }
+        }));
+        const index = mesh.geometry.index;
+        const triangles = index ? index.count / 3 : count / 3;
+        const out = [];
+        const colours = [];
+        for (let t = 0; t < triangles; t++) {
+            const corner = k => (index ? index.getX(t * 3 + k) : t * 3 + k);
+            const a = corner(0), b = corner(1), c = corner(2);
+            const za = zoneOf[a], zb = zoneOf[b], zc = zoneOf[c];
+            const zone = za >= 0 && (za === zb || za === zc) ? za : zb >= 0 && zb === zc ? zb : -1;
+            if (zone < 0) continue;
+            tint.set(zones[zone].color || '#1f9d55');
+            [a, b, c].forEach(i => { out.push(world[i * 3], world[i * 3 + 1], world[i * 3 + 2]); colours.push(tint.r, tint.g, tint.b); });
+            faces++;
+        }
+        if (!out.length) return;
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
+        const overlay = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+            vertexColors: true, transparent: true, opacity: 0.62, depthWrite: false, side: THREE.DoubleSide,
+            polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -16, toneMapped: false,
+        }));
+        overlay.renderOrder = 22;
+        overlay.userData.measureSurface = false;
+        regionRoot.add(overlay);
+    });
+    return faces;
+}
+
 // The interface position the student ended on, in millimetres, with the Step 2d X/Y/Z adjustments
 // folded in: that is where the interface actually sits, so that is what the solution is measured against.
 function effectiveInterfacePosition() {
@@ -3960,15 +4092,15 @@ function syncAttachmentSolo() {
     // The socket lattice goes with the rest while the part is on its own.
     if (isAttachmentStep(activeStep)) socketPreviewRoot.visible = planeLayerVisibility.socket && !on;
     if (!on) attachmentSoloFramed = false;
-    if (on) attachmentDemo.show(attachmentHoles.soloObject(), attachmentDesign);
-    else { attachmentDemo.hide(); attachmentDemo.clearLabels(); }
+    if (on) attachmentDemo.show(attachmentHoles.template(), attachmentDesign);
+    else attachmentDemo.hide();
     attachmentDemoTools.hidden = !on;
     attachmentSoloButton.setAttribute('aria-pressed', String(on));
     attachmentSoloButton.classList.toggle('is-on', on);
     attachmentSoloButton.querySelector('span').textContent = on ? 'Back to the whole socket' : 'Show the part on its own';
     setViewerMode('attachmentSolo', on ? {
         name: 'The attachment',
-        text: 'Cut in half, with the screw drawn to fit: its head sits in the wide recess at the socket, its shaft passes through the narrow hole and on out to the prosthetic. Each label is one input of the block: move a slider or pick a screw and watch it change.',
+        text: 'One attachment on its own, cut in half, with the screw drawn to fit: the head sits in the wide recess, the shaft passes through the narrow hole into the part below. Each label is one input of the block: move a slider or pick a screw and watch it change. Done puts the attachments back on the socket.',
         done: () => { attachmentSolo = false; syncAttachmentSolo(); },
     } : null);
     attachmentHelpNote.hidden = !attachmentSolo;
@@ -3976,14 +4108,12 @@ function syncAttachmentSolo() {
         ? 'The attachment on its own. Move one slider and watch what it changes; from the starting screw, every input has its own fine sweep, so the others stay put.'
         : '';
     if (on) {
-        const object = attachmentHoles.soloObject();
-        if (object) { attachmentSoloFramed = true; requestAnimationFrame(() => frameObject(object, attachmentDemo.viewDirection())); }
+        if (attachmentDemo.hasPart) { attachmentSoloFramed = true; requestAnimationFrame(frameActiveStep); }
     } else if (activeStep === '4b') {
         requestAnimationFrame(() => frameObject(attachmentHoles.root));
     }
 }
 
-attachmentHoles.onChange(() => { if (attachmentSoloOn()) attachmentDemo.show(attachmentHoles.soloObject(), attachmentDesign); });
 attachmentHelpButton.addEventListener('click', () => toggleHelpCard(attachmentHelpButton, attachmentHelpCard));
 attachmentSoloButton.addEventListener('click', () => {
     attachmentSolo = !attachmentSolo;
@@ -3993,13 +4123,15 @@ attachmentSoloButton.addEventListener('click', () => {
 window.gapWalkthrough = {
     notes: walkthroughNotes,
     attachmentSolo: () => attachmentSolo,
-    solution: SOLUTION,
+    get solution() { return currentSolution(); },
+    // The answer key for the case on screen (import-catalog.js), for the comparison.
+    answerKey: () => (importSelection.attachment || importSelection.solidAnimal)?.answerKey || IMPORT_BREEDS[0].answerKey,
     practice: {
         on: () => practice.on,
         state: () => ({ problem: practice.problem, attempted: practice.attempted,
                         firstTry: practice.firstTry, checked: practice.checked,
                         result: practice.result && { ...practice.result } }),
-        answer: kind => ({ ...planeAnswer(kind) }),
+        answer: kind => (planeAnswer(kind) ? { ...planeAnswer(kind) } : null),
         turns: () => QUARTER_TURNS.length,
         set: on => setPractice(on),
         next: () => newPracticeProblem(),
@@ -4024,6 +4156,11 @@ window.gapWalkthrough = {
         interfacePositionRaw: [0, 1, 2].map(axis => interfacePositionState.getComponent(axis) * 1000),
         interfaceAdjust: [...orientationState.adjust],
         attachmentPoints: attachmentHoles.getPoints(),
+        // the rest of the sliders, for answer keys that grade them on a range (grading-sliders.js)
+        scaleFactor,
+        adjustX: orientationState.adjust[0], adjustY: orientationState.adjust[1], adjustZ: orientationState.adjust[2],
+        ...attachmentDesign,
+        ...blendState,
     }),
     touched: () => new Set(socketParameterTouched),
     imports: () => ({ selection: Object.fromEntries(Object.entries(importSelection).map(([role, entry]) => [role, { ...entry }])), mismatches: importMismatches() }),
@@ -4039,6 +4176,10 @@ window.gapWalkthrough = {
     // the Step 3 sliders one of their values.
     show: showValue,
     ghost: { capture: captureGhost, clear: clearGhost, setLook: setGhostLook, targets: ghostTargets, root: ghostRoot },
+    // Painted answer areas (answer-key-editor.html), drawn on the scan or the attachment surface.
+    regions: { show: showRegions, clear: clearRegions, root: regionRoot },
+    // For the comparison: scroll the rail without the step tracker opening the steps it passes.
+    holdScrollSpy,
     three: { THREE, scene, camera, renderer, canvas, controls },
     // The groups the viewer's layer switches act on, for tests.
     layerRoots: () => ({ ...planeLayerTargets, socketPreview: socketPreviewRoot, finalSocket: finalSocketRoot,

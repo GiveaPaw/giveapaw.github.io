@@ -118,3 +118,44 @@ body.cmp-active .controls-coach { display: none !important; }
 .cmp-featured-body small { color: #8a7444; }
 .cmp-featured-body blockquote { margin: 8px 0 0; padding: 6px 10px; border-left: 3px solid #e0a100; background: #fff; color: #3f2d00; white-space: pre-wrap; }
 .cmp-split-tags .is-experts.is-featured { background: #c98a00; }
+
+/* ---- answer keys with ranges and painted areas (answer-key-editor.html) ---- */
+.grade-zone-off { fill: #f6d9d6; }
+.grade-zone-close { fill: #fbe7b8; }
+.grade-zone-match { fill: #bfe6cf; }
+.grade-file.is-near { background: #fdf6e6; }
+.grade-file.is-near > svg { color: var(--g-close); }
+.grade-zone-dot { flex: none; width: 12px; height: 12px; margin-top: 3px; border-radius: 50%; background: var(--dot, #1f9d55); box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(23, 57, 88, 0.15); }
+.cmp-region-tag {
+    position: absolute; z-index: 30; left: 50%; bottom: 14px; transform: translateX(-50%);
+    display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; max-width: calc(100% - 24px);
+    padding: 6px 12px; border-radius: 16px; background: rgba(23, 57, 88, 0.92); color: #fff;
+    font: 700 0.76rem 'Inter', sans-serif; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); pointer-events: none;
+}
+.cmp-region-tag[hidden] { display: none; }
+.cmp-region-tag svg.lucide { width: 15px; height: 15px; flex: none; }
+.cmp-region-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-weight: 600; }
+.cmp-region-key i { display: inline-block; width: 10px; height: 10px; margin-left: 4px; border-radius: 50%; background: var(--dot); }
+.cmp-nokey .cmp-text { margin: 8px 0 0; }
+@media (max-width: 900px) {
+    .cmp-region-tag { bottom: 8px; font-size: 0.7rem; }
+}
+
+/* The tags sit at the foot of each half, clear of the layer chips and the view cube, and keep to their
+   own half: a long plane description wraps inside it instead of squeezing into the last quarter. */
+.cmp-split-tags span { top: auto; bottom: 16px; width: max-content; max-width: calc(50% - 32px); line-height: 1.3; text-align: center; }
+
+/* The banner keeps to the rail on a phone: the tally wraps under its count and the bar shrinks. */
+.cmp-banner { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.cmp-banner-row { min-width: 0; flex-wrap: wrap; }
+.cmp-banner-row .grade-mix { min-width: 120px; }
+.grade-mix span { min-width: 0; overflow: hidden; padding: 0 4px; text-overflow: ellipsis; }
+@media (max-width: 900px) {
+    .cmp-banner-row > b { flex-basis: 100%; white-space: normal; }
+}
+/* On a phone the viewer is small: the painted-area label keeps to one line, and the hole colours are in the note below. */
+@media (max-width: 600px) {
+    .cmp-region-key { display: none; }
+    .cmp-region-tag { white-space: nowrap; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; display: block; }
+    .cmp-region-tag svg.lucide { vertical-align: -3px; margin-right: 4px; }
+}

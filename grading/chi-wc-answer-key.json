@@ -1,0 +1,77 @@
+{
+  "case": "Chihuahua (wheelchair) socket walkthrough",
+  "solution": "Tyler's answers for the 10-21 wheelchair case. The planes are recorded; paint the interface position and the attachment zones, and set slider ranges, in the answer key editor.",
+  "solutionNote": "Answer key for the Chihuahua wheelchair case.",
+  "experts": [
+    {
+      "id": "t1",
+      "name": "Tyler",
+      "role": "Give a Paw",
+      "include": true
+    }
+  ],
+  "featured": null,
+  "steps": {
+    "1": "Imported files",
+    "2a": "Pelvic plane",
+    "2b": "Interface plane",
+    "2c": "Interface position",
+    "2d": "Interface positioning",
+    "3": "Socket latticing",
+    "4a": "Attachment points",
+    "4b": "Hole parameters",
+    "5": "Blending"
+  },
+  "params": [
+    {
+      "key": "imports",
+      "step": "1",
+      "label": "Imported files",
+      "type": "imports",
+      "weight": 1,
+      "expected": {
+        "solidAnimal": {
+          "breed": "chi-wc"
+        },
+        "attachment": {
+          "breed": "chi-wc",
+          "category": "socket"
+        },
+        "mechanical": {
+          "sizeClass": "wheelchair"
+        },
+        "solidInterface": {
+          "sizeClass": "wheelchair"
+        }
+      },
+      "off": "Some of the files are not the ones this case uses. The wheelchair case takes the wheelchair mechanical and solid interfaces.",
+      "note": "The wheelchair Chihuahua's scan, the socket surface cut from it, and the wheelchair mechanical and solid interfaces."
+    },
+    {
+      "key": "pelvicPlane",
+      "step": "2a",
+      "label": "Pelvic plane",
+      "type": "plane",
+      "weight": 1.5,
+      "answers": {
+        "t1": "1,2,1"
+      },
+      "normal": "0,-1,0",
+      "off": "Not the plane this case uses. It sits on the Y maximum face of the attachment surface, looking back along -Y.",
+      "note": "X centroid, Y maximum, Z centroid, with the normal pointing back along -Y."
+    },
+    {
+      "key": "interfacePlane",
+      "step": "2b",
+      "label": "Interface plane",
+      "type": "plane",
+      "weight": 1.5,
+      "answers": {
+        "t1": "1,1,2"
+      },
+      "normal": "0,0,-1",
+      "off": "Not the face the wheelchair mount sits on. On the wheelchair interface it is the Z maximum face, with the normal along -Z.",
+      "note": "X centroid, Y centroid, Z maximum on the wheelchair interface, with the normal along -Z."
+    }
+  ]
+}

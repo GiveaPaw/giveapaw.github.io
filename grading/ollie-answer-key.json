@@ -51,11 +51,11 @@
       "type": "plane",
       "weight": 1.5,
       "answers": {
-        "t1": "1,2,1"
+        "t1": "2,1,1"
       },
-      "normal": "0,-1,0",
-      "off": "Not the plane this case uses. It sits on the Y maximum face of the attachment surface, looking back along -Y.",
-      "note": "X centroid, Y maximum, Z centroid, with the normal pointing back along -Y."
+      "normal": "-1,0,0",
+      "off": "Not the plane this case uses. It sits on the X maximum face of the attachment surface, looking back along -X.",
+      "note": "X maximum, Y centroid, Z centroid, with the normal pointing back along -X."
     },
     {
       "key": "interfacePlane",
@@ -64,11 +64,11 @@
       "type": "plane",
       "weight": 1.5,
       "answers": {
-        "t1": "1,1,2"
+        "t1": "1,1,0"
       },
-      "normal": "0,0,-1",
-      "off": "Not the face the leg mount sits on. On the interface it is the Z maximum face, with the normal along -Z.",
-      "note": "X centroid, Y centroid, Z maximum, with the normal along -Z."
+      "normal": "0,0,1",
+      "off": "Not the face the leg mount sits on. On the small interface it is the Z minimum face, with the normal along +Z.",
+      "note": "X centroid, Y centroid, Z minimum on the small interface, with the normal along +Z."
     },
     {
       "key": "interfacePosition",

@@ -11,6 +11,9 @@
 export const BREEDS = [
     {
         slug: 'ollie', label: 'Ollie', units: 'm',
+        // Tyler's worked solution: the plane on the attachment surface's bounding box.
+        pelvicPlane: { pick: [2, 1, 1], normal: [-1, 0, 0] },
+        answerKey: 'grading/ollie-answer-key.json',
         solidName: 'ollie-solid.glb', solidFile: 'sample-models/chihuahua-1015-solid.glb',
         solidPreview: 'chihuahua-1015-solid.glb', solidBytes: 134836,
         note: 'Scaled 0.95 in Step 1 · socket sweeps',
@@ -39,6 +42,8 @@ export const BREEDS = [
         // Its attachment surface has not been exported yet, so the case cannot be completed in the
         // browser until it arrives.
         slug: 'chi-wc', label: 'Chihuahua (wheelchair)', units: 'm',
+        pelvicPlane: { pick: [1, 2, 1], normal: [0, -1, 0] },
+        answerKey: 'grading/chi-wc-answer-key.json',
         solidName: 'chihuahua-wc-solid.glb', solidFile: 'sample-models/chi-wc-solid.glb',
         solidPreview: 'chi-wc-solid.glb', solidBytes: 347892,
         note: 'Wheelchair case 10-21 · blend sockets',
@@ -50,6 +55,13 @@ export const BREEDS = [
         }],
     },
 ];
+
+// The interface plane is found on the interface's own bounding box, so its answer belongs to the
+// interface pair. The large (Billie) interface lies along Y and has no recorded answer yet.
+export const INTERFACE_PLANES = {
+    small: { pick: [1, 1, 0], normal: [0, 0, 1] },
+    wheelchair: { pick: [1, 1, 2], normal: [0, 0, -1] },
+};
 
 export const CATEGORIES = { farback: 'Far back', forward: 'Forward', leghole: 'Leg hole', toolow: 'Too low' };
 
@@ -72,21 +84,23 @@ function file(name, role, bytes, preview, realFile, extra = {}) {
 export const FS = folder('Give a Paw', [
     folder('Animals', BREEDS.map(breed => folder(breed.label, [
         ...(breed.solidFile ? [file(breed.solidName, 'solidAnimal', breed.solidBytes, breed.solidPreview, breed.solidFile,
-            { label: breed.label + ' scan', note: breed.note, breed: breed.slug, units: breed.units, blendSet: breed.blendSet })] : []),
+            { label: breed.label + ' scan', note: breed.note, breed: breed.slug, units: breed.units, blendSet: breed.blendSet,
+              pelvicPlane: breed.pelvicPlane, answerKey: breed.answerKey })] : []),
         ...breed.surfaces.map(surface => file(
             surface.name, 'attachment', surface.bytes, surface.preview, surface.file,
-            { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, surfaceSet: surface.surfaceSet, units: breed.units, blendSet: breed.blendSet },
+            { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, surfaceSet: surface.surfaceSet, units: breed.units, blendSet: breed.blendSet,
+              pelvicPlane: breed.pelvicPlane, answerKey: breed.answerKey },
         )),
     ]))),
     folder('Interfaces', [
         folder('Mechanical', [
-            file('wheelchair-mechanical-interface.stl', 'mechanical', 116284, 'wheelchair-mechanical.glb', 'sample-models/interfaces/wheelchair-mechanical.stl', { label: 'Wheelchair Mechanical Interface', sizeClass: 'wheelchair' }),
-            file('small-mechanical-interface.stl', 'mechanical', 87584, 'small-mechanical.glb', 'sample-models/interfaces/small-mechanical.stl', { label: 'Small Mechanical Interface', sizeClass: 'small' }),
+            file('wheelchair-mechanical-interface.stl', 'mechanical', 116284, 'wheelchair-mechanical.glb', 'sample-models/interfaces/wheelchair-mechanical.stl', { label: 'Wheelchair Mechanical Interface', sizeClass: 'wheelchair', interfacePlane: INTERFACE_PLANES.wheelchair }),
+            file('small-mechanical-interface.stl', 'mechanical', 87584, 'small-mechanical.glb', 'sample-models/interfaces/small-mechanical.stl', { label: 'Small Mechanical Interface', sizeClass: 'small', interfacePlane: INTERFACE_PLANES.small }),
             file('large-mechanical-interface.glb', 'mechanical', 37832, 'large-mechanical.glb', 'billie-mechanical-interface.glb', { label: 'Large Mechanical Interface', sizeClass: 'large' }),
         ]),
         folder('Solid', [
-            file('wheelchair-solid-interface.stl', 'solidInterface', 684, 'wheelchair-solid.glb', 'sample-models/interfaces/wheelchair-solid.stl', { label: 'Wheelchair Solid Interface', sizeClass: 'wheelchair' }),
-            file('small-solid-interface.stl', 'solidInterface', 23784, 'small-solid.glb', 'sample-models/interfaces/small-solid.stl', { label: 'Small Solid Interface', sizeClass: 'small' }),
+            file('wheelchair-solid-interface.stl', 'solidInterface', 684, 'wheelchair-solid.glb', 'sample-models/interfaces/wheelchair-solid.stl', { label: 'Wheelchair Solid Interface', sizeClass: 'wheelchair', interfacePlane: INTERFACE_PLANES.wheelchair }),
+            file('small-solid-interface.stl', 'solidInterface', 23784, 'small-solid.glb', 'sample-models/interfaces/small-solid.stl', { label: 'Small Solid Interface', sizeClass: 'small', interfacePlane: INTERFACE_PLANES.small }),
             file('large-solid-interface.stl', 'solidInterface', 14884, 'large-solid.glb', 'billie-solid-interface.stl', { label: 'Large Solid Interface', sizeClass: 'large' }),
         ]),
     ]),
