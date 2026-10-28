@@ -11,7 +11,7 @@
     }
   ],
   "steps": {
-    "1": "Imported files",
+    "1": "Imported files and scale factor",
     "2a": "Pelvic plane",
     "2b": "Interface plane",
     "2c": "Interface position",
@@ -43,6 +43,17 @@
       },
       "off": "Some of the files are not the ones this case uses. Ollie is a small dog, so both interfaces come from the small pair.",
       "note": "Ollie's scan, the socket surface cut from it, and the small mechanical and solid interfaces."
+    },
+    {
+      "key": "scaleFactor",
+      "step": "1",
+      "label": "Scale factor",
+      "type": "band",
+      "weight": 1,
+      "unit": "",
+      "low": "Smaller than the notebook's factor, so the socket is built on a shrunken scan and will be tight.",
+      "high": "Larger than the notebook's factor. At 1.00 the scan is as imported; this case scales it to 0.95 before the socket is built.",
+      "note": "0.95, the notebook's scale factor. The scan is shrunk by 5% before the socket is built on it."
     },
     {
       "key": "pelvicPlane",
@@ -230,5 +241,17 @@
       "off": "The screws do not land where this case puts them. There are six, in two rows of three along the body.",
       "note": "Six points: three along each side, spread front to back."
     }
-  ]
+  ],
+  "bands": {
+    "scaleFactor": {
+      "green": [
+        0.95,
+        0.95
+      ],
+      "yellow": [
+        0.93,
+        0.97
+      ]
+    }
+  }
 }

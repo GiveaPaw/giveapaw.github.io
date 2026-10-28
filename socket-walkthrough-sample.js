@@ -367,7 +367,9 @@ function normalizeMillimeterExport(object) {
 const UNIT_TO_METERS = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 };
 
 // Step 1 "Scale Factor": the nTop Imports block scales the animal scan (not the interfaces) by it.
-let scaleFactor = 0.95; // the 10-13 notebook's value; the 10-15 socket sweeps were run at it
+// Starts at 1.00, the scan as imported. The answer is the notebook's 0.95 (graded in the answer keys);
+// the socket sweeps on the site were all generated with the scan at 0.95.
+let scaleFactor = 1;
 
 // Step 1 only. The interfaces are modelled about the origin, which sits inside the animal, so on
 // their own they would be hidden inside it the moment they were switched on. Both are moved clear of
@@ -2756,7 +2758,7 @@ function syncScaleNote() {
         return;
     }
     scaleNoteEl.hidden = scaleFactor === 1;
-    scaleNoteEl.textContent = scaleFactor === 1 ? '' : `Animal scan scaled by ${scaleFactor}. The sample sockets were generated for the unscaled scan, so the socket preview stays at scale 1.`;
+    scaleNoteEl.textContent = scaleFactor === 1 ? '' : `Animal scan scaled by ${scaleFactor.toFixed(2)}.`;
 }
 
 function setScaleDemo(on) {
@@ -2947,7 +2949,9 @@ function showStep(step, shouldScroll = false) {
     positionTransform.enabled = false;
     positionTransformHelper.visible = false;
     attachmentHoles.setActive(isAttachment, layers.attachment.group, layers.solidAnimal.group);
-    attachmentHoles.setPreview(BLEND_STEPS.includes(activeStep));
+    // The blended socket already carries the attachments nTop built into it, so Step 5 shows it alone;
+    // Step 6 still lays the placed attachments over it.
+    attachmentHoles.setPreview(activeStep === '6');
     if (isPelvic) {
         applyPelvicStageVisibility();
         if (activeStep === '2a') {
