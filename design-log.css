@@ -101,7 +101,9 @@ svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
 .dl-rail { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 0.8rem 0.8rem 1.5rem; min-height: 0; }
 .dl-rail-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.7rem; }
 .dl-rail-head h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-.dl-stage { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; padding: 0.7rem; gap: 0.55rem; }
+.dl-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 0.7rem; gap: 0.55rem; }
+.dl-stage > .dl-views { flex: 1 1 auto; }
+.dl-stage > .dl-tools, .dl-stage > .dl-panel, .dl-stage > .dl-viewbar { flex: none; }
 .dl-side { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 1rem 1.1rem 3rem; min-height: 0; }
 
 /* version tree */
@@ -144,6 +146,23 @@ svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
 .dl-tool-select:has(select:disabled) { opacity: 0.5; }
 .dl-hint { font: 600 12.5px Inter, sans-serif; color: #8a5a00; }
 
+/* drawing and section panels under the toolbar */
+.dl-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.55rem; padding: 0.4rem 0.55rem; border: 1px solid #d0d5dd; border-radius: 10px; background: #fff; }
+.dl-drawbar { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(253, 181, 21, 0.25); }
+.dl-seg { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid #d0d5dd; border-radius: 9px; background: #fff; }
+.dl-seg > button { border: 0; border-radius: 6px; background: none; padding: 0.3rem 0.6rem; min-height: 30px; font: 600 12.5px Inter, sans-serif; color: var(--ink-2); cursor: pointer; }
+.dl-seg > button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+.dl-colors { display: inline-flex; gap: 0.3rem; }
+.dl-colors button { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; background: var(--c); box-shadow: 0 0 0 1px #c8cfd8; cursor: pointer; padding: 0; }
+.dl-colors button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--blue); }
+.dl-drawhint { font: 600 12px Inter, sans-serif; color: var(--muted); }
+.dl-range { display: inline-flex; align-items: center; flex: 1 1 160px; min-width: 120px; }
+.dl-range input { width: 100%; accent-color: var(--blue); }
+.dl-check { display: inline-flex; align-items: center; gap: 0.3rem; font: 600 12.5px Inter, sans-serif; color: var(--ink-2); }
+.dl-check input { accent-color: var(--blue); width: 16px; height: 16px; }
+#section-flip[aria-pressed="true"] { background: var(--line-2); border-color: #98a2b3; }
+.dl-cutmark { font: 700 11px Inter, sans-serif; color: #8a5a00; }
+
 /* viewers */
 .dl-views { display: grid; gap: 0.6rem; grid-template-columns: minmax(0, 1fr); min-height: 0; }
 .dl-views.compare { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -158,7 +177,16 @@ svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
     font: 700 12px/1 Inter, system-ui, sans-serif; display: grid; place-items: center;
     box-shadow: 0 2px 6px rgba(1, 1, 51, 0.35); cursor: pointer; pointer-events: auto; transition: opacity 0.15s ease;
 }
+.iv-pin { background: var(--pin, var(--blue)); }
 .iv-pin::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; } /* bigger touch target */
+/* drawings over the model */
+.iv-sketch { position: absolute; inset: 0; z-index: 1; pointer-events: none; touch-action: none; }
+.iv.is-drawing .iv-sketch { z-index: 3; }
+.iv.is-drawing .iv-pin { pointer-events: none; opacity: 0.5; }
+.iv.is-drawing { box-shadow: 0 0 0 3px var(--gold); }
+/* the open drawing is out of view: a nudge back to its angle */
+.iv-away::after { content: "Drawing hidden: it shows from its own angle. Use “Go to its view”."; position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 3; padding: 4px 10px; border-radius: 999px; background: rgba(255, 248, 230, 0.96); border: 1px solid #f5d98b; color: #6b4a00; font: 600 12px Inter, system-ui, sans-serif; white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.iv-textbox { position: absolute; z-index: 4; min-width: 160px; padding: 3px 6px; border: 2px solid currentColor; border-radius: 6px; background: rgba(255, 255, 255, 0.95); font: 700 15px Inter, system-ui, sans-serif; outline: none; }
 .iv-pin.behind { opacity: 0.35; }
 .iv-pin.resolved { background: #667085; }
 .iv-pin.active { background: var(--gold); color: #2b2000; z-index: 2; }
@@ -236,7 +264,46 @@ svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
 .dl-pin.open { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .dl-pin.resolved { background: #fafbfc; }
 .dl-pin-head { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0.55rem; width: 100%; text-align: left; padding: 0.55rem 0.65rem; border: 0; background: none; cursor: pointer; border-radius: 10px; color: var(--ink); }
-.dl-pin-head .n { width: 26px; height: 26px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; font: 700 12px Inter, sans-serif; }
+.dl-pin-head .n { width: 26px; height: 26px; border-radius: 50%; background: var(--pin, var(--blue)); color: #fff; display: grid; place-items: center; font: 700 12px Inter, sans-serif; }
+.dl-pintag { display: inline-flex; align-items: center; gap: 0.3rem; font: 700 12px Inter, sans-serif; color: var(--muted); }
+.dl-pintag select { border: 1px solid #d0d5dd; border-radius: 6px; padding: 0.15rem 0.3rem; font: 600 12px Inter, sans-serif; background: #fff; min-height: 28px; }
+.dl-ref { border: 0; background: #eef3ff; color: var(--blue); font: 700 inherit; font-size: 0.95em; padding: 0 5px; border-radius: 5px; cursor: pointer; line-height: inherit; }
+.dl-ref:hover { background: #dbe6ff; text-decoration: underline; }
+
+/* drawings list */
+.dl-drawcard { margin: 0 0 1rem; padding: 0.7rem 0.75rem; border: 2px solid var(--gold); border-radius: 12px; background: #fffbea; }
+.dl-drawcard > h3 { color: #6b4a00; }
+.dl-drawcard p { margin: 0 0 0.45rem; }
+.dl-drawcard form { display: grid; gap: 0.4rem; }
+.dl-drawcard textarea { border: 1px solid #d0d5dd; border-radius: 8px; padding: 0.45rem 0.6rem; font-size: 14px; resize: vertical; background: #fff; }
+.dl-drawcard .acts { display: flex; justify-content: flex-end; gap: 0.4rem; }
+.dl-draw { border: 1px solid #e4e7ec; border-radius: 10px; margin-bottom: 0.5rem; background: #fff; }
+.dl-draw.open { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.dl-draw-head { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0.55rem; width: 100%; text-align: left; padding: 0.55rem 0.65rem; border: 0; background: none; cursor: pointer; border-radius: 10px; color: var(--ink); align-items: start; }
+.dl-draw-head .swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 26px; padding-top: 2px; }
+.dl-draw-head .swatches i { display: block; height: 11px; border-radius: 3px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
+.dl-draw-head .swatches i:only-child { grid-column: 1 / -1; height: 24px; border-radius: 6px; }
+.dl-draw-head .txt { overflow-wrap: anywhere; font-size: 0.92rem; }
+.dl-draw-head .txt em { color: var(--faint); }
+.dl-draw-head small { display: block; color: var(--faint); font-size: 12px; }
+.dl-draw .dl-pin-acts { padding: 0 0.65rem 0.55rem 2.95rem; }
+
+/* notes & to-dos */
+.dl-note { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line-2); font-size: 0.92rem; }
+.dl-note:last-of-type { border-bottom: 0; }
+.dl-note .body { overflow-wrap: anywhere; white-space: pre-wrap; }
+.dl-note .dl-by { white-space: normal; }
+.dl-note.done .body { color: var(--muted); }
+.dl-note.done .body > :not(.dl-kind):not(.dl-by) { text-decoration: line-through; }
+.dl-tick { display: flex; justify-content: center; padding-top: 2px; }
+.dl-tick input { width: 18px; height: 18px; accent-color: var(--ok); cursor: pointer; margin: 0; }
+.dl-tick-dot i { display: block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--k, #98a2b3); }
+.dl-note[data-kind="decision"] .dl-tick-dot i { background: var(--gold); }
+.dl-kind { display: inline-block; padding: 1px 8px; border-radius: 999px; margin-right: 6px; font: 700 10.5px/1.6 Inter, system-ui, sans-serif; letter-spacing: 0.03em; text-transform: uppercase; background: var(--line-2); color: var(--ink-2); vertical-align: 1px; }
+.dl-kind[data-kind="decision"] { background: #fff4d6; color: #7a4f00; }
+.dl-kind[data-kind="question"] { background: #f4f3ff; color: #5925dc; }
+.dl-kind[data-kind="todo"] { background: #eef4ff; color: #1d4ed8; }
+.dl-inline-form .row textarea { flex: 1 1 200px; }
 .dl-pin.open .dl-pin-head .n { background: var(--gold); color: #2b2000; }
 .dl-pin.resolved .dl-pin-head .n { background: #98a2b3; }
 .dl-pin-head .txt { overflow-wrap: anywhere; font-size: 0.92rem; }
@@ -350,7 +417,11 @@ svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
     .dl-rail-head .dl-btn .wide { display: none; }
     .dl-rail-head .dl-btn { padding: 0.3rem 0.6rem; font-size: 13px; }
     .dl-tool { padding: 0.4rem 0.6rem; }
-    #t-body span, #t-resolved span, #t-fit span, .dl-tool-select .lbl { display: none; }
+    #t-body span, #t-resolved span, #t-fit span, #t-section span, .dl-tool-select .lbl { display: none; }
+    .dl-panel { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .dl-panel > * { flex-shrink: 0; }
+    .dl-drawhint { display: none; }
+    .dl-range { flex: 1 0 140px; }
     .dl-tool-select select { max-width: 130px; }
     .dl-app { display: block; height: auto; }
     .dl-rail { padding: 0.5rem 0.6rem; position: static; }

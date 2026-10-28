@@ -1,8 +1,10 @@
 // Design log: one page per animal listing every prosthetic version, what changed and why,
-// pins with reply threads on the 3D model, saved views, discussion, and Drive links.
+// pins with reply threads and drawings on the 3D model, a section cut, notes and to-dos,
+// saved views, discussion, and Drive links.
 // Team log = Firebase (Google sign-in, team list); ?demo=1 = this browser only.
-import { createViewer } from './iteration-viewer.js?v=4';
+import { createViewer } from './iteration-viewer.js?v=5';
 import { createDemoStore, createCloudStore } from './design-log-store.js?v=1';
+import { PEN_COLORS, encodeDrawing, decodeDrawing, drawingColors, nearView, createSketchOverlay } from './sketch.js?v=1';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -12,6 +14,12 @@ const STATUSES = [
 ];
 const statusKey = s => (STATUSES.find(x => x[0] === s) || [, 'other'])[1];
 const TAGS = ['Fit', 'Strength', 'Comfort', 'Print', 'Baseline', 'Other'];
+// Pin colours by tag (the marker on the model and the chip in the list).
+const TAG_COLORS = { Fit: '#1d4ed8', Strength: '#c2410c', Comfort: '#067647', Print: '#5925dc', Baseline: '#475467', Other: '#475467' };
+// Notes & to-dos: a kind each; to-dos and questions can be ticked off by anyone on the team.
+const NOTE_KINDS = [['note', 'Note'], ['decision', 'Decision'], ['question', 'Question'], ['todo', 'To-do']];
+const kindLabel = k => (NOTE_KINDS.find(x => x[0] === k) || NOTE_KINDS[0])[1];
+const ticksOff = k => k === 'todo' || k === 'question';
 const narrow = window.matchMedia('(max-width: 760px)');
 const coarse = window.matchMedia('(pointer: coarse)');
 
@@ -64,6 +72,11 @@ function demoSeed(animalId) {
         v1.comments = { k1: { uid: 'sample', author: 'Derrick (example)', at: Date.parse('2026-10-01T18:20:00Z'), text: 'Example comment: from the videos the socket rides forward when he loads the leg.' } };
         const p1 = v1.pins && Object.values(v1.pins)[0];
         if (p1) p1.thread.m2 = { uid: 'sample', author: 'Sreshta (example)', at: Date.parse('2026-10-01T19:05:00Z'), text: 'Example reply: could we keep the struts but narrow the opening by 30 mm?' };
+        v1.notes = {
+            n1: { uid: 'sample', author: 'Tyler (example)', at: Date.parse('2026-10-01T18:30:00Z'), kind: 'decision', text: 'Example decision: keep the strut layout and fix the fit at the leg hole first, then revisit stiffness.' },
+            n2: { uid: 'sample', author: 'Tyler (example)', at: Date.parse('2026-10-01T18:32:00Z'), kind: 'todo', text: 'Example to-do: re-measure the leg hole on the scan and compare with **pin 1**.' },
+            n3: { uid: 'sample', author: 'Derrick (example)', at: Date.parse('2026-10-02T15:10:00Z'), kind: 'question', text: 'Example question: does the socket still ride forward with the third strap on?' },
+        };
     }
     return tree;
 }
@@ -80,11 +93,19 @@ let showBody = false, showResolved = false, picking = false;
 let compareMode = 'side';
 try { compareMode = localStorage.getItem('gap-designlog-compare-mode') === 'overlay' ? 'overlay' : 'side'; } catch {}
 const OVERLAY_COLORS = { current: 0x2f7fc1, other: 0xe8893a }; // this version blue, the compared one orange
-let adding = null;         // 'change' | 'link' | 'view'
+let adding = null;         // 'change' | 'link' | 'view' | 'note'
 let editing = null;        // path key of the item being edited
-let expandResolved = false;
-let pendingFocus = null, pendingFly = null;
+let expandResolved = false, expandDone = false;
+let pendingFocus = null, pendingFly = null, pendingDrawing = null;
 const drafts = new Map();
+// Drawings on the model: the one being looked at, and the one being made (see startDrawing).
+let openDrawing = null;
+let drawing = null;        // { items, history, editId, pen, brush, onChange }
+let pen = PEN_COLORS[0];
+try { pen = PEN_COLORS.includes(localStorage.getItem('gap-designlog-pen')) ? localStorage.getItem('gap-designlog-pen') : pen; } catch {}
+// Section cut, shared by every pane; saved with views and drawings.
+const section = { on: false, axis: 'z', flip: false, t: 0.5, show: true };
+const sectionState = () => (section.on ? { axis: section.axis, flip: section.flip, t: +section.t.toFixed(3), show: section.show } : null);
 
 const me = () => store.user || { uid: '', name: 'Someone' };
 const its = () => tree.iterations || {};
@@ -138,11 +159,27 @@ function fmtWhen(ms) {
     const sameYear = t.getFullYear() === new Date().getFullYear();
     return t.toLocaleString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }), hour: 'numeric', minute: '2-digit' });
 }
-// Escape text and turn web links into anchors.
-function rich(text) {
+// Escape text and add the light formatting the team uses: web links, **bold**, `code`, "- " bullets,
+// and references that jump: "pin 3" opens that pin, a version label (v2a) opens that version.
+// plain: no buttons, for text that already sits inside a button.
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function rich(text, { plain = false } = {}) {
+    const labels = Object.entries(its()).map(([id, v]) => [String(v.label || ''), id]).filter(([l]) => l).sort((a, b) => b[0].length - a[0].length);
+    const labelRe = labels.length ? new RegExp('(^|[^\\w/.-])(' + labels.map(([l]) => reEsc(l)).join('|') + ')(?![\\w.-])', 'g') : null;
+    const inline = s => {
+        let h = esc(s);
+        if (!plain && labelRe) h = h.replace(labelRe, (m, pre, l) => {
+            const id = labels.find(x => x[0] === l)?.[1];
+            return !id || id === currentId ? m : `${pre}<button type="button" class="dl-ref" data-act="goto" data-ver="${esc(id)}" title="Open ${esc(l)}">${esc(l)}</button>`;
+        });
+        if (!plain) h = h.replace(/\b(pin (\d{1,3}))\b/gi, (m, all, n) => `<button type="button" class="dl-ref" data-act="pin-n" data-n="${n}" title="Open pin ${n}">${all}</button>`);
+        h = h.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+        h = h.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+        return h;
+    };
     return String(text ?? '').split(/(https?:\/\/[^\s<>"]+)/g).map((part, i) => i % 2
         ? `<a href="${esc(part)}" target="_blank" rel="noopener noreferrer">${esc(part.length > 60 ? part.slice(0, 57) + '…' : part)}</a>`
-        : esc(part)).join('');
+        : inline(part)).join('').replace(/(^|\n)[-*] /g, '$1• ');
 }
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
@@ -301,13 +338,15 @@ $('#gate').addEventListener('click', async e => {
 
 
 // ------------------------------------------------------------------ routing
+// #animal/version/<pin id>  or  #animal/version/d:<drawing id>
 function parseHash() {
     const [a, v, p] = decodeURIComponent(location.hash.slice(1)).split('/');
-    return { animal: ANIMALS.some(x => x.id === a) ? a : null, version: v || null, pin: p || null };
+    const draw = p && p.startsWith('d:') ? p.slice(2) : null;
+    return { animal: ANIMALS.some(x => x.id === a) ? a : null, version: v || null, pin: draw ? null : p || null, drawing: draw };
 }
 function syncHash() {
     const cur = current();
-    const h = '#' + [A.id, cur?.id, openPin].filter(Boolean).join('/');
+    const h = '#' + [A.id, cur?.id, openPin || (openDrawing ? 'd:' + openDrawing : '')].filter(Boolean).join('/');
     if (location.hash !== h) history.replaceState(null, '', h);
 }
 let started = false;
@@ -317,23 +356,25 @@ function start() {
     const h = parseHash();
     let last = null;
     try { last = localStorage.getItem('gap-designlog-animal'); } catch {}
-    openAnimal(h.animal || (ANIMALS.some(a => a.id === last) ? last : ANIMALS[0].id), h.version, h.pin);
+    openAnimal(h.animal || (ANIMALS.some(a => a.id === last) ? last : ANIMALS[0].id), h.version, h.pin, h.drawing);
 }
 window.addEventListener('hashchange', () => {
     const h = parseHash();
     if (!h.animal) return;
-    if (h.animal !== A?.id) openAnimal(h.animal, h.version, h.pin);
-    else if (h.version !== currentId || h.pin !== openPin) { selectVersion(h.version, h.pin); }
+    if (h.animal !== A?.id) openAnimal(h.animal, h.version, h.pin, h.drawing);
+    else if (h.version !== currentId || h.pin !== openPin || h.drawing !== openDrawing) { selectVersion(h.version, h.pin, h.drawing); }
 });
 
-function openAnimal(id, versionId, pinId = null) {
+function openAnimal(id, versionId, pinId = null, drawingId = null) {
     A = ANIMALS.find(a => a.id === id) || ANIMALS[0];
     try { localStorage.setItem('gap-designlog-animal', A.id); } catch {}
     animalSelect.value = A.id;
     $('#animal-title').textContent = `${A.name}’s versions`;
     document.title = `${A.name} · Design Log - Give a Paw`;
-    currentId = versionId; openPin = pinId; compareId = ''; adding = null; editing = null; builtKey = null; lastView = null;
-    pendingFly = pinId;
+    if (drawing) endDrawing('Drawing discarded');
+    currentId = versionId; openPin = pinId; openDrawing = drawingId; compareId = ''; adding = null; editing = null; builtKey = null; lastView = null;
+    pendingFly = pinId; pendingDrawing = drawingId;
+    if (section.on) { section.on = false; syncSectionBar(); }
     $('#t-body').hidden = !A.body;
     $('#t-body-label').textContent = A.body?.label || 'Body';
     $('#model-list').innerHTML = (A.models || []).map(m => `<option value="${esc(m)}">`).join('');
@@ -345,8 +386,9 @@ function openAnimal(id, versionId, pinId = null) {
     render();
 }
 
-function selectVersion(id, pin = null) {
-    currentId = id; openPin = pin; adding = null; editing = null; pendingFly = pin;
+function selectVersion(id, pin = null, drawingId = null) {
+    if (drawing) endDrawing('Drawing discarded');
+    currentId = id; openPin = pin; openDrawing = drawingId; adding = null; editing = null; pendingFly = pin; pendingDrawing = drawingId;
     if (compareId === id) compareId = '';
     render();
 }
@@ -357,6 +399,7 @@ function render() {
     const cur = current();
     if (cur && currentId !== cur.id) currentId = cur.id;
     if (openPin && !cur?.pins?.[openPin]) openPin = null;
+    if (openDrawing && !cur?.drawings?.[openDrawing]) openDrawing = null;
     if (compareId && (!its()[compareId] || compareId === currentId)) compareId = '';
     renderList();
     renderTools();
@@ -374,12 +417,14 @@ function renderList() {
         const pins = pinsOf(v);
         const open = pins.filter(p => !p.resolved).length;
         const talk = Object.keys(v.comments || {}).length + pins.reduce((n, p) => n + Math.max(0, p.thread.length - 1), 0);
+        const todo = Object.values(v.notes || {}).filter(n => n.kind === 'todo' && !n.done).length;
+        const draws = Object.keys(v.drawings || {}).length;
         const parent = v.parent && its()[v.parent];
         return `<li class="${v.depth ? 'child' : ''}" style="--depth:${Math.min(v.depth, 4)}"><button type="button" class="dl-ver" data-ver="${esc(v.id)}" aria-current="${v.id === currentId}">
             <span class="top">${esc(v.label)} <span class="date">${esc(fmtDate(v.date))}</span></span>
             <strong>${esc(v.title)}</strong>
             <span class="based">${parent ? 'Based on ' + esc(parent.label) : 'First version'}</span>
-            <span class="counts"><span class="dl-status" data-s="${statusKey(v.status)}">${esc(v.status || 'No status')}</span>${open ? `<b>${plural(open, 'open pin')}</b>` : ''}${talk ? `<span>${plural(talk, 'reply', 'replies')}</span>` : ''}</span>
+            <span class="counts"><span class="dl-status" data-s="${statusKey(v.status)}">${esc(v.status || 'No status')}</span>${open ? `<b>${plural(open, 'open pin')}</b>` : ''}${todo ? `<b>${plural(todo, 'to-do')}</b>` : ''}${draws ? `<span>${plural(draws, 'drawing')}</span>` : ''}${talk ? `<span>${plural(talk, 'reply', 'replies')}</span>` : ''}</span>
         </button></li>`;
     }).join('');
     // Keep the selected card visible in the horizontal strip.
@@ -408,6 +453,10 @@ function renderTools() {
     const hasModel = !!cur?.model;
     $('#t-pin').disabled = !hasModel;
     $('#t-fit').disabled = !hasModel;
+    $('#t-draw').disabled = !hasModel;
+    $('#t-section').disabled = !hasModel;
+    $('#t-draw').setAttribute('aria-pressed', String(!!drawing));
+    $('#t-section').setAttribute('aria-pressed', String(section.on));
     $('#t-resolved').setAttribute('aria-pressed', String(showResolved));
     $('#t-body').setAttribute('aria-pressed', String(showBody));
     const sel = $('#t-compare');
@@ -419,6 +468,7 @@ function renderTools() {
     modeBox.hidden = !compareId;
     modeBox.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === compareMode)));
     if (!hasModel && picking) setPicking(false);
+    if (!hasModel && drawing) endDrawing();
 }
 $('#t-compare-mode').addEventListener('click', e => {
     const mode = e.target.closest('[data-mode]')?.dataset.mode;
@@ -482,6 +532,9 @@ function sideHtml() {
     const openPins = pins.filter(p => !p.resolved), resolved = pins.filter(p => p.resolved);
     const comments = sortedEntries(v.comments);
     const links = sortedEntries(v.links);
+    const drawings = sortedEntries(v.drawings);
+    const notes = sortedEntries(v.notes);
+    const openNotes = notes.filter(([, n]) => !n.done), doneNotes = notes.filter(([, n]) => n.done);
     const base = ['iterations', v.id];
 
     const changeHtml = ([id, c]) => {
@@ -495,16 +548,18 @@ function sideHtml() {
         const isOpen = openPin === p.id;
         const first = p.thread[0];
         const replies = p.thread.slice(1);
-        const note = first ? rich(first[1].text) : '<em>New pin: add a note</em>';
-        return `<div class="dl-pin ${isOpen ? 'open' : ''} ${p.resolved ? 'resolved' : ''}" data-pin="${esc(p.id)}" id="pin-${esc(p.id)}">
+        const note = first ? rich(first[1].text, { plain: true }) : '<em>New pin: add a note</em>';
+        const tagChip = p.tag ? `<span class="dl-tag" data-tag="${esc(p.tag)}">${esc(p.tag)}</span>` : '';
+        return `<div class="dl-pin ${isOpen ? 'open' : ''} ${p.resolved ? 'resolved' : ''}" data-pin="${esc(p.id)}" id="pin-${esc(p.id)}"${TAG_COLORS[p.tag] ? ` style="--pin:${TAG_COLORS[p.tag]}"` : ''}>
             <button type="button" class="dl-pin-head" data-act="pin" data-pin="${esc(p.id)}" aria-expanded="${isOpen}"><span class="n">${p.n}</span>
-                <span class="txt">${isOpen ? `<b>Pin ${p.n}</b> <small style="display:inline">dropped by ${esc(p.author)} · ${esc(fmtWhen(p.at))}</small>` : note}
+                <span class="txt">${isOpen ? `<b>Pin ${p.n}</b> ${tagChip}<small style="display:inline">dropped by ${esc(p.author)} · ${esc(fmtWhen(p.at))}</small>` : tagChip + note}
                 <small>${isOpen ? '' : `${esc(first?.[1].author || p.author)} · ${plural(replies.length, 'reply', 'replies')}`}${p.resolved ? `${isOpen ? '' : ' · '}<span class="dl-resolved-note">Resolved by ${esc(p.resolved.by)}</span>` : ''}</small></span></button>
             ${isOpen ? `<div class="dl-thread">
                 ${first ? msgHtml(first[1], pathKey([...base, 'pins', p.id, 'thread', first[0]])).replace('class="dl-msg"', 'class="dl-msg" style="border-top:0;padding-top:0"') : ''}
                 ${replies.map(([mid, m]) => msgHtml(m, pathKey([...base, 'pins', p.id, 'thread', mid]))).join('')}
                 <form novalidate class="dl-compose" data-form="reply" data-pin="${esc(p.id)}"><textarea name="text" rows="1" maxlength="2000" data-draft="pin:${esc(p.id)}" placeholder="${first ? 'Reply' : 'What should the team know about this spot?'}" aria-label="${first ? 'Reply to pin ' + p.n : 'Note for pin ' + p.n}"></textarea><button class="dl-btn dl-btn-primary dl-btn-sm">${first ? 'Reply' : 'Save'}</button></form>
                 <div class="dl-pin-acts">
+                    <label class="dl-pintag">Tag <select data-pintag="${esc(p.id)}" aria-label="Tag for pin ${p.n}"><option value="">None</option>${TAGS.map(t => `<option ${t === p.tag ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
                     <button type="button" class="dl-link" data-act="resolve" data-pin="${esc(p.id)}">${p.resolved ? 'Reopen' : 'Mark resolved'}</button>
                     <button type="button" class="dl-link" data-act="copy-pin" data-pin="${esc(p.id)}">Copy link</button>
                     ${p.camera ? `<button type="button" class="dl-link" data-act="fly-pin" data-pin="${esc(p.id)}">Go to view</button>` : ''}
@@ -512,8 +567,36 @@ function sideHtml() {
                 </div></div>` : ''}
         </div>`;
     };
+    const drawingHtml = ([id, d]) => {
+        const key = pathKey([...base, 'drawings', id]);
+        const isOpen = openDrawing === id;
+        const colors = drawingColors(d.strokes).slice(0, 5);
+        const count = decodeDrawing(d.strokes).items.length;
+        return `<div class="dl-draw ${isOpen ? 'open' : ''}" id="draw-${esc(id)}">
+            <button type="button" class="dl-draw-head" data-act="open-drawing" data-draw="${esc(id)}" aria-pressed="${isOpen}">
+                <span class="swatches" aria-hidden="true">${colors.map(c => `<i style="--c:${esc(c)}"></i>`).join('')}</span>
+                <span class="txt">${d.note ? rich(d.note, { plain: true }) : `<em>Drawing (${plural(count, 'mark')})</em>`}${d.section ? ' <span class="dl-cutmark" title="Made with a section cut">⌗ cut</span>' : ''}<small>${esc(d.author)} · ${esc(fmtWhen(d.at))}${d.edited ? ' · edited' : ''}</small></span></button>
+            ${isOpen ? `<div class="dl-pin-acts">
+                <button type="button" class="dl-link" data-act="fly-drawing" data-draw="${esc(id)}">Go to its view</button>
+                <button type="button" class="dl-link" data-act="copy-drawing" data-draw="${esc(id)}">Copy link</button>
+                ${d.uid === me().uid ? `<button type="button" class="dl-link" data-act="edit-drawing" data-draw="${esc(id)}">Edit</button><button type="button" class="dl-link danger" data-act="del" data-path="${esc(key)}" data-what="this drawing">Delete</button>` : ''}
+            </div>` : ''}</div>`;
+    };
+    const noteHtml = ([id, n]) => {
+        const key = pathKey([...base, 'notes', id]);
+        if (editing === key) return noteForm(key, n);
+        const tick = ticksOff(n.kind);
+        return `<div class="dl-note ${n.done ? 'done' : ''}" data-kind="${esc(n.kind || 'note')}">
+            ${tick ? `<label class="dl-tick"><input type="checkbox" data-done="${esc(id)}" ${n.done ? 'checked' : ''} aria-label="${n.kind === 'todo' ? 'Done' : 'Answered'}"></label>` : `<span class="dl-tick dl-tick-dot" aria-hidden="true"><i></i></span>`}
+            <div class="body"><span class="dl-kind" data-kind="${esc(n.kind || 'note')}">${esc(kindLabel(n.kind))}</span>${rich(n.text)}
+                <span class="dl-by">${esc(n.author)} · ${esc(fmtWhen(n.at))}${n.edited ? ' · edited' : ''}${n.done ? ` · <span class="dl-resolved-note">${n.kind === 'question' ? 'Answered' : 'Done'} by ${esc(n.done.by)}</span>` : ''} ${itemActions(n, key, 'this note')}</span></div></div>`;
+    };
 
     return `
+    ${drawing ? `<section class="dl-sec dl-drawcard" aria-label="New drawing"><h3>${drawing.editId ? 'Editing a drawing' : 'New drawing'}</h3>
+        <p class="dl-field-note">${coarse.matches ? 'Draw on the model with your finger.' : 'Draw on the model.'} The drawing belongs to this camera angle: it shows whenever someone looks from here.</p>
+        <form novalidate data-form="drawing"><textarea name="note" rows="2" maxlength="600" data-draft="draw:note" placeholder="What does it show? (optional)" aria-label="Drawing note">${esc(drawing.note || '')}</textarea>
+        <div class="acts"><button type="button" class="dl-btn dl-btn-sm" data-act="cancel-drawing">Cancel</button><button class="dl-btn dl-btn-sm dl-btn-primary">Save drawing</button></div></form></section>` : ''}
     <div class="dl-vhead"><h2><span class="dl-label">${esc(v.label)}</span>${esc(v.title)}</h2><button type="button" class="dl-btn dl-btn-sm" data-act="edit-version">Edit</button></div>
     <div class="dl-meta"><span>${esc(fmtDate(v.date))}</span><span class="sep">·</span><span class="dl-status" data-s="${statusKey(v.status)}">${esc(v.status || 'No status')}</span>
         ${parent ? `<span class="sep">·</span><span>based on <button type="button" class="dl-link" data-act="goto" data-ver="${esc(parent.id)}">${esc(parent.label)}</button></span>` : ''}
@@ -529,6 +612,14 @@ function sideHtml() {
     <section class="dl-sec"><h3>Pins <span class="n">${openPins.length || ''}</span><span class="dl-spacer"></span>${v.model ? '<button type="button" class="dl-link" data-act="drop-pin">+ Drop pin</button>' : ''}</h3>
         ${openPins.map(pinHtml).join('') || `<p class="dl-empty">${v.model ? (coarse.matches ? 'Tap “Drop pin”, then tap the model.' : 'Press “Drop pin”, then click the model.') : 'Pins need a 3D model.'}</p>`}
         ${resolved.length ? `<button type="button" class="dl-more" data-act="toggle-resolved-list" aria-expanded="${expandResolved}">${expandResolved ? '▾' : '▸'} ${plural(resolved.length, 'resolved pin')}</button>${expandResolved ? resolved.map(pinHtml).join('') : ''}` : ''}</section>
+
+    <section class="dl-sec"><h3>Drawings <span class="n">${drawings.length || ''}</span><span class="dl-spacer"></span>${v.model && !drawing ? '<button type="button" class="dl-link" data-act="start-drawing">+ Draw</button>' : ''}</h3>
+        ${drawings.map(drawingHtml).join('') || `<p class="dl-empty">${v.model ? 'Press “Annotate” to draw or write on the model from the angle you are looking at.' : 'Drawings need a 3D model.'}</p>`}</section>
+
+    <section class="dl-sec"><h3>Notes &amp; to-dos <span class="n">${openNotes.length || ''}</span><span class="dl-spacer"></span>${adding === 'note' ? '' : '<button type="button" class="dl-link" data-act="add-note">+ Add</button>'}</h3>
+        ${openNotes.map(noteHtml).join('') || (adding === 'note' || doneNotes.length ? '' : '<p class="dl-empty">Decisions, open questions and to-dos for this version.</p>')}
+        ${adding === 'note' ? noteForm(null, null) : ''}
+        ${doneNotes.length ? `<button type="button" class="dl-more" data-act="toggle-done-list" aria-expanded="${expandDone}">${expandDone ? '▾' : '▸'} ${plural(doneNotes.length, 'done item')}</button>${expandDone ? doneNotes.map(noteHtml).join('') : ''}` : ''}</section>
 
     <section class="dl-sec"><h3>Discussion <span class="n">${comments.length || ''}</span></h3>
         ${comments.map(([id, m]) => msgHtml(m, pathKey([...base, 'comments', id]))).join('') || '<p class="dl-empty">No comments yet.</p>'}
@@ -554,6 +645,14 @@ function changeForm(key, c) {
         <input name="why" maxlength="400" placeholder="Why (optional)" aria-label="Why" data-draft="${esc(d)}:why" value="${esc(c?.why || '')}">
         <p class="dl-err" hidden></p>
         <div class="acts"><button type="button" class="dl-btn dl-btn-sm" data-act="cancel-edit">Cancel</button><button class="dl-btn dl-btn-sm dl-btn-primary">${key ? 'Save' : 'Add change'}</button></div></form>`;
+}
+function noteForm(key, n) {
+    const d = key ? 'note:' + key : 'note:new';
+    return `<form novalidate class="dl-inline-form" data-form="note" ${key ? `data-path="${esc(key)}"` : ''}>
+        <div class="row"><select name="kind" aria-label="Kind of note" style="flex:0 1 130px">${NOTE_KINDS.map(([k, l]) => `<option value="${k}" ${k === (n?.kind || 'note') ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <textarea name="text" required rows="2" maxlength="2000" placeholder="The note, decision, question or to-do" aria-label="Note" data-draft="${esc(d)}:text">${esc(n?.text || '')}</textarea></div>
+        <p class="dl-err" hidden></p>
+        <div class="acts"><button type="button" class="dl-btn dl-btn-sm" data-act="cancel-edit">Cancel</button><button class="dl-btn dl-btn-sm dl-btn-primary">${key ? 'Save' : 'Add note'}</button></div></form>`;
 }
 function linkForm(key, l) {
     const d = key ? 'link:' + key : 'link:new';
@@ -587,24 +686,44 @@ side.addEventListener('click', async e => {
     else if (act === 'reset-demo') { store.reset(A.id); }
     else if (act === 'edit-version') openVersionDialog(v);
     else if (act === 'goto') selectVersion(b.dataset.ver);
-    else if (act === 'add-change' || act === 'add-link') {
+    else if (act === 'add-change' || act === 'add-link' || act === 'add-note') {
         adding = act.slice(4); editing = null;
-        pendingFocus = adding === 'change' ? 'chg:new:text' : 'link:new:url';
+        pendingFocus = adding === 'change' ? 'chg:new:text' : adding === 'link' ? 'link:new:url' : 'note:new:text';
         renderSide();
     } else if (act === 'cancel-edit') { adding = null; editing = null; renderSide(); }
     else if (act === 'edit') {
         editing = b.dataset.path; adding = null;
         const parts = keyPath(editing);
         const kind = parts.at(-2);
-        pendingFocus = kind === 'changes' ? `chg:${editing}:text` : kind === 'links' ? `link:${editing}:url` : `edit:${editing}`;
+        pendingFocus = kind === 'changes' ? `chg:${editing}:text` : kind === 'links' ? `link:${editing}:url` : kind === 'notes' ? `note:${editing}:text` : `edit:${editing}`;
         drafts.delete(pendingFocus);
         renderSide();
     } else if (act === 'del') {
         if (!await confirmBox(`Delete ${b.dataset.what}? This can’t be undone.`)) return;
         const path = keyPath(b.dataset.path);
         if (path.at(-2) === 'pins' && openPin === path.at(-1)) openPin = null;
+        if (path.at(-2) === 'drawings' && openDrawing === path.at(-1)) openDrawing = null;
         write(() => put(path, null), 'Deleted');
-    } else if (act === 'pin') {
+    } else if (act === 'pin-n') {
+        const p = pinsOf(v).find(x => x.n === +b.dataset.n);
+        if (!p) { toast(`There is no pin ${b.dataset.n} on ${v.label}.`, true); return; }
+        if (p.resolved && !showResolved) { showResolved = true; renderTools(); }
+        openPin = p.id; openDrawing = null; expandResolved = expandResolved || !!p.resolved;
+        flyToPin(p.id); render(); pendingScrollPin(p.id);
+    } else if (act === 'open-drawing') {
+        const id = b.dataset.draw;
+        if (openDrawing === id) { openDrawing = null; render(); return; }
+        showDrawing(id);
+    } else if (act === 'fly-drawing') flyToDrawing(b.dataset.draw);
+    else if (act === 'copy-drawing') {
+        const url = location.origin + location.pathname + (store.kind === 'demo' ? '?demo=1' : '') + '#' + [A.id, v.id, 'd:' + b.dataset.draw].join('/');
+        try { await navigator.clipboard.writeText(url); toast('Link to this drawing copied'); }
+        catch { window.prompt('Copy this link:', url); }
+    } else if (act === 'edit-drawing') startDrawing(b.dataset.draw);
+    else if (act === 'start-drawing') startDrawing();
+    else if (act === 'cancel-drawing') cancelDrawing();
+    else if (act === 'toggle-done-list') { expandDone = !expandDone; renderSide(); }
+    else if (act === 'pin') {
         const id = b.dataset.pin;
         openPin = openPin === id ? null : id;
         if (openPin) flyToPin(id);
@@ -621,6 +740,25 @@ side.addEventListener('click', async e => {
         try { await navigator.clipboard.writeText(url); toast('Link to this pin copied'); }
         catch { window.prompt('Copy this link:', url); }
     } else if (act === 'toggle-resolved-list') { expandResolved = !expandResolved; renderSide(); }
+});
+// Pin tags and ticking off to-dos: anyone on the team can change these.
+side.addEventListener('change', e => {
+    const v = current();
+    if (!v) return;
+    const tagSel = e.target.closest('select[data-pintag]');
+    if (tagSel) {
+        const id = tagSel.dataset.pintag;
+        const tag = tagSel.value;
+        write(() => put(['iterations', v.id, 'pins', id, 'tag'], tag || null), tag ? `Pin tagged ${tag}` : 'Tag removed');
+        return;
+    }
+    const tick = e.target.closest('input[data-done]');
+    if (tick) {
+        const id = tick.dataset.done;
+        const n = v.notes?.[id];
+        if (!n) return;
+        write(() => put(['iterations', v.id, 'notes', id, 'done'], tick.checked ? { by: me().name, at: Date.now() } : null), tick.checked ? (n.kind === 'question' ? 'Marked answered' : 'Marked done') : 'Reopened');
+    }
 });
 function onFormSubmit(e) {
     e.preventDefault();
@@ -657,6 +795,20 @@ function onFormSubmit(e) {
         adding = null; editing = null;
         clearDrafts('chg:' + (key || 'new'));
         write(() => put(path, value));
+    } else if (kind === 'note') {
+        const text = f.text.value.trim();
+        if (!text) { err('Write the note.'); f.text.focus(); return; }
+        const key = f.dataset.path;
+        const old = key ? keyPath(key).reduce((o, k) => o?.[k], tree) : null;
+        const path = key ? keyPath(key) : [...base, 'notes', store.newKey()];
+        const noteKind = NOTE_KINDS.some(([k]) => k === f.kind.value) ? f.kind.value : 'note';
+        const value = old ? { ...old, kind: noteKind, text, edited: Date.now() } : { ...stamp(), kind: noteKind, text };
+        if (!ticksOff(noteKind)) delete value.done;
+        adding = null; editing = null;
+        clearDrafts('note:' + (key || 'new'));
+        write(() => put(path, value));
+    } else if (kind === 'drawing') {
+        saveDrawing();
     } else if (kind === 'link') {
         let url = f.url.value.trim();
         if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
@@ -689,15 +841,20 @@ function renderViewbar() {
     const form = adding === 'view'
         ? `<form novalidate data-form="view"><input name="name" maxlength="40" placeholder="Name this view" aria-label="View name" required><button class="dl-btn dl-btn-sm dl-btn-primary">Save</button><button type="button" class="dl-btn dl-btn-sm" data-vact="cancel">Cancel</button></form>`
         : `<span class="dl-chip add"><button type="button" data-vact="add">+ Save this view</button></span>`;
-    bar.innerHTML = `<span class="lbl">Views</span>` + views.map(([id, w]) => `<span class="dl-chip"><button type="button" data-view="${esc(id)}" title="Saved by ${esc(w.author)}">${esc(w.name)}</button>${w.uid === me().uid ? `<button type="button" class="x" data-vdel="${esc(id)}" aria-label="Delete view ${esc(w.name)}">×</button>` : ''}</span>`).join('') + form;
+    bar.innerHTML = `<span class="lbl">Views</span>` + views.map(([id, w]) => `<span class="dl-chip"><button type="button" data-view="${esc(id)}" title="Saved by ${esc(w.author)}${w.section ? ' · with a section cut' : ''}">${esc(w.name)}${w.section ? ' <span class="dl-cutmark" aria-label="with a section cut">⌗</span>' : ''}</button>${w.uid === me().uid ? `<button type="button" class="x" data-vdel="${esc(id)}" aria-label="Delete view ${esc(w.name)}">×</button>` : ''}</span>`).join('') + form;
     if (adding === 'view') bar.querySelector('input').focus();
+}
+// A saved view restores its camera and its section cut (or turns the cut off).
+function applySavedView(w, ms) {
+    mainViewer()?.flyTo(w.camera, ms);
+    setSectionFrom(w.section);
 }
 $('#viewbar').addEventListener('click', async e => {
     const v = current();
     const view = e.target.closest('[data-view]')?.dataset.view;
     const del = e.target.closest('[data-vdel]')?.dataset.vdel;
     const vact = e.target.closest('[data-vact]')?.dataset.vact;
-    if (view) mainViewer()?.flyTo(v.views[view].camera);
+    if (view) applySavedView(v.views[view]);
     else if (del) {
         if (await confirmBox(`Delete the saved view “${v.views[del].name}”?`)) write(() => put(['iterations', v.id, 'views', del], null), 'View deleted');
     } else if (vact === 'add') { adding = 'view'; renderViewbar(); }
@@ -709,7 +866,7 @@ $('#viewbar').addEventListener('submit', e => {
     const viewer = mainViewer();
     if (!name || !viewer) return;
     adding = null;
-    write(() => put(['iterations', currentId, 'views', store.newKey()], { ...stamp(), name, camera: viewer.getView() }), 'View saved');
+    write(() => put(['iterations', currentId, 'views', store.newKey()], { ...stamp(), name, camera: viewer.getView(), section: sectionState() }), 'View saved');
 });
 $('#viewbar').addEventListener('keydown', e => { if (e.key === 'Escape' && adding === 'view') { adding = null; renderViewbar(); } });
 
@@ -731,7 +888,8 @@ function buildViewers() {
     if (prev && A.sameFrame) lastView = { view: prev.getView(), panes: viewers.length };
     builtKey = key;
     const token = ++buildToken;
-    viewers.forEach(w => w.api?.dispose());
+    if (drawing) endDrawing('Drawing discarded');
+    viewers.forEach(w => { w.sketch?.dispose(); w.api?.dispose(); });
     viewers = [];
     holder.className = 'dl-views' + (other && !overlay ? ' compare' : '');
     holder.replaceChildren();
@@ -752,7 +910,10 @@ function buildViewers() {
             continue;
         }
         box.insertAdjacentHTML('beforeend', '<div class="iv-loading">Loading model…</div>');
-        viewers.push({ id: v.id, api: createViewer(box, { up: A.up || 'z' }), box });
+        const w = { id: v.id, api: createViewer(box, { up: A.up || 'z' }), box };
+        w.sketch = createSketchOverlay(box);
+        w.api.onChange(() => refreshDrawings(w));
+        viewers.push(w);
     }
     Promise.all(viewers.map(async w => {
         if (!w.api) return;
@@ -768,6 +929,7 @@ function buildViewers() {
             if (token !== buildToken) return;
             w.box.querySelector('.iv-loading')?.remove();
             w.api.frame('main');
+            w.api.setSection(sectionState());
         } catch (e) {
             if (token !== buildToken) return;
             const l = w.box.querySelector('.iv-loading');
@@ -780,9 +942,11 @@ function buildViewers() {
         if (apis.length === 2 && A.sameFrame) apis[0].api.link(apis[1].api);
         const main = mainViewer();
         const pin = pendingFly && current()?.pins?.[pendingFly];
+        const draw = pendingDrawing && current()?.drawings?.[pendingDrawing];
         if (main && pin?.camera) main.flyTo(pin.camera, 1);
+        else if (main && draw?.camera) { main.flyTo(draw.camera, 1); setSectionFrom(draw.section); }
         else if (main && lastView && lastView.panes === viewers.length) main.flyTo(lastView.view, 1);
-        pendingFly = null;
+        pendingFly = null; pendingDrawing = null;
         refreshPins();
         applyPicking();
     });
@@ -794,7 +958,9 @@ function refreshPins() {
         const v = byId(w.id);
         const list = pinsOf(v).filter(p => !p.resolved || showResolved || p.id === openPin).map(p => ({
             id: p.id, pos: p.pos, n: p.n, note: p.thread[0]?.[1].text || 'New pin', resolved: !!p.resolved, active: w.id === currentId && p.id === openPin,
+            color: p.resolved ? '' : TAG_COLORS[p.tag] || '',
         }));
+        refreshDrawings(w);
         w.api.setPins(list, pin => {
             if (w.id !== currentId) { compareId = ''; selectVersion(w.id, pin.id); return; }
             openPin = pin.id;
@@ -844,6 +1010,151 @@ function flyToPin(id) {
     if (p?.camera) mainViewer()?.flyTo(p.camera);
 }
 
+// ------------------------------------------------------------------ drawings on the model
+// A drawing belongs to the camera angle it was made from. It shows while the camera is near that
+// angle, or while it is the open one; the drawing being made shows alone on its pane.
+const decodeCache = new Map();
+function decoded(strokes) {
+    if (!decodeCache.has(strokes)) { if (decodeCache.size > 200) decodeCache.clear(); decodeCache.set(strokes, decodeDrawing(strokes).items); }
+    return decodeCache.get(strokes);
+}
+function refreshDrawings(w) {
+    if (!w?.sketch || !w.api) return;
+    if (drawing && w.id === currentId) { w.sketch.show([]); return; }
+    const v = byId(w.id);
+    const view = w.api.getView();
+    const near = sortedEntries(v?.drawings).filter(([, d]) => nearView(view, d.camera));
+    // Others fade while the open drawing is in view, so it stands out.
+    const dim = w.id === currentId && openDrawing && near.some(([id]) => id === openDrawing);
+    w.sketch.show(near.map(([id, d]) => ({ items: decoded(d.strokes), alpha: dim && id !== openDrawing ? 0.35 : 1 })));
+    w.box.classList.toggle('iv-away', w.id === currentId && !!openDrawing && !dim);
+}
+const exactView = api => ({ position: api.camera.position.toArray().map(x => +x.toFixed(4)), target: api.controls.target.toArray().map(x => +x.toFixed(4)) });
+function flyToDrawing(id) {
+    const d = current()?.drawings?.[id];
+    if (!d) return;
+    mainViewer()?.flyTo(d.camera);
+    setSectionFrom(d.section);
+}
+function showDrawing(id) {
+    if (drawing) return;
+    openDrawing = id; openPin = null;
+    flyToDrawing(id);
+    render();
+    if (!narrow.matches) requestAnimationFrame(() => $('#draw-' + CSS.escape(id))?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+}
+function updateDrawButtons() {
+    $('#draw-undo').disabled = !drawing?.history.length;
+    $('#draw-clear').disabled = !drawing?.items.length;
+    $('#draw-save').disabled = !drawing?.items.length;
+}
+function startDrawing(editId = null) {
+    const w = viewers.find(x => x.id === currentId && x.api && x.sketch);
+    if (!w || drawing) return;
+    if (picking) setPicking(false);
+    const old = editId && current()?.drawings?.[editId];
+    if (old) { w.api.flyTo(old.camera, 1); setSectionFrom(old.section); openDrawing = editId; }
+    drawing = { items: old ? decodeDrawing(old.strokes).items : [], history: [], editId: old ? editId : null, note: old?.note || '', pen, brush: 'pen', onChange: updateDrawButtons };
+    drafts.delete('draw:note');
+    w.api.controls.enabled = false;
+    w.sketch.startEditing(drawing);
+    $('#drawbar').hidden = false;
+    syncDrawbar();
+    renderTools();
+    renderSide();
+    for (const x of viewers) refreshDrawings(x);
+    if (!coarse.matches) $('#hint').textContent = '';
+}
+function endDrawing(msg) {
+    if (!drawing) return;
+    const had = drawing.items.length;
+    const w = viewers.find(x => x.id === currentId && x.sketch);
+    w?.sketch.stopEditing();
+    if (w?.api) w.api.controls.enabled = true;
+    drawing = null;
+    drafts.delete('draw:note');
+    $('#drawbar').hidden = true;
+    renderTools();
+    renderSide();
+    for (const x of viewers) refreshDrawings(x);
+    if (msg && had) toast(msg);
+}
+async function cancelDrawing() {
+    if (!drawing) return;
+    if (drawing.items.length && drawing.history.length && !await confirmBox(drawing.editId ? 'Drop the changes to this drawing?' : 'Discard this drawing?', 'Discard')) return;
+    endDrawing();
+}
+function saveDrawing() {
+    const w = viewers.find(x => x.id === currentId && x.api);
+    if (!drawing || !w) return;
+    if (!drawing.items.length) { toast('Draw something first.', true); return; }
+    const note = ($('[data-draft="draw:note"]')?.value ?? drafts.get('draw:note') ?? '').trim().slice(0, 600);
+    const key = drawing.editId || store.newKey();
+    const old = drawing.editId ? current()?.drawings?.[key] : null;
+    const strokes = encodeDrawing(drawing.items);
+    const value = old ? { ...old, strokes, note, section: sectionState(), edited: Date.now() } : { ...stamp(), strokes, note, camera: exactView(w.api), section: sectionState() };
+    if (!value.section) delete value.section;
+    endDrawing();
+    openDrawing = key;
+    write(() => put(['iterations', currentId, 'drawings', key], value), old ? 'Drawing saved' : 'Drawing added').then(ok => { if (ok) render(); });
+}
+function syncDrawbar() {
+    const bar = $('#drawbar');
+    bar.querySelectorAll('[data-brush]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.brush === (drawing?.brush || 'pen'))));
+    $('#colors').innerHTML = PEN_COLORS.map(c => `<button type="button" data-pen="${c}" style="--c:${c}" aria-label="Colour ${c}" aria-pressed="${c === pen}"></button>`).join('');
+    const brush = drawing?.brush || 'pen';
+    $('#drawhint').textContent = brush === 'text' ? 'Click where the words go, type, then press Enter.' : brush === 'erase' ? 'Drag across a line or words to erase them.' : coarse.matches ? 'Draw on the model. Orbit is paused.' : 'Draw on the model. Orbit is paused while you draw.';
+    updateDrawButtons();
+}
+$('#drawbar').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || !drawing) return;
+    const w = viewers.find(x => x.id === currentId && x.sketch);
+    if (b.dataset.brush) { drawing.brush = b.dataset.brush; w?.sketch.setCursor(); syncDrawbar(); }
+    else if (b.dataset.pen) { pen = b.dataset.pen; drawing.pen = pen; if (drawing.brush === 'erase') { drawing.brush = 'pen'; w?.sketch.setCursor(); } try { localStorage.setItem('gap-designlog-pen', pen); } catch {} syncDrawbar(); }
+    else if (b.id === 'draw-undo') w?.sketch.undo();
+    else if (b.id === 'draw-clear') w?.sketch.clear();
+    else if (b.id === 'draw-cancel') cancelDrawing();
+    else if (b.id === 'draw-save') saveDrawing();
+});
+$('#t-draw').addEventListener('click', () => { if (drawing) cancelDrawing(); else startDrawing(); });
+
+// ------------------------------------------------------------------ section cut
+function applySection() {
+    viewers.forEach(w => w.api?.setSection(sectionState()));
+    syncSectionBar();
+}
+function syncSectionBar() {
+    const bar = $('#sectionbar');
+    bar.hidden = !section.on;
+    bar.querySelectorAll('[data-axis]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.axis === section.axis)));
+    $('#section-t').value = Math.round(section.t * 1000);
+    $('#section-show').checked = section.show;
+    $('#section-flip').setAttribute('aria-pressed', String(section.flip));
+    $('#t-section').setAttribute('aria-pressed', String(section.on));
+}
+function setSectionOn(on) {
+    section.on = on && !!mainViewer();
+    applySection();
+}
+// A saved view's or drawing's cut: restore it, or turn the cut off when it had none.
+function setSectionFrom(s) {
+    if (s && typeof s === 'object') Object.assign(section, { on: true, axis: ['x', 'y', 'z'].includes(s.axis) ? s.axis : 'z', flip: !!s.flip, t: Math.min(1, Math.max(0, +s.t || 0)), show: s.show !== false });
+    else section.on = false;
+    applySection();
+}
+$('#t-section').addEventListener('click', () => setSectionOn(!section.on));
+$('#sectionbar').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.axis) section.axis = b.dataset.axis;
+    else if (b.id === 'section-flip') section.flip = !section.flip;
+    else if (b.id === 'section-off') section.on = false;
+    applySection();
+});
+$('#section-t').addEventListener('input', e => { section.t = e.target.value / 1000; applySection(); });
+$('#section-show').addEventListener('change', e => { section.show = e.target.checked; applySection(); });
+
 // ------------------------------------------------------------------ tools
 function setPicking(on) {
     picking = on && !!mainViewer();
@@ -866,7 +1177,7 @@ function applyPicking() {
         } : null);
     }
 }
-$('#t-pin').addEventListener('click', () => setPicking(!picking));
+$('#t-pin').addEventListener('click', () => { if (drawing) endDrawing('Drawing discarded'); setPicking(!picking); });
 $('#t-compare').addEventListener('change', e => { compareId = e.target.value; render(); });
 $('#t-body').addEventListener('click', () => {
     showBody = !showBody;
@@ -878,11 +1189,22 @@ $('#t-fit').addEventListener('click', () => viewers.forEach(w => w.api?.frame('m
 $('#new').addEventListener('click', () => openVersionDialog(null));
 
 document.addEventListener('keydown', e => {
-    if (e.target.closest('input, textarea, select, [contenteditable]') || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
+    if (e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('dialog[open]')) return;
+    if (drawing && (e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        viewers.find(x => x.id === currentId && x.sketch)?.sketch.undo();
+        return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'Escape') {
-        if (picking) setPicking(false);
+        if (drawing) cancelDrawing();
+        else if (picking) setPicking(false);
         else if (openPin) { openPin = null; render(); }
-    } else if (e.key === 'p' || e.key === 'P') { if (!$('#t-pin').disabled) setPicking(!picking); }
+        else if (openDrawing) { openDrawing = null; render(); }
+        else if (section.on) setSectionOn(false);
+    } else if (e.key === 'p' || e.key === 'P') { if (!$('#t-pin').disabled) { if (drawing) endDrawing('Drawing discarded'); setPicking(!picking); } }
+    else if (e.key === 'd' || e.key === 'D') { if (!$('#t-draw').disabled) { if (drawing) cancelDrawing(); else startDrawing(); } }
+    else if (e.key === 's' || e.key === 'S') { if (!$('#t-section').disabled) setSectionOn(!section.on); }
     else if (e.key === 'f' || e.key === 'F') { viewers.forEach(w => w.api?.frame('main')); }
 });
 
@@ -1045,7 +1367,7 @@ function seedCloud() {
 }
 
 // For testing from the console or a test runner.
-window.dlDebug = { get viewers() { return viewers; }, get tree() { return tree; }, get state() { return { animal: A?.id, currentId, openPin, compareId, picking }; }, store };
+window.dlDebug = { get viewers() { return viewers; }, get tree() { return tree; }, get state() { return { animal: A?.id, currentId, openPin, openDrawing, compareId, picking, drawing: drawing ? { items: drawing.items.length, editId: drawing.editId, brush: drawing.brush } : null, section: { ...section } }; }, store, encodeDrawing, decodeDrawing };
 
 // ------------------------------------------------------------------ start
 if (store.kind === 'cloud') {

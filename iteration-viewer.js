@@ -70,6 +70,13 @@ export function createViewer(container, { background = 0xf3f5f8, up = 'z' } = {}
     container.appendChild(pinLayer);
 
     const meshes = new Map(); // slot -> mesh
+    // Section cut: one clipping plane shared by every mesh, placed across the main model's box.
+    const sectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+    let section = null; // { axis: 'x'|'y'|'z', flip, t: 0..1, show }
+    const planeHelper = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xfdb515, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
+    planeHelper.visible = false;
+    planeHelper.renderOrder = 5;
+    scene.add(planeHelper);
     let pins = [];
     let pinClick = null;
     let pickHandler = null;
@@ -96,6 +103,7 @@ export function createViewer(container, { background = 0xf3f5f8, up = 'z' } = {}
         const material = new THREE.MeshStandardMaterial({
             color, roughness: 0.75, metalness: 0, side: THREE.DoubleSide,
             transparent: opacity < 1, opacity, depthWrite: opacity >= 1,
+            clippingPlanes: section ? [sectionPlane] : null,
         });
         // A per-viewer copy of the colour attribute lets two viewers colour the same file differently.
         const mesh = new THREE.Mesh(geometry, material);
@@ -104,10 +112,39 @@ export function createViewer(container, { background = 0xf3f5f8, up = 'z' } = {}
         mesh.renderOrder = opacity < 1 ? 2 : 1;
         scene.add(mesh);
         meshes.set(slot, mesh);
+        if (slot === 'main') updateSection();
         return mesh;
     }
 
     function setVisible(slot, visible) { const m = meshes.get(slot); if (m) m.visible = visible; }
+
+    // Section cut. state = { axis, flip, t, show } cuts every mesh along one axis of the main
+    // model's bounding box at fraction t; null turns it off. Pins on the removed side stay visible,
+    // and picking ignores the removed side.
+    const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+    function setSection(state) {
+        section = state ? { axis: AXES[state.axis] ? state.axis : 'z', flip: !!state.flip, t: Math.min(1, Math.max(0, +state.t || 0)), show: state.show !== false } : null;
+        updateSection();
+    }
+    function getSection() { return section ? { ...section } : null; }
+    function updateSection() {
+        const main = meshes.get('main');
+        for (const m of meshes.values()) {
+            const want = section ? [sectionPlane] : null;
+            if (!!m.material.clippingPlanes !== !!want) { m.material.clippingPlanes = want; m.material.needsUpdate = true; }
+        }
+        if (!section || !main) { planeHelper.visible = false; return; }
+        const box = main.geometry.boundingBox;
+        const axis = AXES[section.axis];
+        const i = 'xyz'.indexOf(section.axis);
+        const at = box.min.getComponent(i) + (box.max.getComponent(i) - box.min.getComponent(i)) * section.t;
+        const point = box.getCenter(new THREE.Vector3()).setComponent(i, at);
+        sectionPlane.setFromNormalAndCoplanarPoint(axis.clone().multiplyScalar(section.flip ? 1 : -1), point);
+        planeHelper.position.copy(point);
+        planeHelper.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis);
+        planeHelper.scale.setScalar(box.getSize(new THREE.Vector3()).length() * 1.05);
+        planeHelper.visible = section.show;
+    }
 
     function frame(slot = 'main', direction = up === 'y' ? new THREE.Vector3(0.2, 0.35, 1) : new THREE.Vector3(0.2, -1, 0.35)) {
         const m = meshes.get(slot);
@@ -142,6 +179,7 @@ export function createViewer(container, { background = 0xf3f5f8, up = 'z' } = {}
             const el = document.createElement('button');
             el.type = 'button';
             el.className = 'iv-pin' + (p.active ? ' active' : '') + (p.resolved ? ' resolved' : '');
+            if (p.color) el.style.setProperty('--pin', p.color);
             el.textContent = p.n;
             el.title = p.note || '';
             el.setAttribute('aria-label', 'Pin ' + p.n + (p.note ? ': ' + p.note : ''));
@@ -192,7 +230,7 @@ export function createViewer(container, { background = 0xf3f5f8, up = 'z' } = {}
         raycaster.setFromCamera(ndc, camera);
         raycaster.far = Infinity;
         const target = meshes.get('main');
-        const hit = target && raycaster.intersectObject(target, false)[0];
+        const hit = target && raycaster.intersectObject(target, false).find(h => !section || sectionPlane.distanceToPoint(h.point) >= -1e-6);
         if (!hit) return null;
         const n = hit.face.normal.clone().transformDirection(target.matrixWorld);
         return { pos: hit.point.toArray().map(v => +v.toFixed(2)), normal: n.toArray().map(v => +v.toFixed(3)) };
@@ -336,7 +374,7 @@ export function createViewer(container, { background = 0xf3f5f8, up = 'z' } = {}
     });
 
     const api = {
-        setModel, setVisible, frame, getView, flyTo, setPins, setPickMode, pickAt, colorByChange, useChange, recolor, clearColors,
+        setModel, setVisible, frame, getView, flyTo, setPins, setPickMode, pickAt, setSection, getSection, colorByChange, useChange, recolor, clearColors,
         setWipe, clearWipe, link, _follow, _linkBack, onChange: fn => listeners.add(fn),
         get meshes() { return meshes; }, renderer, camera, controls,
         dispose() { sizer.disconnect(); controls.dispose(); renderer.setAnimationLoop(null); renderer.dispose(); renderer.forceContextLoss(); container.replaceChildren(); },

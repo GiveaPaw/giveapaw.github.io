@@ -6,12 +6,12 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#002676">
 <title>Design Log - Give a Paw</title>
-<meta name="description" content="The Give a Paw team's log of each prosthetic version: what changed and why, pins and threads on the 3D model, saved views, and links.">
+<meta name="description" content="The Give a Paw team's log of each prosthetic version: what changed and why, pins, drawings and threads on the 3D model, section cuts, notes and to-dos, saved views, and links.">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-log.css?v=7">
+<link rel="stylesheet" href="design-log.css?v=8">
 <script type="importmap">
 {
     "imports": {
@@ -66,6 +66,12 @@
             <button type="button" class="dl-tool" id="t-body" aria-pressed="false" hidden title="Show the body scan" aria-label="Show the body scan">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c5 0 9 3.6 9 8s-4 8-9 8-9-3.6-9-8 4-8 9-8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5"/></svg><span id="t-body-label">Body</span>
             </button>
+            <button type="button" class="dl-tool" id="t-draw" aria-pressed="false" title="Draw on the model from this angle (D)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.2-1 10.3-10.3a2 2 0 0 0 0-2.8l-.4-.4a2 2 0 0 0-2.8 0L5 15.8 4 20Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m13.5 7.5 3 3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Annotate</span>
+            </button>
+            <button type="button" class="dl-tool" id="t-section" aria-pressed="false" title="Cut the model open (S)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7l8-4 8 4v10l-8 4-8-4V7Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 12h20" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg><span>Section</span>
+            </button>
             <button type="button" class="dl-tool" id="t-resolved" aria-pressed="false" title="Show resolved pins" aria-label="Show resolved pins">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Resolved</span>
             </button>
@@ -73,6 +79,31 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Fit</span>
             </button>
             <span class="dl-hint" id="hint" role="status"></span>
+        </div>
+        <div class="dl-panel dl-drawbar" id="drawbar" role="toolbar" aria-label="Drawing tools" hidden>
+            <span class="dl-seg" role="group" aria-label="Brush">
+                <button type="button" data-brush="pen" aria-pressed="true">Pen</button>
+                <button type="button" data-brush="text" aria-pressed="false">Text</button>
+                <button type="button" data-brush="erase" aria-pressed="false">Eraser</button>
+            </span>
+            <span class="dl-colors" id="colors" role="group" aria-label="Colour"></span>
+            <button type="button" class="dl-btn dl-btn-sm" id="draw-undo" disabled>Undo</button>
+            <button type="button" class="dl-btn dl-btn-sm" id="draw-clear" disabled>Clear</button>
+            <span class="dl-drawhint" id="drawhint"></span>
+            <span class="dl-spacer"></span>
+            <button type="button" class="dl-btn dl-btn-sm" id="draw-cancel">Cancel</button>
+            <button type="button" class="dl-btn dl-btn-sm dl-btn-primary" id="draw-save">Save drawing</button>
+        </div>
+        <div class="dl-panel dl-sectionbar" id="sectionbar" aria-label="Section cut" hidden>
+            <span class="dl-seg" role="group" aria-label="Cut axis">
+                <button type="button" data-axis="x" aria-pressed="false">X</button>
+                <button type="button" data-axis="y" aria-pressed="false">Y</button>
+                <button type="button" data-axis="z" aria-pressed="true">Z</button>
+            </span>
+            <label class="dl-range"><span class="sr-only">Cut position</span><input type="range" id="section-t" min="0" max="1000" value="500"></label>
+            <button type="button" class="dl-btn dl-btn-sm" id="section-flip" title="Keep the other side">Flip</button>
+            <label class="dl-check"><input type="checkbox" id="section-show" checked> Show plane</label>
+            <button type="button" class="dl-btn dl-btn-sm" id="section-off">Close</button>
         </div>
         <div class="dl-views" id="views"></div>
         <div class="dl-viewbar" id="viewbar" aria-label="Saved views"></div>
@@ -136,6 +167,6 @@
 <input type="file" id="import-file" accept="application/json,.json" hidden>
 <div class="dl-toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script type="module" src="design-log.js?v=9"></script>
+<script type="module" src="design-log.js?v=10"></script>
 </body>
 </html>
