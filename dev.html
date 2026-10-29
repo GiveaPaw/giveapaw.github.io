@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Hub - Give a Paw</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="For the Give a Paw team: every project and task on one board, handoff progress, live checks, and how to manage and publish the site.">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="dev.css?v=3">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+    <a class="b-skip" href="#main">Skip to the content</a>
+    <header class="b-top">
+        <a class="b-brand" href="index.html"><img src="logo.jpg" alt="Give a Paw home" width="34" height="34"></a>
+        <div class="b-top-title">
+            <span class="b-eyebrow">Give a Paw · for developers</span>
+            <h1>Developer hub</h1>
+        </div>
+        <label class="b-search"><i data-lucide="search" aria-hidden="true"></i><span class="b-sr">Search tasks and projects</span><input type="search" id="b-q" placeholder="Search tasks and projects" autocomplete="off"><kbd aria-hidden="true">/</kbd></label>
+        <div class="b-top-actions">
+            <button type="button" class="b-btn b-btn-ghost" data-act="cmd" aria-keyshortcuts="Control+K"><i data-lucide="command" aria-hidden="true"></i><span class="b-hide-sm">Jump to…</span><kbd class="b-hide-sm" aria-hidden="true">Ctrl K</kbd><span class="b-sr b-show-sm">Jump to (Ctrl+K)</span></button>
+            <button type="button" class="b-btn b-btn-ghost b-icon-btn" data-act="keys" aria-keyshortcuts="?" title="Keyboard shortcuts (?)"><i data-lucide="keyboard" aria-hidden="true"></i><span class="b-sr">Keyboard shortcuts</span></button>
+            <span id="b-newtask"></span>
+            <div class="b-auth" id="b-auth"></div>
+        </div>
+    </header>
+    <div class="b-banner" id="b-banner" hidden></div>
+    <nav class="b-views" aria-label="Views">
+        <ul id="b-viewnav"></ul>
+    </nav>
+    <section class="b-strip" id="b-strip" aria-label="Site status and handoff progress"></section>
+    <div class="b-filters" id="b-filters" role="search" aria-label="Filter tasks"></div>
+
+    <main id="main" class="b-main" tabindex="-1">
+        <section class="b-view" id="v-board" aria-labelledby="h-board" hidden></section>
+        <section class="b-view" id="v-table" aria-labelledby="h-table" hidden></section>
+        <section class="b-view" id="v-timeline" aria-labelledby="h-timeline" hidden></section>
+        <section class="b-view" id="v-mywork" aria-labelledby="h-mywork" hidden></section>
+        <section class="b-view" id="v-inbox" aria-labelledby="h-inbox" hidden></section>
+        <section class="b-view" id="v-handbook" aria-labelledby="h-handbook" hidden></section>
+    </main>
+
+    <dialog class="b-drawer" id="b-drawer" aria-labelledby="b-drawer-h"></dialog>
+    <dialog class="b-modal b-cmd" id="b-cmd" aria-label="Jump to"></dialog>
+    <dialog class="b-modal" id="b-keys" aria-labelledby="b-keys-h"></dialog>
+    <dialog class="b-modal b-small" id="b-camp" aria-labelledby="b-camp-h"></dialog>
+    <div class="b-toast" id="b-toast" role="status" hidden></div>
+    <div class="b-sr" id="b-live" aria-live="polite"></div>
+    <script type="module" src="dev.js?v=3"></script>
+</body>
+</html>
