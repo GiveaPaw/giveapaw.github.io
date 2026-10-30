@@ -10,7 +10,7 @@
 //   - bands:            { <slider>: { green: [lo, hi], yellow: [lo, hi] } } graded green / caution / critical,
 //   - interfaceRegion:  { dabs, closeWithin } the painted area the interface position should be in,
 //   - attachmentZones:  { four|six: { zones: [{ label, color, dabs }] } } one painted area per screw hole.
-import { SLIDERS, sliderByKey, bandStatus, regionDistance, planeAccepted, allAttachmentZones } from './grading-sliders.js?v=2';
+import { SLIDERS, sliderByKey, bandStatus, regionDistance, planeAccepted, allAttachmentZones } from './grading-sliders.js?v=3';
 
 const params = new URLSearchParams(location.search);
 const KEY_OVERRIDE = params.get('answerKey');

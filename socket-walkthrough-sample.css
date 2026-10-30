@@ -1460,3 +1460,6 @@ output.workflow-number.is-fixed {
 .attachment-zone-note svg { flex: none; width: 16px; height: 16px; margin-top: 1px; }
 .attachment-zone-note.is-ok { background: #edf8f2; color: #146c3a; }
 .attachment-point-row.is-zone-out { border-radius: 5px; background: rgba(200, 69, 60, 0.18); box-shadow: inset 3px 0 0 #c8453c; }
+
+/* Step 1's scale gate marks the Scale Factor row the same way the plane gates mark theirs. */
+.workflow-factor-row.is-gate-wrong { border-radius: 5px; background: rgba(200, 69, 60, 0.18); box-shadow: inset 3px 0 0 #c8453c; }

@@ -6,12 +6,12 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { createAttachmentDemo } from './attachment-demo.js?v=3';
-import { planeAccepted, planeFieldChecks, allAttachmentZones, regionDistance } from './grading-sliders.js?v=2';
+import { planeAccepted, planeFieldChecks, allAttachmentZones, regionDistance } from './grading-sliders.js?v=3';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
 import { createAttachmentHoles } from './attachment-holes.js?v=22';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes, INTERFACE_PLANES } from './import-catalog.js?v=14';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes, INTERFACE_PLANES } from './import-catalog.js?v=15';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -848,8 +848,14 @@ const currentSolution = () => ({ ...SOLUTION, pelvicPlane: recordedAnswer('pelvi
 // along the recorded axis either way. A part with no recorded answer (the large interface) does not gate.
 // Later sections are hidden and the step buttons say why; trying to go on marks the fields to change.
 const STEP_SEQUENCE = ['1', '2a', '2b', '2c', '2d', '3', '4a', '4b', '5', '6'];
-const GATE_STEP = { pelvic: '2a', interface: '2b' };
-const gatePrompted = { pelvic: false, interface: false };
+const GATE_STEP = { scale: '1', pelvic: '2a', interface: '2b' };
+const gatePrompted = { scale: false, pelvic: false, interface: false };
+// Step 1's gate: the Scale Factor the case uses (scaleAnswer in import-catalog.js: Ollie 0.95, the
+// wheelchair case 0.97). The viewer does not change size with it; it only has to be right.
+function scaleAnswer() {
+    return (importSelection.attachment || importSelection.solidAnimal)?.scaleAnswer ?? null;
+}
+const scaleRight = () => { const want = scaleAnswer(); return want === null || Math.abs(scaleFactor - want) < 0.0005; };
 function acceptRule(kind) {
     if (kind === 'pelvic') {
         const part = importSelection.attachment || importSelection.solidAnimal;
@@ -866,9 +872,11 @@ function gatePlane(kind) {
 }
 function gateOpen(kind) {
     if (!importsReady()) return true;   // the import gate is in charge until then
+    if (kind === 'scale') return scaleRight();
     return planeAccepted(acceptRule(kind), gatePlane(kind));
 }
 function lockedAfter() {
+    if (!gateOpen('scale')) return 'scale';
     if (!gateOpen('pelvic')) return 'pelvic';
     if (!gateOpen('interface')) return 'interface';
     return null;
@@ -878,6 +886,7 @@ function stepLocked(step) {
     return !!kind && STEP_SEQUENCE.indexOf(step) > STEP_SEQUENCE.indexOf(GATE_STEP[kind]);
 }
 const GATE_TEXT = {
+    scale: { locked: 'Step 2 opens once the scale factor is right for this case.', open: 'Scale factor accepted. Step 2 is open.', next: '2a' },
     pelvic: { locked: 'Step 2b opens once the pelvic plane is right.', open: 'Pelvic plane accepted. Step 2b is open.', next: '2b' },
     interface: { locked: 'Step 2c opens once the interface plane is right.', open: 'Interface plane accepted. Step 2c is open.', next: '2c' },
 };
@@ -889,7 +898,7 @@ function gateRows(kind) {
         normal: document.querySelector(`${home} .workflow-normal-row`),
     };
 }
-let gateWasOpen = { pelvic: true, interface: true };
+let gateWasOpen = { scale: true, pelvic: true, interface: true };
 function syncPlaneGates() {
     const kind = lockedAfter();
     document.querySelectorAll('.workflow-step').forEach(section => {
@@ -901,6 +910,7 @@ function syncPlaneGates() {
         if (locked) button.setAttribute('aria-describedby', `plane-gate-${kind}`);
         else button.removeAttribute('aria-describedby');
     });
+    syncScaleGate();
     ['pelvic', 'interface'].forEach(name => {
         const open = gateOpen(name);
         const card = document.getElementById(`plane-gate-${name}`);
@@ -942,6 +952,36 @@ function syncPlaneGates() {
         text.textContent = `Not yet. Change ${wrong.length > 1 ? wrong.slice(0, -1).join(', ') + ' and ' + wrong.at(-1) : wrong[0]}: the ${wrong.length === 1 ? 'row' : 'rows'} marked in red. The ? can show you the answer.`;
     });
 }
+// The scale gate's card and row, the same way as the planes'.
+function syncScaleGate() {
+    const card = document.getElementById('plane-gate-scale');
+    const row = document.querySelector('#workflow-step-1 .workflow-factor-row');
+    row?.classList.remove('is-gate-wrong', 'is-gate-right');
+    if (!card) return;
+    const relevant = importsReady() && scaleAnswer() !== null;
+    const open = gateOpen('scale');
+    const justOpened = open && !gateWasOpen.scale && gatePrompted.scale;
+    gateWasOpen.scale = open;
+    if (!relevant) { card.hidden = true; return; }
+    card.hidden = false;
+    card.classList.toggle('is-open', open);
+    card.classList.toggle('is-prompted', !open && gatePrompted.scale);
+    const title = card.querySelector('[data-gate-title]');
+    const text = card.querySelector('[data-gate-text]');
+    if (open) {
+        title.textContent = GATE_TEXT.scale.open;
+        text.textContent = justOpened || card.dataset.wasPrompted ? 'Go on whenever you are ready.' : '';
+        if (justOpened) card.dataset.wasPrompted = '1';
+        gatePrompted.scale = false;
+        return;
+    }
+    delete card.dataset.wasPrompted;
+    title.textContent = GATE_TEXT.scale.locked;
+    if (!gatePrompted.scale) { text.textContent = 'Set the scale factor, then go on.'; return; }
+    row?.classList.add('is-gate-wrong');
+    text.textContent = `Not yet. ${scaleFactor.toFixed(2)} is not the factor this case uses: change the Scale Factor, marked in red.`;
+}
+
 // Trying to go past a shut gate: say why, mark the fields, and bring the student back to it.
 function promptGate() {
     const kind = lockedAfter();
@@ -2931,6 +2971,7 @@ function setScaleFactor(value, reframe = true) {
     // Nothing in the scene changes size (DISPLAY_SCALE); only the explainer shows the value.
     if (scaleDemoPivot) scaleDemoPivot.scale.setScalar(scaleFactor);
     syncScaleNote();
+    syncPlaneGates();
     if (scaleDemoOn) {
         viewerTitleEl.textContent = `Scale factor: ghost at 1.00, solid at ${scaleFactor.toFixed(2)}, scaled about its centroid`;
         syncScaleDemoMode();
@@ -2948,7 +2989,7 @@ scaleFactorSlider.addEventListener('input', () => {
 {
     const commit = () => {
         const value = Number(scaleFactorInput.value);
-        if (scaleFactorInput.value === '' || !Number.isFinite(value) || value < 0.5 || value > 1.5) { scaleFactorInput.value = String(scaleFactor); return; }
+        if (scaleFactorInput.value === '' || !Number.isFinite(value) || value < 0.9 || value > 1) { scaleFactorInput.value = scaleFactor.toFixed(2); return; }
         if (value !== scaleFactor) setScaleFactor(Math.round(value * 1000) / 1000);
     };
     scaleFactorInput.addEventListener('change', commit);
@@ -4352,7 +4393,9 @@ window.gapWalkthrough = {
     // For the comparison: scroll the rail without the step tracker opening the steps it passes.
     holdScrollSpy,
     // The plane gates, for tests: which gate is shut, if any, and whether a step is locked.
-    gates: { lockedAfter: () => lockedAfter(), stepLocked, open: kind => gateOpen(kind) },
+    gates: { lockedAfter: () => lockedAfter(), stepLocked, open: kind => gateOpen(kind), scaleAnswer: () => scaleAnswer(),
+        // For tests: set the case's scale factor, as a student would.
+        solveScale: () => { const want = scaleAnswer(); if (want !== null) setScaleFactor(want); } },
     zoneCheck: () => syncAttachmentZoneCheck(),
     three: { THREE, scene, camera, renderer, canvas, controls },
     // The groups the viewer's layer switches act on, for tests.

@@ -3,7 +3,7 @@
 // comparison (walkthrough-grading.js), which grades against them. Ranges, steps and units are the
 // walkthrough's own (socket-walkthrough-sample.html / .js); `step` is the walkthrough step it lives in.
 export const SLIDERS = [
-    { step: '1', group: 'Step 1 · Import and scale', key: 'scaleFactor', label: 'Scale Factor', unit: '', min: 0.5, max: 1.5, inc: 0.01 },
+    { step: '1', group: 'Step 1 · Import and scale', key: 'scaleFactor', label: 'Scale Factor', unit: '', min: 0.9, max: 1, inc: 0.01 },
     { step: '2d', group: 'Step 2d · Interface positioning', key: 'lateral', label: 'Lateral Angle', unit: '°', min: -180, max: 180, inc: 1, angle: true },
     { step: '2d', group: 'Step 2d · Interface positioning', key: 'medial', label: 'Medial Angle', unit: '°', min: -180, max: 180, inc: 1, angle: true },
     { step: '2d', group: 'Step 2d · Interface positioning', key: 'rotation', label: 'Interface Rotation', unit: '°', min: -180, max: 180, inc: 1, angle: true },

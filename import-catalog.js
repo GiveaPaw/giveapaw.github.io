@@ -16,6 +16,7 @@ export const BREEDS = [
         // What lets the student past Step 2a: the plane through X max, normal along X either way.
         // With the normal along X the Y and Z picks do not move the plane, so they do not matter.
         pelvicAccept: { axis: 0, spot: 2, normalAxis: 0 },
+        scaleAnswer: 0.95,   // the Step 1 Scale Factor this case uses; the student cannot go on without it
         answerKey: 'grading/ollie-answer-key.json',
         solidName: 'ollie-solid.glb', solidFile: 'sample-models/chihuahua-1015-solid.glb',
         solidPreview: 'chihuahua-1015-solid.glb', solidBytes: 134836,
@@ -39,6 +40,7 @@ export const BREEDS = [
         slug: 'chi-wc', label: 'Chihuahua (wheelchair)', units: 'm',
         pelvicPlane: { pick: [1, 2, 1], normal: [0, -1, 0] },
         pelvicAccept: { axis: 1, spot: 2, normalAxis: 1 },   // Y max, normal along Y either way
+        scaleAnswer: 0.97,
         answerKey: 'grading/chi-wc-answer-key.json',
         solidName: 'chihuahua-wc-solid.glb', solidFile: 'sample-models/chi-wc-solid.glb',
         solidPreview: 'chi-wc-solid.glb', solidBytes: 347892,
@@ -81,11 +83,11 @@ export const FS = folder('Give a Paw', [
     folder('Animals', BREEDS.map(breed => folder(breed.label, [
         ...(breed.solidFile ? [file(breed.solidName, 'solidAnimal', breed.solidBytes, breed.solidPreview, breed.solidFile,
             { label: breed.label + ' scan', note: breed.note, breed: breed.slug, units: breed.units, blendSet: breed.blendSet,
-              pelvicPlane: breed.pelvicPlane, pelvicAccept: breed.pelvicAccept, answerKey: breed.answerKey })] : []),
+              pelvicPlane: breed.pelvicPlane, pelvicAccept: breed.pelvicAccept, scaleAnswer: breed.scaleAnswer, answerKey: breed.answerKey })] : []),
         ...breed.surfaces.map(surface => file(
             surface.name, 'attachment', surface.bytes, surface.preview, surface.file,
             { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, surfaceSet: surface.surfaceSet, units: breed.units, blendSet: breed.blendSet,
-              pelvicPlane: breed.pelvicPlane, pelvicAccept: breed.pelvicAccept, answerKey: breed.answerKey },
+              pelvicPlane: breed.pelvicPlane, pelvicAccept: breed.pelvicAccept, scaleAnswer: breed.scaleAnswer, answerKey: breed.answerKey },
         )),
     ]))),
     folder('Interfaces', [
