@@ -66,3 +66,28 @@ export function matchZones(zones, points) {
     const zoneToPoint = zones.map((_, z) => pointToZone.indexOf(z));
     return { zoneToPoint, filled: zoneToPoint.filter(j => j >= 0).length };
 }
+
+// A plane against an acceptance rule. { axis, spot, normalAxis }: that one bounding-box pick, the
+// others free (a plane facing along an axis does not move with the other two picks). { pick, normalAxis }:
+// all three picks. Either way the normal has to lie along normalAxis, pointing either way.
+// Returns which fields are right: { pick: [x, y, z], normal }.
+export function planeFieldChecks(rule, state) {
+    const pick = (state?.pick || []).map(Number);
+    const normal = (state?.normal || [0, 0, 0]).map(Number);
+    const pickOk = [0, 1, 2].map(i => (rule.pick ? pick[i] === rule.pick[i] : i !== rule.axis || pick[i] === rule.spot));
+    const along = normal[rule.normalAxis];
+    const normalOk = Number.isFinite(along) && Math.abs(along) > 1e-6
+        && normal.every((n, i) => i === rule.normalAxis || Math.abs(n) < 1e-6);
+    return { pick: pickOk, normal: normalOk };
+}
+export function planeAccepted(rule, state) {
+    if (!rule) return true;
+    const checks = planeFieldChecks(rule, state);
+    return checks.pick.every(Boolean) && checks.normal;
+}
+
+// Every painted area of an answer key's attachment designs, as one list: a point is fine when it is
+// inside any of them.
+export function allAttachmentZones(key) {
+    return Object.values(key?.attachmentZones || {}).flatMap(set => set.zones || []).filter(zone => zone.dabs?.length);
+}

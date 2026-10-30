@@ -55,8 +55,8 @@
       "weight": 1,
       "unit": "",
       "low": "Smaller than the notebook's factor, so the socket is built on a shrunken scan and will be tight.",
-      "high": "Larger than the notebook's factor. At 1.00 the scan is as imported; this case scales it to 0.95 before the socket is built.",
-      "note": "0.95, the notebook's scale factor. The scan is shrunk by 5% before the socket is built on it."
+      "high": "Larger than this case's factor. At 1.00 the scan is as imported; this case scales it to 0.97 before the socket is built.",
+      "note": "0.97, this case's scale factor. The scan is shrunk by 3% before the socket is built on it."
     },
     {
       "key": "pelvicPlane",
@@ -69,7 +69,13 @@
       },
       "normal": "0,-1,0",
       "off": "Not the plane this case uses. It sits on the Y maximum face of the attachment surface, looking back along -Y.",
-      "note": "X centroid, Y maximum, Z centroid, with the normal pointing back along -Y."
+      "note": "X centroid, Y maximum, Z centroid, with the normal pointing back along -Y.",
+      "accept": {
+        "axis": 1,
+        "spot": 2,
+        "normalAxis": 1
+      },
+      "acceptText": "Y maximum, normal along Y (either way)"
     },
     {
       "key": "interfacePlane",
@@ -82,18 +88,27 @@
       },
       "normal": "0,0,-1",
       "off": "Not the face the wheelchair mount sits on. On the wheelchair interface it is the Z maximum face, with the normal along -Z.",
-      "note": "X centroid, Y centroid, Z maximum on the wheelchair interface, with the normal along -Z."
+      "note": "X centroid, Y centroid, Z maximum on the wheelchair interface, with the normal along -Z.",
+      "accept": {
+        "pick": [
+          1,
+          1,
+          2
+        ],
+        "normalAxis": 2
+      },
+      "acceptText": "X centroid · Y centroid · Z maximum, normal along Z (either way)"
     }
   ],
   "bands": {
     "scaleFactor": {
       "green": [
-        0.95,
-        0.95
+        0.97,
+        0.97
       ],
       "yellow": [
-        0.93,
-        0.97
+        0.95,
+        0.99
       ]
     }
   }

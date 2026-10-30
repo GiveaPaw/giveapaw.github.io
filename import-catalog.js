@@ -13,24 +13,19 @@ export const BREEDS = [
         slug: 'ollie', label: 'Ollie', units: 'm',
         // Tyler's worked solution: the plane on the attachment surface's bounding box.
         pelvicPlane: { pick: [2, 1, 1], normal: [-1, 0, 0] },
+        // What lets the student past Step 2a: the plane through X max, normal along X either way.
+        // With the normal along X the Y and Z picks do not move the plane, so they do not matter.
+        pelvicAccept: { axis: 0, spot: 2, normalAxis: 0 },
         answerKey: 'grading/ollie-answer-key.json',
         solidName: 'ollie-solid.glb', solidFile: 'sample-models/chihuahua-1015-solid.glb',
         solidPreview: 'chihuahua-1015-solid.glb', solidBytes: 134836,
         note: 'Scaled 0.95 in Step 1 · socket sweeps',
-        // Three proposal surfaces (10-13), each with its own socket and blend sweeps (surfaceSet picks the
-        // model folder: high = sample-models/chi-socket & chi-final, low / standard = the -low / -standard sets).
+        // Only the low proposal surface (10-13) is offered; the high and standard ones were taken out
+        // 2026-10-29 at Tyler's request (their meshes stay in the bucket).
         surfaces: [{
-            name: 'ollie-attachment-surface-high.glb', file: 'sample-models/chihuahua-1015-surface.glb',
-            preview: 'chihuahua-1015-surface.glb', bytes: 31924,
-            label: 'Ollie · Socket surface (high)', category: 'socket', variation: 1, surfaceSet: 'high',
-        }, {
-            name: 'ollie-attachment-surface-standard.glb', file: 'sample-models/ollie-surface-standard.glb',
-            preview: 'ollie-surface-standard.glb', bytes: 32248,
-            label: 'Ollie · Socket surface (standard)', category: 'socket', variation: 2, surfaceSet: 'standard',
-        }, {
             name: 'ollie-attachment-surface-low.glb', file: 'sample-models/ollie-surface-low.glb',
             preview: 'ollie-surface-low.glb', bytes: 31460,
-            label: 'Ollie · Socket surface (low)', category: 'socket', variation: 3, surfaceSet: 'low',
+            label: 'Ollie · Socket surface (low)', category: 'socket', variation: 1, surfaceSet: 'low',
         }],
     },
     {
@@ -43,6 +38,7 @@ export const BREEDS = [
         // browser until it arrives.
         slug: 'chi-wc', label: 'Chihuahua (wheelchair)', units: 'm',
         pelvicPlane: { pick: [1, 2, 1], normal: [0, -1, 0] },
+        pelvicAccept: { axis: 1, spot: 2, normalAxis: 1 },   // Y max, normal along Y either way
         answerKey: 'grading/chi-wc-answer-key.json',
         solidName: 'chihuahua-wc-solid.glb', solidFile: 'sample-models/chi-wc-solid.glb',
         solidPreview: 'chi-wc-solid.glb', solidBytes: 347892,
@@ -85,11 +81,11 @@ export const FS = folder('Give a Paw', [
     folder('Animals', BREEDS.map(breed => folder(breed.label, [
         ...(breed.solidFile ? [file(breed.solidName, 'solidAnimal', breed.solidBytes, breed.solidPreview, breed.solidFile,
             { label: breed.label + ' scan', note: breed.note, breed: breed.slug, units: breed.units, blendSet: breed.blendSet,
-              pelvicPlane: breed.pelvicPlane, answerKey: breed.answerKey })] : []),
+              pelvicPlane: breed.pelvicPlane, pelvicAccept: breed.pelvicAccept, answerKey: breed.answerKey })] : []),
         ...breed.surfaces.map(surface => file(
             surface.name, 'attachment', surface.bytes, surface.preview, surface.file,
             { label: surface.label, breed: breed.slug, category: surface.category, variation: surface.variation, surfaceSet: surface.surfaceSet, units: breed.units, blendSet: breed.blendSet,
-              pelvicPlane: breed.pelvicPlane, answerKey: breed.answerKey },
+              pelvicPlane: breed.pelvicPlane, pelvicAccept: breed.pelvicAccept, answerKey: breed.answerKey },
         )),
     ]))),
     folder('Interfaces', [

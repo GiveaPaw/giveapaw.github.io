@@ -10,7 +10,7 @@
 //   - bands:            { <slider>: { green: [lo, hi], yellow: [lo, hi] } } graded green / caution / critical,
 //   - interfaceRegion:  { dabs, closeWithin } the painted area the interface position should be in,
 //   - attachmentZones:  { four|six: { zones: [{ label, color, dabs }] } } one painted area per screw hole.
-import { SLIDERS, sliderByKey, bandStatus, regionDistance, matchZones } from './grading-sliders.js?v=1';
+import { SLIDERS, sliderByKey, bandStatus, regionDistance, planeAccepted, allAttachmentZones } from './grading-sliders.js?v=2';
 
 const params = new URLSearchParams(location.search);
 const KEY_OVERRIDE = params.get('answerKey');
@@ -72,11 +72,12 @@ function prepareKey(raw) {
         if (!param) raw.params.push(param = { key: 'interfacePosition', step: '2c', label: 'Interface position', type: 'point3' });
         param.region = raw.interfaceRegion;
     }
-    const zoneSets = Object.entries(raw.attachmentZones || {}).filter(([, set]) => set.zones?.length && set.zones.every(zone => zone.dabs?.length));
-    if (zoneSets.length) {
+    // Attachment points: each one only has to be inside some painted area.
+    const zones = allAttachmentZones(raw);
+    if (zones.length) {
         let param = raw.params.find(p => p.key === 'attachmentPoints');
         if (!param) raw.params.push(param = { key: 'attachmentPoints', step: '4a', label: 'Attachment points', type: 'points' });
-        param.zoneSets = Object.fromEntries(zoneSets);
+        param.zones = zones;
     }
     raw.params = raw.params.filter(param => PASSTHROUGH.includes(param.type) || param.answers.length || param.band);
     raw.params.forEach((param, i) => { param.order = i; });
@@ -130,6 +131,16 @@ function evaluate(param, answers, touched, imports) {
     const value = answers[param.key];
     const base = { param, value, touched: param.step !== '3' || touched.has(param.key) };
     if (param.band && (param.type === 'band' || param.type === 'angle' || param.type === 'discrete')) return evaluateBand(param, value, base);
+    if (param.type === 'plane' && param.accept && planeAccepted(param.accept, value)) {
+        const top = mostCommon(param.answers)[0];
+        return {
+            ...base, status: 'match', accepted: true,
+            yours: `${planeText(value.pick.join(','))} · normal ${(value.normal || []).map(fmt).join(', ')}`,
+            expert: param.acceptText || planeText(top),
+            agreeText: 'A plane the solution accepts', mine: value.pick.join(','), top, normalOk: true,
+            studentShow: { pick: value.pick, normal: value.normal }, expertShow: { pick: top.split(',').map(Number), normal: param.normal ? param.normal.split(',').map(Number) : null },
+        };
+    }
     if (param.type === 'plane') {
         const mine = value.pick.join(',');
         const [top] = mostCommon(param.answers);
@@ -141,7 +152,8 @@ function evaluate(param, answers, touched, imports) {
         return {
             ...base, status: pickOk && normalOk ? 'match' : pickOk || axesMatched === 2 ? 'close' : 'off',
             yours: `${planeText(mine)} · normal ${myNormal.map(fmt).join(', ')}`,
-            expert: `${planeText(top)}${wantNormal ? ` · normal ${wantNormal.map(fmt).join(', ')}` : ''}`,
+            // With an acceptance rule, say what passes, not only the one recorded plane.
+            expert: param.acceptText || `${planeText(top)}${wantNormal ? ` · normal ${wantNormal.map(fmt).join(', ')}` : ''}`,
             expertDetail: pickOk && !normalOk ? 'the right face, the other normal' : '',
             agreeText: pickOk && normalOk ? 'Exactly the plane the solution uses'
                 : pickOk ? 'The right face, but the normal points the other way'
@@ -177,20 +189,20 @@ function evaluate(param, answers, touched, imports) {
     // A list of points: into painted holes (one point per hole), or paired with the worked solution's points.
     if (param.type === 'points') {
         const mine = (value || []).map(point => point.position.map(Number));
-        if (param.zoneSets) {
-            // The design that has as many holes as the student placed points, or the nearest one.
-            const sets = Object.entries(param.zoneSets).sort((a, b) => Math.abs(a[1].zones.length - mine.length) - Math.abs(b[1].zones.length - mine.length));
-            const [type, set] = sets[0];
-            const { zoneToPoint, filled } = matchZones(set.zones, mine);
-            const holes = set.zones.length;
-            const spare = mine.length - holes;
+        if (param.zones) {
+            const dabs = param.zones.flatMap(zone => zone.dabs);
+            const checks = mine.map((point, index) => ({ index, out: regionDistance(dabs, point) }));
+            const inside = checks.filter(c => c.out === 0).length;
+            const outside = checks.filter(c => c.out > 0);
             return {
-                ...base, status: filled === holes && spare === 0 ? 'match' : filled >= Math.ceil(holes / 2) ? 'close' : 'off', zoneGraded: true,
-                yours: `${mine.length} point${mine.length === 1 ? '' : 's'}, ${filled} of ${holes} holes filled`,
-                expert: `${set.label || `${holes}-hole attachment`}: one point in each painted hole`,
-                expertDetail: 'each painted hole needs one of your points in it',
-                agreeText: `${filled} of ${holes} painted holes have one of your points in them${spare > 0 ? `, and you placed ${spare} more` : spare < 0 ? `, and you are ${-spare} short` : ''}`,
-                mine, type, zones: set.zones, zoneToPoint, filled, holes, spare,
+                ...base, status: mine.length && !outside.length ? 'match' : inside ? 'close' : 'off', zoneGraded: true,
+                yours: `${inside} of ${mine.length} point${mine.length === 1 ? '' : 's'} inside`,
+                expert: 'every point inside a painted area',
+                expertDetail: 'each point has to sit where a screw can go',
+                agreeText: !mine.length ? 'You have not placed any points'
+                    : outside.length ? `${outside.length === 1 ? `Point ${outside[0].index} is` : `Points ${outside.map(c => c.index).join(', ')} are`} outside the painted areas`
+                    : 'Every point is inside a painted area',
+                mine, zones: param.zones, checks, inside, outside,
             };
         }
         const want = param.answer.map(point => point.map(Number));
@@ -265,11 +277,11 @@ function feedbackText(r) {
     if (r.status === 'match') return r.param.type === 'imports' ? 'The right files, and they belong together.'
         : r.banded ? 'Inside the range the answer key accepts.'
         : r.regionGraded ? 'Inside the area the answer key accepts.'
-        : r.zoneGraded ? 'Every hole has one of your points in it.'
+        : r.zoneGraded ? 'Every point is where a screw can go.'
         : 'The same as the solution.';
     if (r.banded) return (r.direction === 'low' ? r.param.low : r.param.high) || (r.status === 'close' ? 'Close to the acceptable range, but outside it.' : r.direction === 'low' ? 'Well below the acceptable range.' : 'Well above the acceptable range.');
     if (r.regionGraded) return r.param.off || 'Outside the area the answer key accepts. The painted area in the viewer shows where it can go.';
-    if (r.zoneGraded) return r.param.off || 'Not every hole has one of your points in it. The painted holes in the viewer show where each screw can go.';
+    if (r.zoneGraded) return 'Move the points marked in red into the painted areas: that is where a screw can go.';
     if (['plane', 'imports', 'point3', 'points'].includes(r.param.type)) return r.param.off || 'Different from the solution.';
     return (r.direction === 'low' ? r.param.low : r.param.high) || (r.direction === 'low' ? 'Lower than the solution.' : 'Higher than the solution.');
 }
@@ -280,7 +292,7 @@ const untouched = r => r.touched ? '' : '<small class="grade-untouched">You kept
 const SHOWABLE = keyName => ['pelvicPlane', 'interfacePlane', 'lateral', 'medial', 'rotation'].includes(keyName) || keyName in (W?.parameterValues || {});
 const canShow = r => !['imports', 'point3', 'points'].includes(r.param.type) && SHOWABLE(r.param.key) && r.expertShow !== undefined;
 const regionFor = r => (r.regionGraded ? { kind: 'animal', zones: [{ ...r.param.region, color: r.param.region.color || '#1f9d55' }], text: 'Painted: where the interface position is accepted' }
-    : r.zoneGraded ? { kind: 'surface', zones: r.zones, text: `Painted: one area per screw hole (${r.holes}-hole design)` } : null);
+    : r.zoneGraded ? { kind: 'surface', zones: r.zones, text: 'Painted: where a screw can go' } : null);
 function mixBar(results) {
     const n = { match: 0, close: 0, off: 0 };
     results.forEach(r => { n[r.status]++; });
@@ -353,10 +365,7 @@ function pointPicture(r) {
 }
 function pointsPicture(r) {
     if (r.zoneGraded) {
-        return `<span class="grade-files">${r.zones.map((zone, i) => {
-            const at = r.zoneToPoint[i];
-            return `<span class="grade-file ${at >= 0 ? 'is-ok' : 'is-bad'}"><i class="grade-zone-dot" style="--dot:${escapeHTML(zone.color || '#1f9d55')}"></i><span><b>${escapeHTML(zone.label || `Hole ${i + 1}`)}</b><small>${at >= 0 ? `Your point ${at} is inside it` : 'None of your points is inside it'}</small></span></span>`;
-        }).join('')}</span>`;
+        return `<span class="grade-files">${r.checks.map(c => `<span class="grade-file ${c.out === 0 ? 'is-ok' : 'is-bad'}">${icon(c.out === 0 ? 'circle-check' : 'circle-x')}<span><b>Point ${c.index}</b><small>${c.out === 0 ? 'Inside a painted area' : `${fmt(c.out)} mm outside the painted areas: move it`}</small></span></span>`).join('')}</span>`;
     }
     return `<span class="grade-files">${r.pairs.map((pair, i) => {
         const ok = pair.d <= r.t;
@@ -498,7 +507,7 @@ function showRegion(r) {
     const region = regionFor(r);
     if (!region || !W.regions) { regionTag && (regionTag.hidden = true); return; }
     const faces = W.regions.show(region.kind, region.zones);
-    regionTag.innerHTML = `${icon('paintbrush')} ${escapeHTML(region.text)}${r.zoneGraded ? `<span class="cmp-region-key">${r.zones.map(z => `<i style="--dot:${escapeHTML(z.color || '#1f9d55')}"></i>${escapeHTML(z.label || '')}`).join('')}</span>` : ''}`;
+    regionTag.innerHTML = `${icon('paintbrush')} ${escapeHTML(region.text)}`;
     regionTag.hidden = !faces;
     refreshIcons();
 }
@@ -635,7 +644,7 @@ window.gapGrading = {
     stop: () => stop(),
     active: () => S.active,
     results: () => S.results.map(r => ({ key: r.param.key, type: r.param.type, status: r.status, yours: r.yours, expert: r.expert, agree: r.agreeText,
-        banded: !!r.banded, regionGraded: !!r.regionGraded, zoneGraded: !!r.zoneGraded })),
+        banded: !!r.banded, regionGraded: !!r.regionGraded, zoneGraded: !!r.zoneGraded, accepted: !!r.accepted })),
     current: () => S.current?.param.key || null,
     keyCase: () => key?.case || null,
 };

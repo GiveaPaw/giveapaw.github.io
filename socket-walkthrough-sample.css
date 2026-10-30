@@ -1430,3 +1430,33 @@ output.workflow-number.is-fixed {
 .attachment-title-tools button { flex: none; }
 /* A footnote link gets a finger-sized hit area without moving the text around it. */
 .workflow-sweep-note a { display: inline-block; margin: -6px 0; padding: 6px 0; }
+
+/* ---- the plane gates: later steps wait until the plane is right ---- */
+.workflow-step.is-gate-locked { display: none; }
+.workflow-progress-step.is-gate-locked, .workflow-next.is-gate-locked { opacity: 0.45; cursor: not-allowed; }
+.workflow-gate {
+    display: flex; align-items: flex-start; gap: 10px; margin: 12px 0 0; padding: 11px 13px;
+    border: 1px solid #d7dee6; border-left: 4px solid #8a97a4; border-radius: 8px; background: #f6f9fc; color: #41505e;
+}
+.workflow-gate[hidden] { display: none; }
+.workflow-gate svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: #6a7a89; }
+.workflow-gate strong { display: block; color: #173958; font: 700 0.8rem var(--font-heading); }
+.workflow-gate p { margin: 3px 0 0; font-size: 0.76rem; line-height: 1.45; }
+.workflow-gate p:empty { display: none; }
+.workflow-gate.is-prompted { border-color: #f0b6b0; border-left-color: #c8453c; background: #fdf0ee; }
+.workflow-gate.is-prompted svg { color: #c8453c; }
+.workflow-gate.is-prompted strong { color: #8f2a22; }
+.workflow-gate.is-open { border-color: #b9e2cc; border-left-color: #1f9d55; background: #edf8f2; }
+.workflow-gate.is-open svg { color: #1f9d55; }
+.workflow-gate.is-shaking { animation: gate-shake 0.42s ease; }
+@keyframes gate-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { .workflow-gate.is-shaking { animation: none; } }
+.workflow-plane-block .is-gate-wrong { position: relative; border-radius: 5px; background: rgba(200, 69, 60, 0.14); box-shadow: inset 3px 0 0 #c8453c; }
+.workflow-plane-block .is-gate-right { position: relative; border-radius: 5px; box-shadow: inset 3px 0 0 #54c5a1; }
+
+/* ---- Step 4a: points outside the answer key's painted areas ---- */
+.attachment-zone-note { display: flex; align-items: flex-start; gap: 8px; margin: 10px 14px 4px; padding: 8px 10px; border-radius: 7px; background: #fdf0ee; color: #8f2a22; font: 600 0.74rem/1.45 var(--font-heading); }
+.attachment-zone-note[hidden] { display: none; }
+.attachment-zone-note svg { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+.attachment-zone-note.is-ok { background: #edf8f2; color: #146c3a; }
+.attachment-point-row.is-zone-out { border-radius: 5px; background: rgba(200, 69, 60, 0.18); box-shadow: inset 3px 0 0 #c8453c; }

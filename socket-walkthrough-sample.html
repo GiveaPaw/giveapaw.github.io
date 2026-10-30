@@ -17,7 +17,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <!-- meta:end -->
     <link rel="stylesheet" href="style.css?v=43">
-    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=70">
+    <link rel="stylesheet" href="socket-walkthrough-sample.css?v=71">
     <link rel="stylesheet" href="walkthrough-grading.css?v=15">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,6 +65,7 @@
                 <li><a href="mesh-check.html">Mesh Check &amp; Repair</a></li>
                 <li><a href="convert.html">Model Converter</a></li>
                 <li><a href="surface-interpolator.html">Surface Interpolator</a></li>
+                <li><a href="my-presentations.html">My Presentations</a></li>
                 <li><a href="review-builder.html">Review Builder</a></li>
             </ul>
             <p class="sidebar-nav-title">Learn &amp; Try</p>
@@ -336,6 +337,10 @@
                                 <button type="button" class="workflow-help-action" id="pelvic-answer-btn" aria-pressed="false"><i data-lucide="wand-sparkles" aria-hidden="true"></i> <span>Walk me through it</span></button>
                             </div>
                         </div>
+                        <div class="workflow-gate" id="plane-gate-pelvic" role="status" aria-live="polite" hidden>
+                            <i data-lucide="lock-keyhole" aria-hidden="true"></i>
+                            <div><strong data-gate-title></strong><p data-gate-text></p></div>
+                        </div>
                         <div class="workflow-step-actions">
                             <button type="button" class="workflow-back" data-go-step="1"><i data-lucide="arrow-up" aria-hidden="true"></i> Import and scale</button>
                             <button type="button" class="workflow-next" data-go-step="2b">Define interface plane <i data-lucide="arrow-down" aria-hidden="true"></i></button>
@@ -392,6 +397,10 @@
                                 <button type="button" class="workflow-help-action" id="interface-answer-btn" aria-pressed="false"><i data-lucide="wand-sparkles" aria-hidden="true"></i> <span>Walk me through it</span></button>
                                 <button type="button" class="workflow-help-action" id="interface-pair-btn" aria-pressed="false"><i data-lucide="columns-2" aria-hidden="true"></i> <span>Side by side</span></button>
                             </div>
+                        </div>
+                        <div class="workflow-gate" id="plane-gate-interface" role="status" aria-live="polite" hidden>
+                            <i data-lucide="lock-keyhole" aria-hidden="true"></i>
+                            <div><strong data-gate-title></strong><p data-gate-text></p></div>
                         </div>
                         <div class="workflow-step-actions">
                             <button type="button" class="workflow-back" data-go-step="2a"><i data-lucide="arrow-up" aria-hidden="true"></i> Pelvic plane</button>
@@ -529,6 +538,7 @@
                                 <strong>Attachment Points</strong><span class="attachment-title-type">Point List (<span id="attachment-point-count">1</span>)</span><span class="attachment-title-tools"><button type="button" id="attachment-add" aria-label="Add attachment point" title="Add point">+</button><button type="button" id="attachment-pick" aria-label="Place selected attachment point on surface" title="Place selected point on surface"><i data-lucide="mouse-pointer-2" aria-hidden="true"></i></button></span>
                             </div>
                             <div id="attachment-point-list" class="attachment-point-list" role="group" aria-label="Attachment points"></div>
+                            <p class="attachment-zone-note" id="attachment-zone-note" role="status" aria-live="polite" hidden></p>
                         </div>
                         <div class="workflow-step-actions"><button type="button" class="workflow-back" data-go-step="3"><i data-lucide="arrow-up" aria-hidden="true"></i> Socket latticing</button><button type="button" class="workflow-next" data-go-step="4b">Hole parameters <i data-lucide="arrow-down" aria-hidden="true"></i></button></div>
                     </section>
@@ -790,7 +800,7 @@
         <span></span><span></span><span></span>
     </button>
     <script src="script.js?v=57"></script>
-    <script type="module" src="socket-walkthrough-sample.js?v=133"></script>
-    <script type="module" src="walkthrough-grading.js?v=13"></script>
+    <script type="module" src="socket-walkthrough-sample.js?v=136"></script>
+    <script type="module" src="walkthrough-grading.js?v=15"></script>
 </body>
 </html>

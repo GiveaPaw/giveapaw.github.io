@@ -6,11 +6,12 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { createAttachmentDemo } from './attachment-demo.js?v=3';
+import { planeAccepted, planeFieldChecks, allAttachmentZones, regionDistance } from './grading-sliders.js?v=2';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
 import { createAttachmentHoles } from './attachment-holes.js?v=22';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
 import { createWalkthroughNotes } from './walkthrough-notes.js?v=5';
-import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes, INTERFACE_PLANES } from './import-catalog.js?v=12';
+import { ROLES as IMPORT_ROLES, BREEDS as IMPORT_BREEDS, filesForRole, folderEntries, startFolder, resolve as resolveImportPath, formatBytes, INTERFACE_PLANES } from './import-catalog.js?v=14';
 
 const app = document.getElementById('workflow-app');
 if (!app) throw new Error('Socket workflow container is missing.');
@@ -367,9 +368,12 @@ function normalizeMillimeterExport(object) {
 const UNIT_TO_METERS = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 };
 
 // Step 1 "Scale Factor": the nTop Imports block scales the animal scan (not the interfaces) by it.
-// Starts at 1.00, the scan as imported. The answer is the notebook's 0.95 (graded in the answer keys);
-// the socket sweeps on the site were all generated with the scan at 0.95.
+// The Scale Factor the student types. It starts at 1.00, the scan as imported, and it is graded (0.95
+// for Ollie, 0.97 for the wheelchair case, in the answer keys), but it does not resize anything: every
+// socket on the site was generated with the scan at 0.95, so the viewer always shows the scan and the
+// surface at 0.95 and the sockets sit on them whatever is typed. Only the ? explainer uses the value.
 let scaleFactor = 1;
+const DISPLAY_SCALE = 0.95;
 
 // Step 1 only. The interfaces are modelled about the origin, which sits inside the animal, so on
 // their own they would be hidden inside it the moment they were switched on. Both are moved clear of
@@ -414,7 +418,7 @@ function layoutImportPreview() {
 function applyImportUnitScale(layer) {
     const base = UNIT_TO_METERS[layer.baseUnit] || 1;
     const selected = UNIT_TO_METERS[layer.importUnit] || base;
-    layer.group.scale.setScalar(selected / base * (layer.scalable ? scaleFactor : 1));
+    layer.group.scale.setScalar(selected / base * (layer.scalable ? DISPLAY_SCALE : 1));
     layer.group.updateMatrixWorld(true);
 }
 
@@ -833,7 +837,125 @@ function recordedAnswer(kind) {
     const part = importSelection.mechanical || importSelection.solidInterface;
     return part ? (part.interfacePlane || null) : INTERFACE_PLANES.small;
 }
+// The answers the planes were last scrambled against, so an import only re-scrambles a plane whose answer it changed.
+const answerSeen = { pelvic: null, interface: null };
 const currentSolution = () => ({ ...SOLUTION, pelvicPlane: recordedAnswer('pelvic'), interfacePlane: recordedAnswer('interface') });
+
+// ---- the plane gates -----------------------------------------------------------------------
+// The student cannot go past Step 2a until the pelvic plane passes, nor past Step 2b until the interface
+// plane does. The pelvic rule belongs to the case (pelvicAccept in import-catalog.js: Ollie X max, the
+// wheelchair Y max, either way along that axis); the interface plane has to be the recorded point, normal
+// along the recorded axis either way. A part with no recorded answer (the large interface) does not gate.
+// Later sections are hidden and the step buttons say why; trying to go on marks the fields to change.
+const STEP_SEQUENCE = ['1', '2a', '2b', '2c', '2d', '3', '4a', '4b', '5', '6'];
+const GATE_STEP = { pelvic: '2a', interface: '2b' };
+const gatePrompted = { pelvic: false, interface: false };
+function acceptRule(kind) {
+    if (kind === 'pelvic') {
+        const part = importSelection.attachment || importSelection.solidAnimal;
+        return part ? (part.pelvicAccept || null) : null;
+    }
+    const answer = recordedAnswer('interface');
+    if (!answer || !importSelection.mechanical) return null;
+    return { pick: [...answer.pick], normalAxis: answer.normal.findIndex(n => Math.abs(n) > 0) };
+}
+// The student's own plane: while practice runs, the one they had before it started.
+function gatePlane(kind) {
+    if (practice.on && practice.saved) return kind === 'pelvic' ? practice.saved.pelvic : practice.saved.interface;
+    return kind === 'pelvic' ? planeState : interfacePlaneState;
+}
+function gateOpen(kind) {
+    if (!importsReady()) return true;   // the import gate is in charge until then
+    return planeAccepted(acceptRule(kind), gatePlane(kind));
+}
+function lockedAfter() {
+    if (!gateOpen('pelvic')) return 'pelvic';
+    if (!gateOpen('interface')) return 'interface';
+    return null;
+}
+function stepLocked(step) {
+    const kind = lockedAfter();
+    return !!kind && STEP_SEQUENCE.indexOf(step) > STEP_SEQUENCE.indexOf(GATE_STEP[kind]);
+}
+const GATE_TEXT = {
+    pelvic: { locked: 'Step 2b opens once the pelvic plane is right.', open: 'Pelvic plane accepted. Step 2b is open.', next: '2b' },
+    interface: { locked: 'Step 2c opens once the interface plane is right.', open: 'Interface plane accepted. Step 2c is open.', next: '2c' },
+};
+function gateRows(kind) {
+    const home = PLANE_GUIDE_HOME[kind];
+    const axisAttr = kind === 'pelvic' ? 'data-axis' : 'data-interface-axis';
+    return {
+        pick: [0, 1, 2].map(axis => document.querySelector(`${home} [${axisAttr}="${axis}"]`)?.closest('label')),
+        normal: document.querySelector(`${home} .workflow-normal-row`),
+    };
+}
+let gateWasOpen = { pelvic: true, interface: true };
+function syncPlaneGates() {
+    const kind = lockedAfter();
+    document.querySelectorAll('.workflow-step').forEach(section => {
+        section.classList.toggle('is-gate-locked', stepLocked(section.dataset.step));
+    });
+    document.querySelectorAll('[data-go-step]').forEach(button => {
+        const locked = stepLocked(button.dataset.goStep);
+        button.classList.toggle('is-gate-locked', locked);
+        if (locked) button.setAttribute('aria-describedby', `plane-gate-${kind}`);
+        else button.removeAttribute('aria-describedby');
+    });
+    ['pelvic', 'interface'].forEach(name => {
+        const open = gateOpen(name);
+        const card = document.getElementById(`plane-gate-${name}`);
+        const rows = gateRows(name);
+        [...rows.pick, rows.normal].forEach(row => row?.classList.remove('is-gate-wrong', 'is-gate-right'));
+        if (!card) return;
+        const rule = acceptRule(name);
+        const relevant = importsReady() && !!rule;
+        const justOpened = open && !gateWasOpen[name] && gatePrompted[name];
+        gateWasOpen[name] = open;
+        if (!relevant) { card.hidden = true; return; }
+        card.hidden = false;
+        card.classList.toggle('is-open', open);
+        card.classList.toggle('is-prompted', !open && gatePrompted[name]);
+        const title = card.querySelector('[data-gate-title]');
+        const text = card.querySelector('[data-gate-text]');
+        if (open) {
+            title.textContent = GATE_TEXT[name].open;
+            text.textContent = justOpened || card.dataset.wasPrompted ? 'Go on whenever you are ready.' : '';
+            gatePrompted[name] = false;
+            if (justOpened) card.dataset.wasPrompted = '1';
+            return;
+        }
+        delete card.dataset.wasPrompted;
+        title.textContent = GATE_TEXT[name].locked;
+        if (!gatePrompted[name]) {
+            text.textContent = 'Set the plane, then go on.';
+            return;
+        }
+        // Prompted: mark the fields that keep it shut, and name them.
+        const checks = planeFieldChecks(rule, gatePlane(name));
+        const wrong = [];
+        checks.pick.forEach((ok, axis) => {
+            rows.pick[axis]?.classList.add(ok ? 'is-gate-right' : 'is-gate-wrong');
+            if (!ok) wrong.push('XYZ'[axis]);
+        });
+        rows.normal?.classList.add(checks.normal ? 'is-gate-right' : 'is-gate-wrong');
+        if (!checks.normal) wrong.push('the normal');
+        text.textContent = `Not yet. Change ${wrong.length > 1 ? wrong.slice(0, -1).join(', ') + ' and ' + wrong.at(-1) : wrong[0]}: the ${wrong.length === 1 ? 'row' : 'rows'} marked in red. The ? can show you the answer.`;
+    });
+}
+// Trying to go past a shut gate: say why, mark the fields, and bring the student back to it.
+function promptGate() {
+    const kind = lockedAfter();
+    if (!kind) return;
+    gatePrompted[kind] = true;
+    syncPlaneGates();
+    const card = document.getElementById(`plane-gate-${kind}`);
+    if (!card) return;
+    card.classList.remove('is-shaking');
+    void card.offsetWidth;   // restart the animation
+    card.classList.add('is-shaking');
+    if (activeStep !== GATE_STEP[kind]) showStep(GATE_STEP[kind], true);
+    requestAnimationFrame(() => card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+}
 
 // ---- practice mode -------------------------------------------------------------------------
 // The same two planes, on a body that has been turned. One problem turns the scan and its surface
@@ -1735,6 +1857,7 @@ function buildPlaneOverlays() {
 }
 
 function updatePlane() {
+    queueMicrotask(syncPlaneGates);
     if (!pelvicBounds || !pointMesh) return;
     const point = new THREE.Vector3(
         coord(0, planeState.pick[0]),
@@ -1955,6 +2078,7 @@ function basisQuaternion(x, y, z) {
 }
 
 function updateInterfacePlane() {
+    queueMicrotask(syncPlaneGates);
     if (!interfaceBounds || !interfacePointMesh) return;
     const data = planeData(interfaceBounds, interfacePlaneState, new THREE.Vector3(0, -1, 0));
     interfacePointMesh.position.copy(data.point);
@@ -2418,6 +2542,7 @@ function syncImportPathLabels() {
     });
     syncImportAlerts();
     syncImportGate();
+    syncPlaneGates();
 }
 
 // Steps 2a onward need all four meshes, so they stay out of the way until the imports are in.
@@ -2541,10 +2666,14 @@ async function loadImportSelection(role, entry) {
         }
         syncImportPathLabels();
         clearMeasurement();
-        // A new part can bring a different answer; never leave a plane sitting on it by luck.
+        // A part that brings a different answer must not leave its plane sitting on that answer by luck.
+        // Only the plane whose answer changed is touched, so a plane the student has solved stays put.
         if (!practice.on) {
-            if (sameAnswer(planeState, recordedAnswer('pelvic'))) { randomizePelvicPlane(); updatePlane(); }
-            if (sameAnswer(interfacePlaneState, recordedAnswer('interface'))) { randomizeInterfacePlane(); updateInterfacePlane(); }
+            const nowAnswer = { pelvic: recordedAnswer('pelvic'), interface: recordedAnswer('interface') };
+            if (!sameAnswer(nowAnswer.pelvic, answerSeen.pelvic) && sameAnswer(planeState, nowAnswer.pelvic)) { randomizePelvicPlane(); updatePlane(); }
+            if (!sameAnswer(nowAnswer.interface, answerSeen.interface) && sameAnswer(interfacePlaneState, nowAnswer.interface)) { randomizeInterfacePlane(); updateInterfacePlane(); }
+            answerSeen.pelvic = nowAnswer.pelvic;
+            answerSeen.interface = nowAnswer.interface;
             pelvicAnswerRoot.clear();
             interfaceAnswerRoot.clear();
         }
@@ -2748,7 +2877,7 @@ function buildScaleDemo() {
 }
 
 function scaleDemoText() {
-    return `Ghost: Ollie's scan as imported (1.00). Solid: the same scan at ${scaleFactor.toFixed(2)}, scaled about its centroid. nTop scales the scan this way before the socket is built; Ollie uses 0.95.`;
+    return `Ghost: the scan as imported (1.00). Solid: the same scan at ${scaleFactor.toFixed(2)}, scaled about its centroid. nTop scales the scan this way before the socket is built.`;
 }
 
 function syncScaleNote() {
@@ -2757,8 +2886,8 @@ function syncScaleNote() {
         scaleNoteEl.textContent = scaleDemoText();
         return;
     }
-    scaleNoteEl.hidden = scaleFactor === 1;
-    scaleNoteEl.textContent = scaleFactor === 1 ? '' : `Animal scan scaled by ${scaleFactor.toFixed(2)}.`;
+    scaleNoteEl.hidden = false;
+    scaleNoteEl.textContent = `Scale factor ${scaleFactor.toFixed(2)}. The viewer keeps the scan at the size the sample sockets were made for, so they always fit; the value you choose is what gets checked. The ? shows what your value does to the scan.`;
 }
 
 function setScaleDemo(on) {
@@ -2797,18 +2926,10 @@ scaleHelpButton.addEventListener('click', () => setScaleDemo(!scaleDemoOn));
 
 function setScaleFactor(value, reframe = true) {
     scaleFactor = value;
-    scaleFactorInput.value = String(value);
+    scaleFactorInput.value = value.toFixed(2);
     scaleFactorSlider.value = String(value);
-    Object.values(layers).forEach(applyImportUnitScale);
-    importBounds = new THREE.Box3().setFromObject(importRoot);
-    if (importsReady()) {
-        rebuildPelvicScene();
-        buildInterfaceScene();
-    }
-    clearMeasurement();
+    // Nothing in the scene changes size (DISPLAY_SCALE); only the explainer shows the value.
     if (scaleDemoPivot) scaleDemoPivot.scale.setScalar(scaleFactor);
-    layoutImportPreview();   // the animal just changed size, so the row beside it moves
-    syncPositionGizmo();
     syncScaleNote();
     if (scaleDemoOn) {
         viewerTitleEl.textContent = `Scale factor: ghost at 1.00, solid at ${scaleFactor.toFixed(2)}, scaled about its centroid`;
@@ -2908,9 +3029,21 @@ exportRunButton.addEventListener('click', async () => {
 });
 
 function showStep(step, shouldScroll = false) {
+    // A step past a shut gate is not shown; the gate says why instead. The side-by-side pair may show
+    // Step 2c's view while the interface plane is still being found.
+    const asked = String(step);
+    if (stepLocked(asked) && !(asked === '2c' && splitEnabled)) {
+        if (shouldScroll) promptGate();
+        return;
+    }
+    // Going on past the interface position closes the side-by-side view of Steps 2b and 2c.
+    if (splitEnabled && STEP_SEQUENCE.indexOf(asked) > STEP_SEQUENCE.indexOf('2c')) {
+        splitEnabled = false;
+        syncInterfacePlaneHelp();
+    }
     clearViewerHighlight();
     clearMeasurement();
-    const requested = String(step);
+    const requested = asked;
     // In split view Step 2c keeps the main canvas (it owns the drag handle) and Step 2b is drawn
     // in the second pane, so either step lands on the same paired layout.
     const paired = splitPaired(requested);
@@ -2984,6 +3117,7 @@ function showStep(step, shouldScroll = false) {
     syncInterfaceAnswer();
     if (planeGuide && activeStep !== (planeGuide.kind === 'pelvic' ? '2a' : '2b')) stopPlaneGuide();
     syncAttachmentSolo();
+    if (activeStep === '4a') syncAttachmentZoneCheck();
     walkthroughNotes?.setStep();
     syncSplitLayout();
     requestAnimationFrame(frameActiveStep);
@@ -4118,6 +4252,39 @@ function syncAttachmentSolo() {
     }
 }
 
+// ---- Step 4a: every attachment point inside the answer key's painted areas ------------------------
+// The case's answer key (answer-key-editor.html) can paint where screws may go. Each point outside all
+// of them is named under the point list and its row is marked, so the student moves it before going on.
+const caseKeyCache = new Map();
+function caseKey() {
+    const url = (importSelection.attachment || importSelection.solidAnimal)?.answerKey;
+    if (!url) return Promise.resolve(null);
+    if (!caseKeyCache.has(url)) {
+        caseKeyCache.set(url, fetch(url, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null));
+    }
+    return caseKeyCache.get(url);
+}
+let zoneCheckToken = 0;
+async function syncAttachmentZoneCheck() {
+    const token = ++zoneCheckToken;
+    const note = document.getElementById('attachment-zone-note');
+    const zones = allAttachmentZones(await caseKey());
+    if (token !== zoneCheckToken || !note) return;
+    document.querySelectorAll('.attachment-point-row.is-zone-out').forEach(row => row.classList.remove('is-zone-out'));
+    if (!zones.length) { note.hidden = true; return; }
+    const points = attachmentHoles.getPoints();
+    const outside = points.map((point, index) => ({ index, out: regionDistance(zones.flatMap(zone => zone.dabs), point.position) }))
+        .filter(row => row.out > 0);
+    outside.forEach(row => document.querySelector(`[data-point-index="${row.index}"]`)?.closest('.attachment-point-row')?.classList.add('is-zone-out'));
+    note.hidden = false;
+    note.classList.toggle('is-ok', !outside.length);
+    note.innerHTML = outside.length
+        ? `<i data-lucide="circle-alert" aria-hidden="true"></i><span>${outside.length === 1 ? `Point ${outside[0].index} is` : `Points ${outside.map(r => r.index).join(', ')} are`} outside the area where a screw can go. Move ${outside.length === 1 ? 'it' : 'them'} and check again.</span>`
+        : `<i data-lucide="circle-check" aria-hidden="true"></i><span>Every point is where a screw can go.</span>`;
+    window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+}
+attachmentHoles.onChange(() => syncAttachmentZoneCheck());
+
 attachmentHelpButton.addEventListener('click', () => toggleHelpCard(attachmentHelpButton, attachmentHelpCard));
 attachmentSoloButton.addEventListener('click', () => {
     attachmentSolo = !attachmentSolo;
@@ -4184,6 +4351,9 @@ window.gapWalkthrough = {
     regions: { show: showRegions, clear: clearRegions, root: regionRoot },
     // For the comparison: scroll the rail without the step tracker opening the steps it passes.
     holdScrollSpy,
+    // The plane gates, for tests: which gate is shut, if any, and whether a step is locked.
+    gates: { lockedAfter: () => lockedAfter(), stepLocked, open: kind => gateOpen(kind) },
+    zoneCheck: () => syncAttachmentZoneCheck(),
     three: { THREE, scene, camera, renderer, canvas, controls },
     // The groups the viewer's layer switches act on, for tests.
     layerRoots: () => ({ ...planeLayerTargets, socketPreview: socketPreviewRoot, finalSocket: finalSocketRoot,
