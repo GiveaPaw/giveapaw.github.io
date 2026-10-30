@@ -18,8 +18,8 @@
 import {
     content, pages, GH, $, $$, esc, icon, icons, fmtWhen, fmtDate, rich, slugify, STATUS, CHECKS, CHECK_LABEL,
     demoStore, cloudStore, saveError, mergedProjects, checklist, pageInfo, runChecks,
-} from './dev-core.js?v=2';
-import { defaultTasks, buildSeed, DEMO_USER } from './dev-seed.js?v=1';
+} from './dev-core.js?v=3';
+import { defaultTasks, buildSeed, DEMO_USER } from './dev-seed.js?v=2';
 
 const DEMO = new URLSearchParams(location.search).get('demo') === '1';
 const store = DEMO ? demoStore({ key: 'gap-devboard-demo3', seed: buildSeed(), user: DEMO_USER }) : cloudStore();

@@ -1,7 +1,7 @@
 // Shared core of the developer hub pages (dev.html and the dev-*.html design options): helpers, the status
 // vocabulary, the board store (Firebase devboard/, or this browser in demo mode), merging the snapshot with the
 // live board, the owner checklist, and the live checks. The pages only draw.
-import { content } from './dev-content.js?v=2';
+import { content } from './dev-content.js?v=3';
 import { pages } from './dev-pages.js?v=1';
 import { modelUrl, modelBase } from './model-base.js?v=2';
 

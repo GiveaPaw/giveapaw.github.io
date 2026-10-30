@@ -1,7 +1,7 @@
 // Developer hub (dev.html): the tasks every visitor sees before anyone edits the board, and the sample board for
 // ?demo=1. Tasks come from the snapshot (dev-content.js): one per "What's next" item of each project, plus one per
 // owner-checklist item. A task written to devboard/tasks/<id> replaces its default; {deleted: true} hides it.
-import { content } from './dev-content.js?v=2';
+import { content } from './dev-content.js?v=3';
 
 // Stable 6-character id part from an item's text, so a task keeps its id when other items change.
 export function taskHash(text) {
