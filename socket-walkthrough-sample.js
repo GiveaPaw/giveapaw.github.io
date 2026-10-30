@@ -6,7 +6,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { createAttachmentDemo } from './attachment-demo.js?v=3';
-import { planeAccepted, planeFieldChecks, allAttachmentZones, regionDistance } from './grading-sliders.js?v=3';
+import { planeAccepted, planeFieldChecks, allAttachmentZones, regionDistance } from './grading-sliders.js?v=4';
 import { withModelFallback, modelUrl } from './model-base.js?v=2';
 import { createAttachmentHoles } from './attachment-holes.js?v=22';
 import { createViewerControls, createPaneView } from './viewer-controls.js?v=9';
@@ -844,8 +844,8 @@ const currentSolution = () => ({ ...SOLUTION, pelvicPlane: recordedAnswer('pelvi
 // ---- the plane gates -----------------------------------------------------------------------
 // The student cannot go past Step 2a until the pelvic plane passes, nor past Step 2b until the interface
 // plane does. The pelvic rule belongs to the case (pelvicAccept in import-catalog.js: Ollie X max, the
-// wheelchair Y max, either way along that axis); the interface plane has to be the recorded point, normal
-// along the recorded axis either way. A part with no recorded answer (the large interface) does not gate.
+// wheelchair Y max, either way along that axis); the interface plane has to be the recorded point with the
+// recorded normal, which points into the part. A part with no recorded answer (the large interface) does not gate.
 // Later sections are hidden and the step buttons say why; trying to go on marks the fields to change.
 const STEP_SEQUENCE = ['1', '2a', '2b', '2c', '2d', '3', '4a', '4b', '5', '6'];
 const GATE_STEP = { scale: '1', pelvic: '2a', interface: '2b' };
@@ -863,7 +863,8 @@ function acceptRule(kind) {
     }
     const answer = recordedAnswer('interface');
     if (!answer || !importSelection.mechanical) return null;
-    return { pick: [...answer.pick], normalAxis: answer.normal.findIndex(n => Math.abs(n) > 0) };
+    // The recorded point, and the recorded normal: it points into the part, so its direction counts.
+    return { pick: [...answer.pick], normalAxis: answer.normal.findIndex(n => Math.abs(n) > 0), normal: [...answer.normal] };
 }
 // The student's own plane: while practice runs, the one they had before it started.
 function gatePlane(kind) {

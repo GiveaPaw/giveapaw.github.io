@@ -92,9 +92,14 @@
           1,
           0
         ],
-        "normalAxis": 2
+        "normalAxis": 2,
+        "normal": [
+          0,
+          0,
+          1
+        ]
       },
-      "acceptText": "X centroid · Y centroid · Z minimum, normal along Z (either way)"
+      "acceptText": "X centroid · Y centroid · Z minimum, normal 0, 0, 1 (into the part)"
     },
     {
       "key": "interfacePosition",

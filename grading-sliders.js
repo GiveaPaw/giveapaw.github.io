@@ -69,14 +69,17 @@ export function matchZones(zones, points) {
 
 // A plane against an acceptance rule. { axis, spot, normalAxis }: that one bounding-box pick, the
 // others free (a plane facing along an axis does not move with the other two picks). { pick, normalAxis }:
-// all three picks. Either way the normal has to lie along normalAxis, pointing either way.
+// all three picks. Either way the normal has to lie along normalAxis, pointing either way unless the rule
+// gives `normal`, whose direction then has to match.
 // Returns which fields are right: { pick: [x, y, z], normal }.
 export function planeFieldChecks(rule, state) {
     const pick = (state?.pick || []).map(Number);
     const normal = (state?.normal || [0, 0, 0]).map(Number);
     const pickOk = [0, 1, 2].map(i => (rule.pick ? pick[i] === rule.pick[i] : i !== rule.axis || pick[i] === rule.spot));
     const along = normal[rule.normalAxis];
-    const normalOk = Number.isFinite(along) && Math.abs(along) > 1e-6
+    // rule.normal, when given, fixes the direction too (the interface plane's normal points into the part).
+    const wantSign = rule.normal ? Math.sign(rule.normal[rule.normalAxis]) : 0;
+    const normalOk = Number.isFinite(along) && Math.abs(along) > 1e-6 && (!wantSign || Math.sign(along) === wantSign)
         && normal.every((n, i) => i === rule.normalAxis || Math.abs(n) < 1e-6);
     return { pick: pickOk, normal: normalOk };
 }

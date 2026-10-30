@@ -95,9 +95,14 @@
           1,
           2
         ],
-        "normalAxis": 2
+        "normalAxis": 2,
+        "normal": [
+          0,
+          0,
+          -1
+        ]
       },
-      "acceptText": "X centroid · Y centroid · Z maximum, normal along Z (either way)"
+      "acceptText": "X centroid · Y centroid · Z maximum, normal 0, 0, -1 (into the part)"
     }
   ],
   "bands": {
