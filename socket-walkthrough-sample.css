@@ -1463,3 +1463,10 @@ output.workflow-number.is-fixed {
 
 /* Step 1's scale gate marks the Scale Factor row the same way the plane gates mark theirs. */
 .workflow-factor-row.is-gate-wrong { border-radius: 5px; background: rgba(200, 69, 60, 0.18); box-shadow: inset 3px 0 0 #c8453c; }
+
+/* The notice under the Scale Factor: which value to set, green once it is. */
+.workflow-scale-hint { display: flex; align-items: center; gap: 7px; margin: 4px 14px 8px 36px; padding: 6px 10px; border: 1px solid #f2c94c; border-radius: 7px; background: #fff7dc; color: #6b4a00; font: 600 0.74rem/1.4 var(--font-heading); }
+.workflow-scale-hint[hidden] { display: none; }
+.workflow-scale-hint b { color: #3d2a00; font-size: 0.8rem; }
+.workflow-scale-hint svg { flex: none; width: 15px; height: 15px; }
+.workflow-scale-hint.is-set { border-color: #b9e2cc; background: #edf8f2; color: #146c3a; }

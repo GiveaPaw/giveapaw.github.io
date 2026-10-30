@@ -952,8 +952,26 @@ function syncPlaneGates() {
         text.textContent = `Not yet. Change ${wrong.length > 1 ? wrong.slice(0, -1).join(', ') + ' and ' + wrong.at(-1) : wrong[0]}: the ${wrong.length === 1 ? 'row' : 'rows'} marked in red. The ? can show you the answer.`;
     });
 }
+// The notice under the Scale Factor: which value this case uses, green once it is set.
+function syncScaleHint() {
+    const hint = document.getElementById('scale-hint');
+    if (!hint) return;
+    const want = scaleAnswer();
+    const part = importSelection.attachment || importSelection.solidAnimal;
+    if (want === null || !part) { hint.hidden = true; return; }
+    const name = IMPORT_BREEDS.find(breed => breed.slug === part.breed)?.label || 'this case';
+    const set = scaleRight();
+    hint.hidden = false;
+    hint.classList.toggle('is-set', set);
+    hint.innerHTML = set
+        ? `<i data-lucide="circle-check" aria-hidden="true"></i><span>Scale factor set: ${want.toFixed(2)} for ${name}.</span>`
+        : `<i data-lucide="info" aria-hidden="true"></i><span>Set the scale factor to <b>${want.toFixed(2)}</b> for ${name}.</span>`;
+    window.lucide?.createIcons({ attrs: { 'stroke-width': 1.8 } });
+}
+
 // The scale gate's card and row, the same way as the planes'.
 function syncScaleGate() {
+    syncScaleHint();
     const card = document.getElementById('plane-gate-scale');
     const row = document.querySelector('#workflow-step-1 .workflow-factor-row');
     row?.classList.remove('is-gate-wrong', 'is-gate-right');
@@ -979,7 +997,7 @@ function syncScaleGate() {
     title.textContent = GATE_TEXT.scale.locked;
     if (!gatePrompted.scale) { text.textContent = 'Set the scale factor, then go on.'; return; }
     row?.classList.add('is-gate-wrong');
-    text.textContent = `Not yet. ${scaleFactor.toFixed(2)} is not the factor this case uses: change the Scale Factor, marked in red.`;
+    text.textContent = `Not yet. Set the Scale Factor, marked in red, to ${scaleAnswer().toFixed(2)}.`;
 }
 
 // Trying to go past a shut gate: say why, mark the fields, and bring the student back to it.
